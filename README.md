@@ -7,7 +7,7 @@
 [![docs](http://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://kbkit.readthedocs.io/)
 ![python 3.12](https://img.shields.io/badge/Python-3.12%2B-blue)
 
-[![Examples](https://img.shields.io/badge/Examples-Jupyter-orange?style=flat-square&logo=jupyter)](https://nbviewer.org/github/aperoutka/kbkit/blob/main/docs/examples/kbkit_example.ipynb)
+[![Example](https://img.shields.io/badge/Examples-Jupyter-orange?style=flat-square&logo=jupyter)](https://nbviewer.org/github/aperoutka/kbkit/blob/main/docs/examples/kbkit_example.ipynb)
 
 
 `kbkit` is a `Python` library designed to streamline the analysis of molecular dynamics simulations, focusing on the application of Kirkwood-Buff (KB) theory for the calculation of activity coefficients and excess thermodynamic properties.
