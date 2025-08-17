@@ -82,13 +82,11 @@ strict = true
 pretty = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "kbkit"]
+pythonpath = ["kbkit"]
+testpaths = ["tests"]
 addopts = "--doctest-modules"
 doctest_optionflags = "NORMALIZE_WHITESPACE"
 
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
-
-[tool.hatch.build]
-sources=["src"]

@@ -25,3 +25,5 @@ sphinx-gallery
 rdkit
 sympy
 tomli
+pytest
+pytest-cov
