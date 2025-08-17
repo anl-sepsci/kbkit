@@ -1,5 +1,5 @@
-KBkit: A Python-based toolkit for Kirkwood-Buff Analysis from Molecular Dynamics Simulations
-==============================================================================================
+KBKit: Kirkwood-Buff Analysis Toolkit
+======================================
 
 .. toctree::
     :maxdepth: 4
