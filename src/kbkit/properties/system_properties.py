@@ -5,10 +5,9 @@ from typing import Any, Callable
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.data import energy_aliases, get_gmx_unit, resolve_attr_key
-from kbkit.properties import EnergyReader
-from kbkit.properties import TopologyParser
 from kbkit.config import load_unit_registry
+from kbkit.data import energy_aliases, get_gmx_unit, resolve_attr_key
+from kbkit.properties import EnergyReader, TopologyParser
 from kbkit.utils import to_float
 
 
