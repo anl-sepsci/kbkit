@@ -3,13 +3,13 @@ name: Test
 on:
   pull_request: {}
   push:
-    branches: master
+    branches: [main]
 
 jobs:
   test:
     strategy:
       matrix:
-        python-version: ['3.13']
+        python-version: ['3.12', '3.13']
         os: [ubuntu-latest]
 
     name: Python ${{ matrix.os }} ${{ matrix.python-version }}
@@ -35,5 +35,12 @@ jobs:
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v4
-        env:
+        with:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          files: ../junit.xml
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
