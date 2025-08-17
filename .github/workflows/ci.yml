@@ -32,8 +32,7 @@ jobs:
           pip install pytest pytest-cov
 
       - name: Run tests with coverage
-        run: |
-          pytest --cov=kbkit --cov-report=xml
+        run: pytest --cov=kbkit --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
