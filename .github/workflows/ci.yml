@@ -32,7 +32,7 @@ jobs:
           pip install pytest pytest-cov
 
       - name: Run tests with coverage
-        run: pytest --cov=kbkit --cov-report=xml
+        run: pytest --cov=kbkit --cov-report=xml:coverage.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -40,3 +40,4 @@ jobs:
           files: coverage.xml
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN}}
+          fail_ci_if_error: true
