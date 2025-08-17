@@ -9,7 +9,6 @@
 
 [![Example](https://img.shields.io/badge/Examples-Jupyter-orange?style=flat-square&logo=jupyter)](https://nbviewer.org/github/aperoutka/kbkit/blob/main/docs/examples/kbkit_example.ipynb)
 
-
 `kbkit` is a `Python` library designed to streamline the analysis of molecular dynamics simulations, focusing on the application of Kirkwood-Buff (KB) theory for the calculation of activity coefficients and excess thermodynamic properties.
 
 ## Installation
@@ -38,7 +37,6 @@ An example of file structure is provided in `docs/test_data`.
 ```python
 docs/examples/kbkit_example.ipynb
 ```
-
 
 ## Credits
 
