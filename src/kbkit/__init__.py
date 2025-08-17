@@ -1,11 +1,10 @@
-from .kb_pipeline import KBPipeline
-from .properties.system_properties import SystemProperties
-from .plotter import Plotter
+"""kbkit package."""
 
+from kbkit._version import __version__
+from kbkit.kb.kbi import KBI
+from kbkit.kb.rdf import RDF
+from kbkit.kb_pipeline import KBPipeline
+from kbkit.plotter import Plotter
+from kbkit.properties.system_properties import SystemProperties
 
-__all__ = [
-  "KBPipeline",
-  "SystemProperties",
-  "Plotter"
-  
-]
+__all__ = ["KBI", "RDF", "KBPipeline", "Plotter", "SystemProperties", "__version__"]

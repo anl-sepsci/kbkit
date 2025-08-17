@@ -1,13 +1,21 @@
+"""Read and Validate Radial Distribution Data."""
+
 import os
 import re
-import numpy as np
 from pathlib import Path
+from typing import Optional
+
 import matplotlib.pyplot as plt
+import numpy as np
+from numpy.typing import NDArray
+
 plt.style.use(Path(__file__).parent.parent / "presentation.mplstyle")
+
 
 class RDF:
     """
     Class to handle RDF (Radial Distribution Function) data.
+
     Reads RDF data from a file, checks for convergence, and provides methods to plot the RDF and extract molecular information.
 
     Parameters
@@ -15,27 +23,29 @@ class RDF:
     rdf_file : str
         Path to the RDF file containing radial distances and corresponding g(r) values.
     rdf_convergence : tuple of float, optional
-        Tuple containing convergence thresholds for slope and standard deviation of g(r). Default is (5e-3, 5e-3).    
+        Tuple containing convergence thresholds for slope and standard deviation of g(r). Default is (5e-3, 5e-3).
     """
-    def __init__(self, rdf_file, rdf_convergence=(5e-3, 5e-3)):
+
+    def __init__(self, rdf_file: str, rdf_convergence: tuple[float, float] = (5e-3, 5e-3)) -> None:
         self.rdf_file = rdf_file
         # read rdf_file
         self._read()
         # make sure rdf is converged
         self.convergence_check(*rdf_convergence)
 
-    def _read(self):
-        """Reads the RDF file and extracts radial distances (r) and g(r) values.
+    def _read(self) -> None:
+        """Read RDF file and extracts radial distances (r) and g(r) values.
+
         The file is expected to have two columns: r and g(r).
         It filters out noise from the tail of the RDF curve.
         """
         # Load RDF data
         try:
             r, g = np.loadtxt(self.rdf_file, comments=["@", "#"], unpack=True)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"RDF file '{self.rdf_file}' not found.")
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"RDF file '{self.rdf_file}' not found.") from e
         except IOError as ioe:
-            raise IOError(f"Error reading file '{self.rdf_file}': {ioe}.")
+            raise IOError(f"Error reading file '{self.rdf_file}': {ioe}.") from ioe
         except ValueError as ve:
             raise ValueError(f"Failed to parse RDF data from '{self.rdf_file}': {ve}.") from ve
         except Exception as e:
@@ -43,41 +53,56 @@ class RDF:
 
         # compute std for tail noise
         try:
-            gstd = np.array([np.nanstd(g[i-1:i+1]) for i in range(1, len(g)+1)])
+            gstd = np.array([np.nanstd(g[i - 1 : i + 1]) for i in range(1, len(g) + 1)])
         except Exception as e:
             raise RuntimeError(f"Failed to compute g(r) standard deviation: {e}") from e
-        
+
         # mask noisy tail
+        RDF_THRESH = 0.01
+
         try:
-            mask = ((gstd > 0.01) | (gstd == 0)) & (r > r.max() - 1)
+            mask = ((gstd > RDF_THRESH) | (gstd == 0)) & (r > r.max() - 1)
             self._r = r[~mask]
             self._g = g[~mask]
             self._rmin = self._r.max() - 1
         except Exception as e:
             raise RuntimeError(f"Failed to filter RDF tail or set class properties: {e}") from e
-        
-    @property
-    def r(self):
-        """np.ndarray: Radial distances in nm"""
-        return self._r
 
     @property
-    def rmax(self):
-        """float: Maximum radial distance in nm"""
-        return self._r.max()
-    
-    @property
-    def g(self):
-        """np.ndarray: g(r) values corresponding to the radial distances"""
-        return self._g
+    def r(self) -> NDArray[np.float64]:
+        """np.ndarray: Radial distances in nm."""
+        if isinstance(self._r, np.ndarray):
+            return self._r
+        else:
+            raise TypeError(f"Expected an np.ndarray, r type({type(self._r)})")
 
     @property
-    def rmin(self):
+    def rmax(self) -> float:
+        """float: Maximum radial distance in nm."""
+        r_max = self._r.max()
+        if isinstance(r_max, float):
+            return r_max
+        else:
+            raise TypeError(f"Expected an np.ndarray, r-max type({type(r_max)})")
+
+    @property
+    def g(self) -> NDArray[np.float64]:
+        """np.ndarray: g(r) values corresponding to the radial distances."""
+        if isinstance(self._g, np.ndarray):
+            return self._g
+        else:
+            raise TypeError(f"Expected an np.ndarray, g type({type(self._g)})")
+
+    @property
+    def rmin(self) -> float:
         """float: Lower bound for the radial distance, used in convergence checks."""
-        return self._rmin
-    
+        if isinstance(self._rmin, float):
+            return self._rmin
+        else:
+            raise TypeError(f"Expected an np.ndarray, r-min type({type(self._rmin)})")
+
     @rmin.setter
-    def rmin(self, value):
+    def rmin(self, value: float) -> None:
         if not isinstance(value, (int, float)):
             raise TypeError(f"Value must be float or int, type {type(value)} detected.")
         if value < 0:
@@ -87,18 +112,18 @@ class RDF:
         self._rmin = value
 
     @property
-    def r_mask(self):
+    def r_mask(self) -> NDArray[np.bool]:
         """np.ndarray: Boolean mask for radial distances within the range [rmin, rmax]."""
-        return(self.r >= self.rmin) & (self.r <= self.rmax)
+        return (self.r >= self.rmin) & (self.r <= self.rmax)
 
     def convergence_check(
-            self, 
-            convergence_threshold=5e-3, 
-            flatness_threshold=5e-3,
-            max_attempts=10,
-        ):
+        self,
+        convergence_threshold: float = 5e-3,
+        flatness_threshold: float = 5e-3,
+        max_attempts: int = 10,
+    ) -> bool:
         """
-        Checks if the RDF is converged based on the slope of g(r) and its standard deviation.
+        Check if the RDF is converged based on the slope of g(r) and its standard deviation.
 
         Parameters
         ----------
@@ -114,19 +139,21 @@ class RDF:
         bool
             True if the RDF is converged, False otherwise.
         """
+        MIN_PTS = 3  # min # points accepted for tail check
+
         for _ in range(max_attempts):
             r = self._r[self.r_mask]
             g = self._g[self.r_mask]
 
-            if len(r) < 3:
+            if len(r) < MIN_PTS:
                 raise ValueError("Not enough points for convergence check.")
 
             # get slope of tail
             try:
                 slope, _ = np.polyfit(r, g, 1)
             except Exception as e:
-                raise RuntimeError(f"Failed to cpute slope via polyfit: {e}") from e 
-            
+                raise RuntimeError(f"Failed to cpute slope via polyfit: {e}") from e
+
             # calculate standard deviation
             std_dev = np.nanstd(g)
 
@@ -136,11 +163,11 @@ class RDF:
 
             # Adjust rmin to expand cutoff region slightly
             self.rmin += 0.1 * (self.rmax - self.rmin)
-            
+
             # if rmin too close to rmax stop iterating
             if self.rmin >= self.rmax - 0.2:
                 break
-        
+
         # if convergence not acheived
         print(
             f"Convergence not achieved after {max_attempts} attempts for {os.path.basename(self.rdf_file)} "
@@ -152,14 +179,14 @@ class RDF:
         return False
 
     def plot(
-            self, 
-            xlim=[4,5], 
-            ylim=[0.99,1.01], 
-            line=False, 
-            save_dir=None
-        ):
+        self,
+        xlim: tuple[float, float] = (4, 5),
+        ylim: tuple[float, float] = (0.99, 1.01),
+        line: bool = False,
+        save_dir: Optional[str] = None,
+    ) -> None:
         """
-        Plots the RDF with an inset showing a zoomed-in view of the specified region.
+        Plot RDF with an inset showing a zoomed-in view of the specified region.
 
         Parameters
         ----------
@@ -174,34 +201,35 @@ class RDF:
         """
         # set up main fig/axes
         fig, main_ax = plt.subplots()
-        main_ax.set_box_aspect(0.6) 
+        main_ax.set_box_aspect(0.6)
         inset_ax = main_ax.inset_axes(
-            [0.65, 0.12, 0.3, 0.3],  # [x, y, width, height] w.r.t. axes
-            xlim=xlim, ylim=ylim, # sets viewport &amp; tells relation to main axes
+            (0.65, 0.12, 0.3, 0.3),  # x, y, width, height
+            xlim=xlim,
+            ylim=ylim,  # sets viewport &amp; tells relation to main axes
             # xticklabels=[], yticklabels=[]
         )
-        inset_ax.tick_params(axis='x', labelsize=11)
-        inset_ax.tick_params(axis='y', labelsize=11)
+        inset_ax.tick_params(axis="x", labelsize=11)
+        inset_ax.tick_params(axis="y", labelsize=11)
 
         # add plot content
         for ax in main_ax, inset_ax:
             ax.plot(self.r, self.g)  # first example line
         if line:
-            inset_ax.axhline(1., c='k', ls='--', lw=1.5)
+            inset_ax.axhline(1.0, c="k", ls="--", lw=1.5)
 
         # add zoom leaders
         main_ax.indicate_inset_zoom(inset_ax, edgecolor="black")
-        main_ax.set_xlabel('r / nm')
-        main_ax.set_ylabel('g(r)')
+        main_ax.set_xlabel("r / nm")
+        main_ax.set_ylabel("g(r)")
         if save_dir is not None:
-            plt.savefig(os.path.join(save_dir, self.rdf_file[:-4] + '.png'))
+            plt.savefig(os.path.join(save_dir, self.rdf_file[:-4] + ".png"))
         plt.show()
 
     @staticmethod
-    def extract_mols(rdf_file, mol_list):
-        """ 
-        Extracts the names of molecules from the RDF file name.
-        
+    def extract_mols(rdf_file: str, mol_list: list[str]) -> list[str]:
+        """
+        Extract molecule names used in RDF from the RDF file name.
+
         Parameters
         ----------
         rdf_file : str
@@ -215,8 +243,8 @@ class RDF:
             List of molecule names found in the RDF file name.
         """
         # define pattern for mol in mol_list
-        pattern = r'(' + '|'.join(re.escape(mol) for mol in mol_list) + r')'
-        
+        pattern = r"(" + "|".join(re.escape(mol) for mol in mol_list) + r")"
+
         # find matches of pattern in filename
         matches = re.findall(pattern, os.path.basename(rdf_file))
         return matches

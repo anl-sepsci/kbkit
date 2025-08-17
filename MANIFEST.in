@@ -3,7 +3,7 @@ include README.md
 include requirements.txt
 include pyproject.toml
 
-recursive-include src/kbkit *.py *.mplstyle *.txt 
+recursive-include src/kbkit *.py *.mplstyle *.txt
 
 recursive-exclude dist *
 recursive-exclude tests *

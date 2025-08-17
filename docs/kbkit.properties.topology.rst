@@ -1,4 +1,4 @@
-Topology 
+Topology
 =========
 
 .. automodule:: kbkit.properties.topology

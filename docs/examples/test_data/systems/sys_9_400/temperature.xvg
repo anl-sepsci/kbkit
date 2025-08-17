@@ -1,7 +1,7 @@
 # This file was created Fri Aug 15 10:21:56 2025
 # Created by:
 #                :-) GROMACS - gmx energy, 2024.4-conda_forge (-:
-# 
+#
 # Executable:   /Users/b324115/anaconda3/bin.ARM_NEON_ASIMD/gmx
 # Data prefix:  /Users/b324115/anaconda3
 # Working dir:  /Users/b324115/Library/CloudStorage/Box-Box/critical_phenomena_saxs/allisons_data/pyPkgs/kbkit/examples
@@ -9,7 +9,7 @@
 #   gmx energy -f /Users/b324115/Library/CloudStorage/Box-Box/critical_phenomena_saxs/allisons_data/pyPkgs/kbkit/examples/test_data/systems/sys_9_400/sys_9_400_npt.edr -o /Users/b324115/Library/CloudStorage/Box-Box/critical_phenomena_saxs/allisons_data/pyPkgs/kbkit/examples/test_data/systems/sys_9_400/temperature.xvg
 # gmx energy is part of G R O M A C S:
 #
-# Great Red Owns Many ACres of Sand 
+# Great Red Owns Many ACres of Sand
 #
 @    title "GROMACS Energies"
 @    xaxis  label "Time (ps)"

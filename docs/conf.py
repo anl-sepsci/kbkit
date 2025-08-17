@@ -1,47 +1,55 @@
-# Configuration file for the Sphinx documentation builder.
-import os, sys
-from pathlib import Path
-sys.path.insert(0, os.path.abspath('../')) 
+"""Configuration file for the Sphinx documentation builder."""
+
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath("../src"))
+
+from kbkit._version import __version__
+
+release = __version__
+version = __version__
+
+sys.path.insert(0, os.path.abspath("../"))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'kbkit'
-copyright = '2025, Allison A. Peroutka'
-author = 'Allison A. Peroutka'
-release = '0.0.1'
+project = "kbkit"
+copyright = "2025, Allison A. Peroutka"
+author = "Allison A. Peroutka"
 
 
 # -- General configuration ---------------------------------------------------
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.githubpages',
-    'sphinx.ext.napoleon',
-    'nbsphinx',
-    'sphinx_copybutton',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.doctest",
+    "sphinx.ext.coverage",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.napoleon",
+    "nbsphinx",
+    "sphinx_copybutton",
 ]
 napolean_numpy_docstring = True
 napoleon_google_docstring = False
 napoleon_use_ivar = True
 
-templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+templates_path = ["_templates"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "make_file_tree"]
 
 
 # -- Options for HTML output -------------------------------------------------
 
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
-autodoc_member_order = 'bysource'  # options: 'bysource', 'groupwise'
+autodoc_member_order = "bysource"  # options: 'bysource', 'groupwise'
 
-html_theme = 'furo' # nature
+html_theme = "furo"  # nature
 
 html_theme_options = {
     "light_css_variables": {
@@ -65,6 +73,6 @@ html_theme_options = {
     "announcement": "Check out our latest release!",
 }
 
-intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 nbsphinx_allow_errors = True

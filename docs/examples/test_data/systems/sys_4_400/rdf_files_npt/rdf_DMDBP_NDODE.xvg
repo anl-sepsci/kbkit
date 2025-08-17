@@ -1,7 +1,7 @@
 # This file was created Mon Mar 17 17:07:14 2025
 # Created by:
 #                 :-) GROMACS - gmx rdf, 2024.4-conda_forge (-:
-# 
+#
 # Executable:   /home/b324115/.conda/envs/eldorado/bin.AVX2_256/gmx
 # Data prefix:  /home/b324115/.conda/envs/eldorado
 # Working dir:  /lcrc/project/PM-sim/aperoutka/kbi_thermo/DMDBP_NDODE_400/sys_4_400
@@ -9,7 +9,7 @@
 #   gmx rdf -f sys_4_400_npt.xtc -s sys_4_400_npt.tpr -n sys_4_400_com.ndx -b 100000 -e 600000 -ref 4 -sel 5 -o rdf_files_npt/rdf_DMDBP_NDODE.xvg
 # gmx rdf is part of G R O M A C S:
 #
-# Great Red Owns Many ACres of Sand 
+# Great Red Owns Many ACres of Sand
 #
 @    title "Radial distribution"
 @    xaxis  label "r (nm)"

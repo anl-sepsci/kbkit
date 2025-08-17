@@ -1,11 +1,8 @@
-from .kb_thermo import KBThermo
-from .kbi import KBI
-from .rdf import RDF
-from .system_set import SystemSet
+"""Module for managing tools for Kirkwood-Buff analysis."""
 
-__all__ = [
-  "KBThermo",
-  "RDF",
-  "SystemSet",
-  "KBI"
-]
+from kbkit.kb.kb_thermo import KBThermo
+from kbkit.kb.kbi import KBI
+from kbkit.kb.rdf import RDF
+from kbkit.kb.system_set import SystemSet
+
+__all__ = ["KBI", "RDF", "KBThermo", "SystemSet"]

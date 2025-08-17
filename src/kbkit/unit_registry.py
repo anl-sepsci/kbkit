@@ -1,4 +1,6 @@
-# unit_registry.py
+"""Unit registry to support flexible units of parameters."""
+
+import pint
 
 unit_definitions = """
 # Length units (standard SI units are already known to Pint)
@@ -47,11 +49,20 @@ millimole = 1e-3 * mole = mmol
 # Force units
 newton = kilogram * meter / second ** 2 = N
 
-# constants
+# physical constants
 
+# Avogadro constant
+N_A = 6.02214076e23 / mol = Avogadro_constant
+
+# Boltzmann constant
+kb = 1.380649e-23 J / K = Boltzmann_constant
+
+# Ideal gas constant
+R = 8.314462618 J / mol / K = gas_constant
 """
 
-def load_unit_registry():
+
+def load_unit_registry() -> pint.UnitRegistry:
     """
     Load a Pint UnitRegistry with custom unit definitions and constants.
 
@@ -60,19 +71,9 @@ def load_unit_registry():
     ureg : pint.UnitRegistry
         A Pint UnitRegistry with custom units and constants defined.
     """
-    import pint
-    from scipy.constants import R as R_J
-    from scipy.constants import N_A
-
     # create a pint unit registry
     ureg = pint.UnitRegistry()
     # load definitions in docstring above
     ureg.load_definitions(unit_definitions.splitlines())
 
-    # define known constants manually
-    ureg.R = ureg.Quantity(R_J, "joule / mole / kelvin") 
-    ureg.N_A = ureg.Quantity(N_A, "molecule / mole") 
-    ureg.kb = ureg.Quantity(R_J/N_A, "joule / molecule / kelvin")
-
     return ureg
-

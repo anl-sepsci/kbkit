@@ -1,4 +1,4 @@
-Properties 
+Properties
 ===========
 
 The `kbkit.properties` module contains the following submodules:
@@ -8,5 +8,4 @@ The `kbkit.properties` module contains the following submodules:
 
    kbkit.properties.topology
    kbkit.properties.energy_reader
-   kbkit.properties.system_properties 
-  
+   kbkit.properties.system_properties

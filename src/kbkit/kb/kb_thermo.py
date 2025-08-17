@@ -1,35 +1,64 @@
-import numpy as np
+"""Calculate thermodynamics from Kirkwood-Buff theory."""
+
 import os
-import copy
-from scipy.integrate import cumulative_trapezoid
-from scipy import constants
 from functools import partial
 from itertools import product
 from pathlib import Path
+from typing import Any, Callable
 
-from .rdf import RDF
+import numpy as np
+from numpy.typing import NDArray
+from scipy.integrate import cumulative_trapezoid
+
 from .kbi import KBI
+from .rdf import RDF
 from .system_set import SystemSet
 
+
 class KBThermo(SystemSet):
-    # for applying Kirkwood-Buff (KB) theory to calculate thermodynamic properties for entire systems.
-    def __init__(self, **kwargs):
+    """Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties from RDF."""
+
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-    def _top_mol_idx(self, mol):
-        # get index of mol in topology molecules list
+    def _top_mol_idx(self, mol: str) -> int:
+        """
+        Index of molecule (`mol`) in `top_molecules` list.
+
+        Parameters
+        ----------
+        mol: str
+            Molecule name to get index of
+
+        Returns
+        -------
+        int
+            Index of mol topology molecules list
+        """
         if mol not in self.top_molecules:
             raise ValueError(f"Molecule {mol} not in topology molecules. Topology molecules: {self.top_molecules}")
         return list(self.top_molecules).index(mol)
 
-    def _mol_idx(self, mol):
-        # get index of mol in unique molecules list
+    def _mol_idx(self, mol: str) -> int:
+        """
+        Index of molecule (`mol`) from in `unique_molecules` list.
+
+        Parameters
+        ----------
+        mol: str
+            Molecule name to get index of
+
+        Returns
+        -------
+        int
+            Index of mol in unique molecules list
+        """
         if mol not in self.unique_molecules:
             raise ValueError(f"Molecule {mol} not in topology molecules. Unique molecules: {self.unique_molecules}")
         return list(self.unique_molecules).index(mol)
 
-    def calculate_kbis(self):
-        """
+    def calculate_kbis(self) -> NDArray[np.float64]:
+        r"""
         Get Kirkwood-Buff integral (KBI) matrix, **G**, for all systems and all pairs of molecules.
 
         Returns
@@ -66,35 +95,34 @@ class KBThermo(SystemSet):
         :class:`kbkit.kb.rdf.RDF` : Parses RDF files.
         :class:`kbkit.kb.kbi.KBI` : Performs the RDF integration to compute KBIs and apply finite-size corrections.
         """
-        if '_kbis' not in self.__dict__:
+        if "_kbis" not in self.__dict__:
             self._kbis = np.full((self.n_sys, len(self.top_molecules), len(self.top_molecules)), fill_value=np.nan)
-            
+
             # iterate through all systems
             for s, sys in enumerate(self.systems):
-                
                 # if rdf dir not in system, skip
                 rdf_full_path = os.path.join(self.base_path, sys, self.rdf_dir)
                 if not Path(rdf_full_path).exists():
                     continue
-                
+
                 # read all rdf_files
                 for rdf_file in os.listdir(rdf_full_path):
                     rdf_file_path = os.path.join(rdf_full_path, rdf_file)
                     rdf_mols = RDF.extract_mols(rdf_file_path, self.top_molecules)
                     i, j = [self._top_mol_idx(mol) for mol in rdf_mols]
-                    
+
                     # integrate rdf --> kbi calc
                     integrator = KBI(rdf_file_path)
                     kbi = integrator.integrate()
                     self._update_kbi_dict(system=sys, rdf_mols=rdf_mols, integrator=integrator)
-                    
+
                     # add to matrix
                     self._kbis[s, i, j] = kbi
                     self._kbis[s, j, i] = kbi
 
         return self._kbis
-    
-    def kbi_dict(self):
+
+    def kbi_dict(self) -> dict[str, dict[str, Any]]:
         r"""
         Get a dictionary of KBI and RDF properties for each system and molecular pair.
 
@@ -103,7 +131,7 @@ class KBThermo(SystemSet):
         dict[str, dict[str, float or numpy.ndarray]]
             A nested dictionary mapping systems and molecule pairs to RDF and KBI properties.
             Outer keys are systems, inner keys are molecule pairs, and values are either scalars(:class:`float`) or arrays (:class:`np.ndarray`).
-            
+
         Notes
         -----
         The inner keys are defined as follows:
@@ -117,32 +145,34 @@ class KBThermo(SystemSet):
             - '`kbi_inf`': Infinite dilution KBI value.
         """
         # returns dictionary of kbi / rdf properties by system and pair molecular interaction
-        if not hasattr(self, '_kbi_dict'):
+        if not hasattr(self, "_kbi_dict"):
             self.kbi_mat()
         return self._kbi_dict
-    
-    def _update_kbi_dict(self, system, rdf_mols, integrator):
+
+    def _update_kbi_dict(self, system: str, rdf_mols: list[str], integrator: KBI) -> None:
         # add kbi/rdf properties to dictionary; sorted by system / rdf
-        if not hasattr(self, '_kbi_dict'):
-            self._kbi_dict = {}
+        if not hasattr(self, "_kbi_dict"):
+            self._kbi_dict: dict[str, dict[str, Any]] = {}
 
-        self._kbi_dict.setdefault(system, {}).update({
-            '-'.join(rdf_mols): {
-                'r': integrator.rdf.r,
-                'g': integrator.rdf.g,
-                'rkbi': (rkbi := integrator.rkbi()),
-                'lambda': (lam := integrator.lambda_ratio()),
-                'lambda_kbi': lam * rkbi,
-                'lambda_fit': lam[integrator.rdf.r_mask],
-                'lambda_kbi_fit': np.polyval(integrator.fit_kbi_inf(), lam[integrator.rdf.r_mask]),
-                'kbi_inf': integrator.integrate(),
+        self._kbi_dict.setdefault(system, {}).update(
+            {
+                "-".join(rdf_mols): {
+                    "r": integrator.rdf.r,
+                    "g": integrator.rdf.g,
+                    "rkbi": (rkbi := integrator.rkbi()),
+                    "lambda": (lam := integrator.lambda_ratio()),
+                    "lambda_kbi": lam * rkbi,
+                    "lambda_fit": lam[integrator.rdf.r_mask],
+                    "lambda_kbi_fit": np.polyval(integrator.fit_kbi_inf(), lam[integrator.rdf.r_mask]),
+                    "kbi_inf": integrator.integrate(),
+                }
             }
-        })
+        )
 
-    def electrolyte_kbi_correction(self, kbi_matrix):
+    def electrolyte_kbi_correction(self, kbi_matrix: np.ndarray) -> NDArray[np.float64]:
         r"""
         Apply electrolyte correction to the input KBI matrix.
-        
+
         This method modifies the KBI matrix to account for salt-salt and salt-other interactions
         by adding additional rows and columns for salt pairs. It calculates the KBI for salt-salt interactions
         based on the mole fractions of the salt components and their interactions with other molecules.
@@ -152,17 +182,17 @@ class KBThermo(SystemSet):
         kbi_matrix : np.ndarray
             A 3D matrix representing the original KBI matrix with shape ``(n_sys, n_comp, n_comp)``,
             where ``n_sys`` is the number of systems and ``n_comp`` is the number of unique components.
-        
+
         Returns
         -------
         np.ndarray
             A 3D matrix representing the modified KBI matrix with additional rows and columns for salt pairs.
-            
+
         Notes
         -----
         - If no salt pairs are defined, it returns the original KBI matrix.
         - The salt pairs are defined in ``KBThermo.salt_pairs``, which should be a list of tuples containing the names of the salt components.
-        
+
         This method calculates the KBI matrix (**G**) for systems with salts for salt-salt interactions (:math:`G_{ss}`) and salt-other interactions (:math:`G_{si}`) as follows:
 
         .. math::
@@ -176,7 +206,7 @@ class KBThermo(SystemSet):
 
         .. math::
             x_a = \frac{N_a}{N_c + N_a}
-        
+
         where:
             - :math:`G_{ss}` is the KBI for salt-salt interactions.
             - :math:`G_{si}` is the KBI for salt-other interactions.
@@ -190,25 +220,32 @@ class KBThermo(SystemSet):
             return kbi_matrix
 
         # create new kbi-matrix
-        adj = len(self.salt_pairs)-len(self.top_molecules)
-        kbi_el = np.full((self.n_sys, self.n_comp+adj, self.n_comp+adj), fill_value=np.nan)
+        adj = len(self.salt_pairs) - len(self.top_molecules)
+        kbi_el = np.full((self.n_sys, self.n_comp + adj, self.n_comp + adj), fill_value=np.nan)
 
-        for i, (c, a) in enumerate(self.salt_pairs):
+        for c, a in self.salt_pairs:
             # get index of anion and cation in topology molecules
-            cj = self.top_molecules.index(c)
-            aj = self.top_molecules.index(a)
+            cj = self._top_mol_idx(c)
+            aj = self._top_mol_idx(a)
 
             # mol fraction of anion/cation in anion-cation pair
-            xc = self.molecule_counts[:,cj]/(self.molecule_counts[:,cj]+self.molecule_counts[:,aj])
-            xa = self.molecule_counts[:,aj]/(self.molecule_counts[:,cj]+self.molecule_counts[:,aj])
+            xc = self.molecule_counts[:, cj] / (self.molecule_counts[:, cj] + self.molecule_counts[:, aj])
+            xa = self.molecule_counts[:, aj] / (self.molecule_counts[:, cj] + self.molecule_counts[:, aj])
 
             # for salt-salt interactions add to kbi-matrix
-            try:
-                sj = self.gm_molecules.index('-'.join([c,a]))
-            except:
-                sj = self.gm_molecules.index('-'.join([a,c]))
+            sj = next(
+                (i for i, val in enumerate(self.unique_molecules) if val in {f"{c}-{a}", f"{a}-{c}"}),
+                -1,  # default if not found
+            )
+            if sj == -1:
+                raise ValueError(f"Neither f'{c}-{a}' nor f'{a}-{c}' found in unique_molecules.")
+
             # calculate electrolyte KBI for salt-salt pairs
-            kbi_el[sj, sj] = xc**2 * kbi_matrix[cj, cj] + xa**2 * kbi_matrix[aj, aj] + xc*xa * (kbi_matrix[cj, aj] + kbi_matrix[aj, cj])
+            kbi_el[sj, sj] = (
+                xc**2 * kbi_matrix[cj, cj]
+                + xa**2 * kbi_matrix[aj, aj]
+                + xc * xa * (kbi_matrix[cj, aj] + kbi_matrix[aj, cj])
+            )
 
             # for salt other interactions
             for m1, mol1 in enumerate(self.nosalt_molecules):
@@ -221,8 +258,8 @@ class KBThermo(SystemSet):
                 kbi_el[sj, m1] = xc * kbi_matrix[cj, m1] + xa * kbi_matrix[aj, m1]
 
         return kbi_el
-    
-    def kbi_mat(self):
+
+    def kbi_mat(self) -> NDArray[np.float64]:
         """
         Get the KBI matrix (**G**) with electrolyte corrections applied if salt pairs are defined.
 
@@ -231,17 +268,17 @@ class KBThermo(SystemSet):
         np.ndarray
             A 3D matrix representing the KBI matrix with shape ``(n_sys, n_comp, n_comp)``,
             where ``n_sys`` is the number of systems and ``n_comp`` is the number of components,
-            including any additional salt pairs if defined.        
+            including any additional salt pairs if defined.
         """
-        if '_kbi_mat' not in self.__dict__:
+        if "_kbi_mat" not in self.__dict__:
             kbi_matrix = self.calculate_kbis()
             self._kbi_mat = self.electrolyte_kbi_correction(kbi_matrix=kbi_matrix.copy())
         return self._kbi_mat
-    
-    def kd(self):
+
+    def kd(self) -> NDArray[np.float64]:
         """
-        Get the Kronecker delta between pairs of unique molecules. 
-        
+        Get the Kronecker delta between pairs of unique molecules.
+
         Returns
         -------
         np.ndarray
@@ -249,8 +286,8 @@ class KBThermo(SystemSet):
             where ``n_comp`` is the number of unique components.
         """
         return np.eye(self.n_comp)
-    
-    def B_mat(self):
+
+    def b_mat(self) -> NDArray[np.float64]:
         r"""
         Construct a symmetric matrix **B** for each system based on the number densities and KBIs.
 
@@ -273,49 +310,52 @@ class KBThermo(SystemSet):
             - :math:`\rho_i` is the number density of molecule :math:`i`.
             - :math:`\delta_{i,j}` is the Kronecker delta for molecules :math:`i,j`.
         """
-        if '_B_mat' not in self.__dict__:
-            self._B_mat = self.rho_ij(units="molecule/nm^3") * self.kbi_mat() + self.rho(units="molecule/nm^3")[:,:,np.newaxis] * self.kd()[np.newaxis,:,:]
-        return self._B_mat
+        if "_b_mat" not in self.__dict__:
+            self._b_mat = (
+                self.rho_ij(units="molecule/nm^3") * self.kbi_mat()
+                + self.rho(units="molecule/nm^3")[:, :, np.newaxis] * self.kd()[np.newaxis, :, :]
+            )
+        return self._b_mat
 
     @property
-    def _B_inv(self):
+    def _b_inv(self) -> NDArray[np.float64]:
         """np.ndarray: Inverse of the B matrix."""
-        with np.errstate(divide='ignore', invalid='ignore'):
-            return np.linalg.inv(self.B_mat())
-    
-    @property
-    def _B_det(self):
-        """np.ndarray: Determinant of the B matrix."""
-        with np.errstate(divide='ignore', invalid='ignore'):
-            return np.linalg.det(self.B_mat())
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.asarray(np.linalg.inv(self.b_mat()))
 
-    def B_cofactors(self):
+    @property
+    def _b_det(self) -> NDArray[np.float64]:
+        """np.ndarray: Determinant of the B matrix."""
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.asarray(np.linalg.det(self.b_mat()))
+
+    def b_cofactors(self) -> NDArray[np.float64]:
         r"""
         Get the cofactors of **B** for each system.
-        
+
         Returns
         -------
         np.ndarray
             A 3D matrix representing the cofactors of **B** with shape ``(n_sys, n_comp, n_comp)``,
-        
+
         Notes
         -----
         The cofactors of **B**, :math:`Cof(\mathbf{B})`, are calculated as:
-        
+
         .. math::
             Cof(\mathbf{B}) = |\mathbf{B}| \cdot \mathbf{B}^{-1}
-        
+
         where:
             - :math:`|\mathbf{B}|` is the determinant of **B**
             - :math:`\mathbf{B}^{-1}` is the inverse of **B**
         """
-        if '_B_cofactors' not in self.__dict__:
-            self._B_cofactors = self._B_det[:,np.newaxis,np.newaxis] * self._B_inv
-        return self._B_cofactors
-    
-    def A_mat(self):
+        if "_b_cofactors" not in self.__dict__:
+            self._b_cofactors = self._b_det[:, np.newaxis, np.newaxis] * self._b_inv
+        return self._b_cofactors
+
+    def a_mat(self) -> NDArray[np.float64]:
         r"""
-        Construct a symmetric matrix **A** for each system from compositions and **G**
+        Construct a symmetric matrix **A** for each system from compositions and **G**.
 
         Returns
         -------
@@ -334,17 +374,20 @@ class KBThermo(SystemSet):
             - :math:`\rho` is the average mixture density.
             - :math:`G_{ij}` is the KBI for the pair of molecules.
             - :math:`x_i` is the mol fraction of molecule :math:`i`.
-            - :math:`\delta_{i,j}` is the Kronecker delta for molecules :math:`i,j`.        
+            - :math:`\delta_{i,j}` is the Kronecker delta for molecules :math:`i,j`.
         """
-        if '_A_mat' not in self.__dict__:
-            self._A_mat = (1/self.V_bar(units="nm^3/molecule"))[:,np.newaxis,np.newaxis] * self.mol_fr[:,:,np.newaxis] * self.mol_fr[:,np.newaxis,:] * self.kbi_mat() + self.mol_fr[:,:,np.newaxis] * self.kd()[np.newaxis,:,:]
-        return self._A_mat
+        if "_a_mat" not in self.__dict__:
+            self._a_mat = (1 / self.v_bar(units="nm^3/molecule"))[:, np.newaxis, np.newaxis] * self.mol_fr[
+                :, :, np.newaxis
+            ] * self.mol_fr[:, np.newaxis, :] * self.kbi_mat() + self.mol_fr[:, :, np.newaxis] * self.kd()[
+                np.newaxis, :, :
+            ]
+        return self._a_mat
 
-    def isothermal_compressability(self, units="kJ/mol"):
+    def isothermal_compressability(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
-        Calculates the isothermal compressability, :math:`\kappa`, for each system.
+        Calculate the isothermal compressability, :math:`\kappa`, for each system.
 
-        
         Parameters
         ----------
         units : str
@@ -357,7 +400,7 @@ class KBThermo(SystemSet):
 
         Notes
         -----
-        Isothermal compressability (:math:`\kappa`) is calculated by: 
+        Isothermal compressability (:math:`\kappa`) is calculated by:
 
         .. math::
             \kappa RT = \sum_{j=1}^n V_j A_{ij}^{-1}
@@ -367,13 +410,18 @@ class KBThermo(SystemSet):
             - :math:`A_{ij}^{-1}` is the inverse of **A** for molecules :math:`i,j`
 
         """
-        R = self.ureg.R.to(units + "/K").magnitude # gas constant
-        kT = (1 / (R * self.T())) * (self.molar_volume()[np.newaxis,:]/self.A_mat()[:,0,:]).sum(axis=1) # isothermal compressability
-        return self.Q_(kT, units=f"{units.split('/')[1]}/{units.split('/')[0]} * nm^3/molecule").to("1/kPa").magnitude
+        R = self.ureg("R").to(units + "/K").magnitude  # gas constant
+        kT = (1 / (R * self.temperature())) * (self.molar_volume()[np.newaxis, :] / self.a_mat()[:, 0, :]).sum(
+            axis=1
+        )  # isothermal compressability
+        kT_converted = (
+            self.Q_(kT, units=f"{units.split('/')[1]}/{units.split('/')[0]} * nm^3/molecule").to("1/kPa").magnitude
+        )
+        return np.asarray(kT_converted)
 
-    def dmu_dN(self, units="kJ/mol"):
+    def dmu_dn(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
-        The derivative of the chemical potential of molecule :math:`i` with respect to the number of molecules of molecule :math:`j`.
+        Compute the derivative of the chemical potential of molecule :math:`i` with respect to the number of molecules of molecule :math:`j`.
 
         Parameters
         ----------
@@ -401,34 +449,42 @@ class KBThermo(SystemSet):
 
         """
         # get cofactors x number density
-        cofactors_rho = self.B_cofactors() * self.rho_ij(units="molecule/nm^3")
+        cofactors_rho = self.b_cofactors() * self.rho_ij(units="molecule/nm^3")
 
         # get denominator of matrix calculation
-        b_lower = cofactors_rho.sum(axis=tuple(range(1,cofactors_rho.ndim))) # sum over dimensions 1:end
+        b_lower = cofactors_rho.sum(axis=tuple(range(1, cofactors_rho.ndim)))  # sum over dimensions 1:end
 
         # get numerator of matrix calculation
         B_prod = np.empty((self.n_sys, self.n_comp, self.n_comp, self.n_comp, self.n_comp))
         for a, b, i, j in product(range(self.n_comp), repeat=4):
-            B_prod[:, a, b, i, j] = self.rho_ij(units="molecule/nm^3")[:,i,j] * (self.B_cofactors()[:,a,b]*self.B_cofactors()[:,i,j] - self.B_cofactors()[:,i,a]*self.B_cofactors()[:,j,b])
-        b_upper = B_prod.sum(axis=tuple(range(3,B_prod.ndim)))
+            B_prod[:, a, b, i, j] = self.rho_ij(units="molecule/nm^3")[:, i, j] * (
+                self.b_cofactors()[:, a, b] * self.b_cofactors()[:, i, j]
+                - self.b_cofactors()[:, i, a] * self.b_cofactors()[:, j, b]
+            )
+        b_upper = B_prod.sum(axis=tuple(range(3, B_prod.ndim)))
 
         # get chemical potential with respect to mol number in target units
-        b_frac = b_upper / b_lower[:,np.newaxis,np.newaxis]
-        dmu_dN_mat = self.ureg.R.to(units + "/K").magnitude * self.T()[:,np.newaxis,np.newaxis] * b_frac / (self.volume() * self._B_det)[:,np.newaxis,np.newaxis]
-        return dmu_dN_mat    
+        b_frac = b_upper / b_lower[:, np.newaxis, np.newaxis]
+        dmu_dn_mat = (
+            self.ureg("R").to(units + "/K").magnitude
+            * self.temperature()[:, np.newaxis, np.newaxis]
+            * b_frac
+            / (self.volume() * self._b_det)[:, np.newaxis, np.newaxis]
+        )
+        return np.asarray(dmu_dn_mat)
 
-    def _matrix_setup(self, matrix):
-        """Setup matrices for multicomponent analysis"""
+    def _matrix_setup(self, matrix: np.ndarray) -> NDArray[np.float64]:
+        """Set up matrices for multicomponent analysis."""
         n = self.n_comp - 1
-        mat_ij = matrix[:,:n,:n]
-        mat_in = matrix[:,:n,n][:,:,np.newaxis]          
-        mat_jn = matrix[:,n,:n][:,np.newaxis,:]            
-        mat_nn = matrix[:,n,n][:,np.newaxis,np.newaxis]
-        return mat_ij - mat_in - mat_jn + mat_nn
-    
-    def H_ij(self, units="kJ/mol"):
+        mat_ij = matrix[:, :n, :n]
+        mat_in = matrix[:, :n, n][:, :, np.newaxis]
+        mat_jn = matrix[:, n, :n][:, np.newaxis, :]
+        mat_nn = matrix[:, n, n][:, np.newaxis, np.newaxis]
+        return np.asarray(mat_ij - mat_in - mat_jn + mat_nn)
+
+    def hessian(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
-        Hessian of Gibbs mixing free energy for molecules :math:`i,j`
+        Hessian of Gibbs mixing free energy for molecules :math:`i,j`.
 
         Parameters
         ----------
@@ -458,31 +514,37 @@ class KBThermo(SystemSet):
             - **G** is the KBI matrix
             - :math:`x_i` is mol fraction of molecule :math:`i`
             - :math:`\rho` is the density of each system
-            
+
         """
         G = self.kbi_mat()  # Cache this to avoid repeated calls
 
         # difference between ij interactions with each other and last component
-        delta_G = self._matrix_setup(G) 
+        delta_G = self._matrix_setup(G)
 
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             # get Delta matrix for Hessian calc
             Delta_ij = (
-                self.kd()[np.newaxis,:] * self.V_bar()[:,np.newaxis,np.newaxis] / self.mol_fr[:,np.newaxis] 
-                + (self.V_bar()/(self.mol_fr[:,self.n_comp-1]))[:,np.newaxis,np.newaxis] 
+                self.kd()[np.newaxis, :] * self.v_bar()[:, np.newaxis, np.newaxis] / self.mol_fr[:, np.newaxis]
+                + (self.v_bar() / (self.mol_fr[:, self.n_comp - 1]))[:, np.newaxis, np.newaxis]
                 + delta_G
             )
             Delta_ij_inv = np.linalg.inv(Delta_ij)
-            R = self.ureg.R.to(units + '/K').magnitude # gas constant
+            R = self.ureg("R").to(units + "/K").magnitude  # gas constant
 
             # get M matrix for hessian calculation
-            M_ij = Delta_ij_inv * R * self.T()[:,np.newaxis,np.newaxis] * self.V_bar()[:,np.newaxis,np.newaxis] / (self.mol_fr[:, :, np.newaxis] * self.mol_fr[:, np.newaxis,:])
+            M_ij = (
+                Delta_ij_inv
+                * R
+                * self.temperature()[:, np.newaxis, np.newaxis]
+                * self.v_bar()[:, np.newaxis, np.newaxis]
+                / (self.mol_fr[:, :, np.newaxis] * self.mol_fr[:, np.newaxis, :])
+            )
 
         return self._matrix_setup(M_ij)
-    
-    def det_H_ij(self, units="kJ/mol"):
+
+    def det_hessian(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
-        Determinant, :math:`|\mathbf{H}|`, of Hessian matrix.
+        Compute the determinant, :math:`|\mathbf{H}|`, of the Hessian matrix.
 
         Parameters
         ----------
@@ -494,10 +556,10 @@ class KBThermo(SystemSet):
         np.ndarray
             A 1D array of shape ``(n_sys)``
         """
-        with np.errstate(divide='ignore', invalid='ignore'):
-            return np.linalg.det(self.H_ij(units))
-    
-    def S0_xx_ij(self, energy_units="kJ/mol"):
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.asarray(np.linalg.det(self.hessian(units)))
+
+    def s0_mat(self) -> NDArray[np.float64]:
         r"""
         Structure factor as q :math:`\rightarrow` 0 for composition-composition fluctuations.
 
@@ -523,10 +585,12 @@ class KBThermo(SystemSet):
         where:
             - :math:`H_{ij}` is the Hessian of molecules :math:`i,j`
         """
-        R = self.ureg.R.to(energy_units + '/K').magnitude # gas constant
-        return R * self.T()[:,np.newaxis, np.newaxis] / self.H_ij(energy_units)
-    
-    def drho_elec_dx(self, units="cm^3/molecule"):
+        units = "kJ/mol"  # the units don't matter here because the energy units will cancel out
+        R = self.ureg("R").to(units + "/K").magnitude  # gas constant
+        S0 = R * self.temperature()[:, np.newaxis, np.newaxis] / self.hessian(units)
+        return np.asarray(S0)
+
+    def drho_elec_dx(self, units: str = "cm^3/molecule") -> NDArray[np.float64]:
         r"""
         Electron density contrast for a mixture.
 
@@ -553,9 +617,12 @@ class KBThermo(SystemSet):
             - :math:`\overline{V}` is the molar volume of each system
         """
         # calculate electron density contrast
-        return (1/self.V_bar(units))[:,np.newaxis] * (self.delta_n_elec()[np.newaxis,:] - self.n_elec_bar()[:,np.newaxis] * self.delta_V(units)[np.newaxis,:] / self.V_bar(units)[:,np.newaxis])
-    
-    def I0(self, units="1/cm"):
+        return (1 / self.v_bar(units))[:, np.newaxis] * (
+            self.delta_n_elec()[np.newaxis, :]
+            - self.n_elec_bar()[:, np.newaxis] * self.delta_v(units)[np.newaxis, :] / self.v_bar(units)[:, np.newaxis]
+        )
+
+    def i0(self, units: str = "1/cm") -> NDArray[np.float64]:
         r"""
         Small angle x-ray scattering (SAXS) intensity as q :math:`\rightarrow` 0.
 
@@ -575,31 +642,34 @@ class KBThermo(SystemSet):
 
         .. math::
             I_0 = \frac{r_e^2}{\rho} \sum_{i=1}^{n-1} \sum_{j=1}^{n-1} \left(\frac{\partial \rho^e}{\partial x_i}\right) \left(\frac{\partial \rho^e}{\partial x_j}\right) S_{ij}(0)
-        
+
         where:
             - :math:`r_e` is the electron radius
             - :math:`\rho` is density of system
             - :math:`\frac{\partial \rho^e}{\partial x_i}` is electron density contrast for molecule :math:`i`
             - :math:`S_{ij}(0)` is structure factor for molecules :math:`i,j`
 
-        See also
+        See Also
         --------
-        :meth:`S0_xx_ij`: Structure factor calculation
+        :meth:`s0_mat`: Structure factor calculation
         :meth:`drho_elec_dx`: Electron density constrast calculation
         """
         # get the electron radius in desired units
-        re_units = units.split('/')[1] if '/' in units else "cm"
-        re = self.Q_(2.81794092E-13, units="cm").to(re_units).magnitude  # electron radius
+        re_units = units.split("/")[1] if "/" in units else "cm"
+        re = self.Q_(2.81794092e-13, units="cm").to(re_units).magnitude  # electron radius
         vol_units = f"{units.split('/')[1]}^3/molecule"
         # calculate squared of electron density constrast combinations
-        drho_dx2 = self.drho_elec_dx(units=vol_units)[:, :, np.newaxis] * self.drho_elec_dx(units=vol_units)[:, np.newaxis, :]
+        drho_dx2 = (
+            self.drho_elec_dx(units=vol_units)[:, :, np.newaxis] * self.drho_elec_dx(units=vol_units)[:, np.newaxis, :]
+        )
         # calculate saxs intensity
-        i0_mat = re**2 * self.V_bar(vol_units)[:, np.newaxis, np.newaxis] * drho_dx2 * self.S0_xx_ij()
-        return np.nansum(i0_mat, axis=tuple(range(1, i0_mat.ndim))) # sum of 1:last_dim
-    
-    def dmu_dxs(self, units="kJ/mol"):
+        i0_mat = re**2 * self.v_bar(vol_units)[:, np.newaxis, np.newaxis] * drho_dx2 * self.s0_mat()
+        i0_1d = np.nansum(i0_mat, axis=tuple(range(1, i0_mat.ndim)))  # sum of 1:last_dim
+        return np.asarray(i0_1d)
+
+    def dmu_dxs(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
-        The derivative of the chemical potential of molecule :math:`i` with respect to mol fraction of molecule :math:`j`.
+        Compute the derivative of the chemical potential of molecule :math:`i` with respect to mol fraction of molecule :math:`j`.
 
         Parameters
         ----------
@@ -622,27 +692,27 @@ class KBThermo(SystemSet):
             - :math:`\mu_i` is the chemical potential of molecule :math:`i`
             - :math:`n_j` is the molecule number of molecule :math:`j`
             - :math:`x_j` is the mol fraction of molecule :math:`j`
-            - :math:`n_T` is the total number of molecules in system        
+            - :math:`n_T` is the total number of molecules in system
         """
         # convert to mol fraction
-        dmu = self.dmu_dN(units)  # Cache this to avoid repeated calls
-        n = self.n_comp-1
-        
+        dmu = self.dmu_dn(units)  # Cache this to avoid repeated calls
+        n = self.n_comp - 1
+
         # chemical potential deriv / mol frac for all molecules until n-1
-        dmu_dxs = self.total_molecules[:,np.newaxis,np.newaxis] * (dmu[:,:n,:n] - dmu[:,:n,-1][:,:,np.newaxis])
-        
+        dmu_dxs = self.total_molecules[:, np.newaxis, np.newaxis] * (dmu[:, :n, :n] - dmu[:, :n, -1][:, :, np.newaxis])
+
         # now get the derivative for each component
         dmui_dxi = np.full_like(self.mol_fr, fill_value=np.nan)
-        dmui_dxi[:,:-1] = np.diagonal(dmu_dxs, axis1=1, axis2=2)
+        dmui_dxi[:, :-1] = np.diagonal(dmu_dxs, axis1=1, axis2=2)
 
         # calculate chemical potential deriv for last component
-        sum_xi_dmui = (self.mol_fr[:,:-1] * dmui_dxi[:,:-1]).sum(axis=1)
-        dmui_dxi[:,-1] = sum_xi_dmui / self.mol_fr[:,-1]
-        return dmui_dxi 
+        sum_xi_dmui = (self.mol_fr[:, :-1] * dmui_dxi[:, :-1]).sum(axis=1)
+        dmui_dxi[:, -1] = sum_xi_dmui / self.mol_fr[:, -1]
+        return np.asarray(dmui_dxi)
 
-    def dlngammas_dxs(self):
+    def dlngammas_dxs(self) -> NDArray[np.float64]:
         r"""
-        Derivative of natural logarithm of the activity coefficient of molecule :math:`i` with respect to its mol fraction.
+        Compute the derivative of natural logarithm of the activity coefficient of molecule :math:`i` with respect to its mol fraction.
 
         Returns
         -------
@@ -662,20 +732,19 @@ class KBThermo(SystemSet):
             - :math:`x_i` is the mol fraction of molecule :math:`i`
             - :math:`k_b` is the Boltzmann constant
         """
-        if '_dlngammas_dxs' not in self.__dict__:
+        if "_dlngammas_dxs" not in self.__dict__:
             # convert zeros to nan to avoid, ZeroDivisionError
             nan_z = self.mol_fr.copy()
             nan_z[nan_z == 0] = np.nan
 
             # calculate activity derivs
-            R = self.ureg.R.to("kJ/mol/K").magnitude
-            self._dlngammas_dxs = (1/(R * self.T()))[:,np.newaxis] * self.dmu_dxs("kJ/mol") - 1/nan_z
+            R = self.ureg("R").to("kJ/mol/K").magnitude
+            self._dlngammas_dxs = (1 / (R * self.temperature()))[:, np.newaxis] * self.dmu_dxs("kJ/mol") - 1 / nan_z
 
-        return self._dlngammas_dxs
+        return np.asarray(self._dlngammas_dxs)
 
-    def _get_ref_state_dict(self, mol):
-        """get reference state parameters for each molecule"""
-
+    def _get_ref_state_dict(self, mol: str) -> dict[str, object]:
+        """Get reference state parameters for each molecule."""
         # get max mol fr at each composition
         z0 = self.mol_fr.copy()
         z0[np.isnan(z0)] = 0
@@ -683,34 +752,34 @@ class KBThermo(SystemSet):
         # get mol index
         i = self._mol_idx(mol=mol)
         # get mask for max mol frac at each composition
-        is_max = z0[:,i] == comp_max
+        is_max = z0[:, i] == comp_max
 
         # create dict for ref. state values
         # if mol is max at any composition; it cannot be a 'solute'
         if np.any(is_max):
             ref_state_dict = {
-                'ref_state': 'pure_component',
-                'x_initial': 1.,
-                'sorted_idx_val': -1,
-                'weight_fn': partial(self._weight_fn, exp_mult=1)
+                "ref_state": "pure_component",
+                "x_initial": 1.0,
+                "sorted_idx_val": -1,
+                "weight_fn": partial(self._weight_fn, exp_mult=1),
             }
         # if solute, use inf. dil. ref state
         else:
             ref_state_dict = {
-                'ref_state': 'inf_dilution',
-                'x_initial': 0.,
-                'sorted_idx_val': 1,
-                'weight_fn': partial(self._weight_fn, exp_mult=-1)
+                "ref_state": "inf_dilution",
+                "x_initial": 0.0,
+                "sorted_idx_val": 1,
+                "weight_fn": partial(self._weight_fn, exp_mult=-1),
             }
         return ref_state_dict
 
-    def _weight_fn(self, x, exp_mult):
+    def _weight_fn(self, x: NDArray[np.float64], exp_mult: float) -> NDArray[np.float64]:
         try:
             return 100 ** (exp_mult * np.log10(x))
         except ValueError as ve:
-            raise ValueError(f'Cannot take log of negative value. Details: {ve}.')
-    
-    def ref_state(self, mol):
+            raise ValueError(f"Cannot take log of negative value. Details: {ve}.") from ve
+
+    def ref_state(self, mol: str) -> str:
         r"""
         Get reference state for a molecule.
 
@@ -722,23 +791,34 @@ class KBThermo(SystemSet):
         Returns
         -------
         str
-            Either '`pure_component`' or '`inf_dilution`'. Molecule is considered as '`pure_component`' if for any system it is the major component in the system. 
+            Either '`pure_component`' or '`inf_dilution`'. Molecule is considered as '`pure_component`' if for any system it is the major component in the system.
         """
-        return self._get_ref_state_dict(mol)['ref_state']
-    
-    def _x_initial(self, mol):
-        # get boundary condition for reference state
-        return self._get_ref_state_dict(mol)['x_initial']
-    
-    def _sort_idx_val(self, mol):
-        # get the value to sort the index by for reference state
-        return self._get_ref_state_dict(mol)['sorted_idx_val']
-    
-    def _weights(self, mol, x):
-        # get weights for mol at x for reference state
-        return self._get_ref_state_dict(mol)['weight_fn'](x)
-    
-    def integrate_dlngammas(self, integration_type='numerical', polynomial_degree=5):
+        value = self._get_ref_state_dict(mol)["ref_state"]
+        if isinstance(value, str):
+            return str(value)
+        raise TypeError(f"ref_state value must be string, got {type(value)}")
+
+    def _x_initial(self, mol: str) -> float:
+        value = self._get_ref_state_dict(mol)["x_initial"]
+        if isinstance(value, (float, int)):
+            return float(value)
+        raise TypeError(f"x_initial value must be numeric, got {type(value)}")
+
+    def _sort_idx_val(self, mol: str) -> int:
+        value = self._get_ref_state_dict(mol)["sorted_idx_val"]
+        if isinstance(value, int):
+            return value
+        raise TypeError(f"sorted_idx_val must be int, got {type(value)}")
+
+    def _weights(self, mol: str, x: NDArray[np.float64]) -> NDArray[np.float64]:
+        w = self._get_ref_state_dict(mol)["weight_fn"]
+        if callable(w):
+            return w(x)  # type: ignore
+        raise TypeError(f"Expected a callable for weight_fn, got {type(w)}")
+
+    def integrate_dlngammas(
+        self, integration_type: str = "numerical", polynomial_degree: int = 5
+    ) -> NDArray[np.float64]:
         r"""
         Integrate the derivative of activity coefficients.
 
@@ -765,24 +845,24 @@ class KBThermo(SystemSet):
             - :math:`\gamma_i` is the activity coefficient of molecule :math:`i`
             - :math:`x_i` is the mol fraction of molecule :math:`i`
             - :math:`\Delta x` is the step size in :math:`x` between points
-    
+
         .. note::
             The integral is approximated by a summation using the trapezoidal rule, where the upper limit of summation is :math:`x_i` and the initial condition (or reference state) is :math:`a_0`. Note that the term :math:`a \pm \Delta x` behaves differently based on the value of :math:`a_0`: if :math:`a_0 = 1` (pure component reference state), it becomes :math:`a - \Delta x`, and if :math:`a_0 = 0` (infinite dilution reference state), it becomes :math:`a + \Delta x`.
 
-            
+
         Analytical integration of activity coefficient derivatives thorough polynomial fitting occurs by fitting an n-order polynomial function to :math:`\frac{\partial \ln{\gamma_i}}{\partial x_i}`.
 
         .. note::
             This method takes a set of mole fractions (`xi`) and the corresponding derivatives of :math:`\ln{\gamma}`, fits a polynomial of a specified degree to the derivative data, integrates the polynomial to reconstruct :math:`\ln{\gamma}`, and evaluates :math:`\ln{\gamma}` at the given mol fractions. The integration constant is chosen such that :math:`\ln{\gamma}` obeys boundary conditions of reference state.
-        
+
         """
         integration_type = integration_type.lower()
 
         ln_gammas = np.full_like(self.mol_fr, fill_value=np.nan)
         for i, mol in enumerate(self.unique_molecules):
             # get x & dlng for molecule
-            xi0 = self.mol_fr[:,i]
-            dlng0 = self.dlngammas_dxs()[:,i]
+            xi0 = self.mol_fr[:, i]
+            dlng0 = self.dlngammas_dxs()[:, i]
             lng_i = np.full(len(xi0), fill_value=np.nan)
 
             # filter nan
@@ -791,26 +871,28 @@ class KBThermo(SystemSet):
 
             # if len of True values == 0; no valid mols dln gamma/dxs is found.
             if sum(nan_mask) == 0:
-                raise ValueError(f'No real values found for molecule {mol} in dlngammas_dxs.')
-            
+                raise ValueError(f"No real values found for molecule {mol} in dlngammas_dxs.")
+
             # search for x-initial
             x_initial_found = np.any(np.isclose(xi, self._x_initial(mol)))
             if not x_initial_found:
                 xi = np.append(xi, self._x_initial(mol))
                 dlng = np.append(dlng, 0)
-            
+
             # sort by mol fr.
-            sorted_idxs = np.argsort(xi)[::self._sort_idx_val(mol)]
+            sorted_idxs = np.argsort(xi)[:: self._sort_idx_val(mol)]
             xi, dlng = xi[sorted_idxs], dlng[sorted_idxs]
 
             # integrate
-            if integration_type == 'polynomial':
+            if integration_type == "polynomial":
                 lng = self._polynomial_integration(xi, dlng, mol, polynomial_degree)
-            elif integration_type == 'numerical':
+            elif integration_type == "numerical":
                 lng = self._numerical_integration(xi, dlng, mol)
             else:
-                raise ValueError(f'Integration type not recognized. Must be `polynomial` or `numerical`, {integration_type} was provided.')
-            
+                raise ValueError(
+                    f"Integration type not recognized. Must be `polynomial` or `numerical`, {integration_type} was provided."
+                )
+
             # now prepare data for saving
             inverse_permutation = np.argsort(sorted_idxs)
             lng = lng[inverse_permutation]
@@ -819,35 +901,43 @@ class KBThermo(SystemSet):
             if not x_initial_found:
                 x_initial_idx = np.where(lng == 0)[0][0]
                 lng = np.delete(lng, x_initial_idx)
-            
+
             try:
-                lng_i[nan_mask] = lng # this makes sure that shape of lng is same as xi 
-                ln_gammas[:,i] = lng_i
+                lng_i[nan_mask] = lng  # this makes sure that shape of lng is same as xi
+                ln_gammas[:, i] = lng_i
             except ValueError as ve:
                 if len(lng) != ln_gammas.shape[0]:
-                    raise ValueError(f'Length mismatch between lngammas: {len(lng)} and lngammas matrix: {ln_gammas.shape[0]}. Details: {ve}.')
+                    raise ValueError(
+                        f"Length mismatch between lngammas: {len(lng)} and lngammas matrix: {ln_gammas.shape[0]}. Details: {ve}."
+                    ) from ve
 
         return ln_gammas
 
-    def _polynomial_integration(self, xi, dlng, mol, polynomial_degree=5):
+    def _polynomial_integration(
+        self, xi: np.ndarray, dlng: np.ndarray, mol: str, polynomial_degree: int = 5
+    ) -> NDArray[np.float64]:
         # use polynomial to integrate dlng_dxs.
         try:
             dlng_fit = np.poly1d(np.polyfit(xi, dlng, polynomial_degree, w=self._weights(mol, xi)))
         except ValueError as ve:
             if polynomial_degree > len(xi):
-                raise ValueError(f'Not enough data points for polynomial fit. Required degree < number points. Details: {ve}.')
+                raise ValueError(
+                    f"Not enough data points for polynomial fit. Required degree < number points. Details: {ve}."
+                ) from ve
             elif len(xi) != len(dlng):
-                raise ValueError(f'Length mismatch! Shapes of xi {(len(xi))} and dlng {(len(xi))} do not match. Details: {ve}.')
-        
+                raise ValueError(
+                    f"Length mismatch! Shapes of xi {(len(xi))} and dlng {(len(xi))} do not match. Details: {ve}."
+                ) from ve
+
         # integrate polynomial function to get ln gammas
         lng_fn = dlng_fit.integ(k=0)
-        yint = 0 - lng_fn(1) # adjust for lng=0 at x=1.
+        yint = 0 - lng_fn(1)  # adjust for lng=0 at x=1.
         lng_fn = dlng_fit.integ(k=yint)
 
         # check if _lngamma_fn has been initialized
-        if '_lngamma_fn_dict' not in self.__dict__:
+        if "_lngamma_fn_dict" not in self.__dict__:
             self._lngamma_fn_dict = {}
-        if '_dlngamma_fn_dict' not in self.__dict__:
+        if "_dlngamma_fn_dict" not in self.__dict__:
             self._dlngamma_fn_dict = {}
 
         # add func. to dict
@@ -858,14 +948,14 @@ class KBThermo(SystemSet):
         lng = lng_fn(xi)
         return lng
 
-    def _numerical_integration(self, xi, dlng, mol):
+    def _numerical_integration(self, xi: np.ndarray, dlng: np.ndarray, mol: str) -> NDArray[np.float64]:
         # using numerical integration via trapezoid method
-        try:  
-            return cumulative_trapezoid(dlng, xi, initial=0)
+        try:
+            return np.asarray(cumulative_trapezoid(dlng, xi, initial=0))
         except Exception as e:
-            raise Exception(f'Could not perform numerical integration for {mol}. Details: {e}.')
-            
-    def lngamma_fn(self, mol):
+            raise Exception(f"Could not perform numerical integration for {mol}. Details: {e}.") from e
+
+    def lngamma_fn(self, mol: str) -> Callable[..., Any]:
         r"""
         Get the integrated polynomial function used to calculate activity coefficients (if integration type is polynomial).
 
@@ -880,11 +970,11 @@ class KBThermo(SystemSet):
             Polynomial function representing :math:`\ln{\gamma}` of mol
         """
         # retrieve function for ln gamma of mol
-        if '_lngamma_fn_dict' not in self.__dict__:
+        if "_lngamma_fn_dict" not in self.__dict__:
             self.integrate_dlngammas(integration_type="polynomial")
         return self._lngamma_fn_dict[mol]
-    
-    def dlngamma_fn(self, mol):
+
+    def dlngamma_fn(self, mol: str) -> Callable[..., Any]:
         r"""
         Get the polynomial function used to fit activity coefficient derivatives (if integration type is polynomial).
 
@@ -899,11 +989,11 @@ class KBThermo(SystemSet):
             Polynomial function representing :math:`\frac{\partial \ln{\gamma}}{\partial x}` of mol
         """
         # retrieve function for dln gamma of mol
-        if '_dlngamma_fn_dict' not in self.__dict__:
+        if "_dlngamma_fn_dict" not in self.__dict__:
             self.integrate_dlngammas(integration_type="polynomial")
         return self._dlngamma_fn_dict[mol]
 
-    def lngammas(self):
+    def lngammas(self) -> NDArray[np.float64]:
         r"""
         Results of integrated activity coefficient derivatives according to instance attribute ``gamma_integration_type``.
 
@@ -912,16 +1002,19 @@ class KBThermo(SystemSet):
         np.ndarray
             Activity coefficients as a function of system compositions points according to specificied integration type.
 
-        See also
+        See Also
         --------
         :meth:`integrate_dlngammas` : Integration of activity coefficient derivatives.
 
         """
-        if '_lngammas' not in self.__dict__:
-            self._lngammas = self.integrate_dlngammas(integration_type=self.gamma_integration_type, polynomial_degree=self.gamma_polynomial_degree)
+        if "_lngammas" not in self.__dict__:
+            self._lngammas = self.integrate_dlngammas(
+                integration_type=self.gamma_integration_type,
+                polynomial_degree=self.gamma_polynomial_degree,
+            )
         return self._lngammas
 
-    def GE(self, units="kJ/mol"):
+    def ge(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
         Gibbs excess free energy calculated from activity coefficients.
 
@@ -941,16 +1034,16 @@ class KBThermo(SystemSet):
 
         .. math::
             \frac{G^E}{RT} = \sum_{i=1}^n x_i \ln{\gamma_i}
-        
+
         where:
             - :math:`x_i` is mol fraction of molecule :math:`i`
-            - :math:`\gamma_i` is activity coefficient of molecule :math:`i`        
+            - :math:`\gamma_i` is activity coefficient of molecule :math:`i`
         """
-        R = self.ureg.R.to(units + "/K")
-        _GE = R * self.T(units="K") * (self.mol_fr * self.lngammas()).sum(axis=1)
-        return _GE.magnitude
+        R = self.ureg("R").to(units + "/K").magnitude
+        _GE = R * self.temperature(units="K") * (self.mol_fr * self.lngammas()).sum(axis=1)
+        return np.asarray(_GE)
 
-    def GID(self, units="kJ/mol"):
+    def gid(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
         Ideal free energy calculated from mol fractions.
 
@@ -970,16 +1063,16 @@ class KBThermo(SystemSet):
 
         .. math::
             \frac{G^{id}}{RT} = \sum_{i=1}^n x_i \ln{x_i}
-        
+
         where:
             - :math:`x_i` is mol fraction of molecule :math:`i`
         """
-        R = self.ureg.R.to(units + "/K").magnitude
-        with np.errstate(divide='ignore', invalid='ignore'):
-            _GID = R * self.T(units="K") * (self.mol_fr * np.log(self.mol_fr)).sum(axis=1)
-        return _GID
+        R = self.ureg("R").to(units + "/K").magnitude
+        with np.errstate(divide="ignore", invalid="ignore"):
+            _GID = R * self.temperature(units="K") * (self.mol_fr * np.log(self.mol_fr)).sum(axis=1)
+        return np.asarray(_GID)
 
-    def GM(self, units="kJ/mol"):
+    def gm(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
         Gibbs mixing free energy calculated from excess and ideal contributions.
 
@@ -1000,17 +1093,17 @@ class KBThermo(SystemSet):
         .. math::
             \Delta G_{mix} = G^E + G^{id}
         """
-        return self.GE(units) + self.GID(units)
+        return self.ge(units) + self.gid(units)
 
-    def Hmix(self, units="kJ/mol"):
+    def hmix(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
         Mixing enthalpy (excess enthalpy) for each system in specified units.
 
         Parameters
         ----------
         units : str, optional
-            Units for enthalpy. Default is 'kJ/mol'.    
-        
+            Units for enthalpy. Default is 'kJ/mol'.
+
         Returns
         -------
         np.ndarray
@@ -1034,7 +1127,7 @@ class KBThermo(SystemSet):
         """
         return np.fromiter(self._system_mixing_enthalpy(units=units).values(), dtype=float)
 
-    def SE(self, units="kJ/mol"):
+    def se(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         r"""
         Excess entropy determined from Gibbs relation between enthlapy and free energy.
 
@@ -1055,22 +1148,22 @@ class KBThermo(SystemSet):
         .. math::
             S^E = \frac{\Delta H_{mix} - G^E}{T}
         """
-        return (self.Hmix(units) - self.GE(units))/self.T(units="K")
+        return (self.hmix(units) - self.ge(units)) / self.temperature(units="K")
 
-    def _property_map(self, energy_units="kJ/mol"):
+    def _property_map(self, energy_units: str = "kJ/mol") -> dict[str, np.ndarray]:
         # returns a dictionary of key properties from analysis
         return {
-            'mol_fr': self.mol_fr,
-            'kbi': self.kbi_mat(),
-            'kT': self.isothermal_compressability(units=energy_units),
-            'det_H': self.det_H_ij(units=energy_units),
-            'dmu': self.dmu_dxs(units=energy_units),
-            'dlngamma': self.dlngammas_dxs(),
-            'lngamma': self.lngammas(),
-            'GE': self.GE(units=energy_units),
-            'GID': self.GID(units=energy_units),
-            'GM': self.GM(units=energy_units),
-            'SE': self.SE(units=energy_units),
-            'HE': self.Hmix(units=energy_units),
-            'I0': self.I0(units="1/cm"),
+            "mol_fr": self.mol_fr,
+            "kbi": self.kbi_mat(),
+            "isotherm_comp": self.isothermal_compressability(units=energy_units),
+            "det_hessian": self.det_hessian(units=energy_units),
+            "dmu": self.dmu_dxs(units=energy_units),
+            "dlngamma": self.dlngammas_dxs(),
+            "lngamma": self.lngammas(),
+            "ge": self.ge(units=energy_units),
+            "gid": self.gid(units=energy_units),
+            "gm": self.gm(units=energy_units),
+            "se": self.se(units=energy_units),
+            "hmix": self.hmix(units=energy_units),
+            "i0": self.i0(units="1/cm"),
         }

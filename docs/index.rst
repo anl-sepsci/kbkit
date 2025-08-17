@@ -7,7 +7,7 @@ KBkit: A Python-based toolkit for Kirkwood-Buff Analysis from Molecular Dynamics
     :titlesonly:
 
     kbkit.properties
-    kbkit.kb 
+    kbkit.kb
     kbkit.kb_pipeline
     kbkit.plotter
     examples
@@ -32,7 +32,7 @@ Installation
 Creating an anaconda environment with ``kbkit`` dependencies and install ``kbkit``.
 
 .. code-block:: text
-    
+
     cd kbkit
     conda create --name kbkit python=3.12 --file requirements.txt
     conda activate kbkit
