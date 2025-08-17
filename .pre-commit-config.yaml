@@ -36,6 +36,7 @@ repos:
     pass_filenames: false
 
   - id: pytest
+    args: [kbkit]
     name: pytest
     stages: [pre-commit, pre-push]
     language: system
