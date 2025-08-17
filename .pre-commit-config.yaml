@@ -36,7 +36,6 @@ repos:
     pass_filenames: false
 
   - id: pytest
-    args: [tests]
     name: pytest
     stages: [pre-commit, pre-push]
     language: system
