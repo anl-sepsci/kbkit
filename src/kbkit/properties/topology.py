@@ -10,7 +10,7 @@ from collections import defaultdict
 import numpy as np
 from rdkit.Chem import GetPeriodicTable
 
-from kbkit.unit_registry import load_unit_registry
+from kbkit.config import load_unit_registry
 from kbkit.utils import _find_file
 
 

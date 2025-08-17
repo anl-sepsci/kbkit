@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pint
 
-from kbkit.mapped import energy_aliases, get_gmx_unit, resolve_attr_key
-from kbkit.unit_registry import load_unit_registry
+from kbkit.data import energy_aliases, get_gmx_unit, resolve_attr_key
+from kbkit.config import load_unit_registry
 from kbkit.utils import _find_file, format_quantity, format_unit_str
 
 plt.style.use(Path(__file__).parent.parent / "presentation.mplstyle")

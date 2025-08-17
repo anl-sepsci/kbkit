@@ -10,9 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from .kbi import KBI
-from .rdf import RDF
-from .system_set import SystemSet
+from kbkit.analysis import KBI, RDF, SystemSet
 
 
 class KBThermo(SystemSet):

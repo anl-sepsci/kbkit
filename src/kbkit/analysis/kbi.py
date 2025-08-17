@@ -9,8 +9,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.kb.rdf import RDF
-from kbkit.properties.system_properties import SystemProperties
+from kbkit.analysis import RDF
+from kbkit.properties import SystemProperties
 from kbkit.utils import to_float
 
 

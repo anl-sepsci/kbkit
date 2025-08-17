@@ -83,7 +83,7 @@ kbkit_tree = (
             "tests/",
             [
                 ("__init__.py", []),
-                ("smoketest.py", []),
+                ("smoke_test.py", []),
             ],
         ),
         (
@@ -123,16 +123,130 @@ kbkit_tree = (
                 ),
             ],
         ),
-        (".coverage", []),
         (".coveragerc", []),
         (".editorconfig", []),
-        (".envrc", []),
         (".gitattributes", []),
-        (".gitconfig", []),
         (".gitignore", []),
         (".pre-commit-config.yaml", []),
         (".readthedocs.yaml", []),
-        ("coverage.xml", []),
+        ("LICENSE", []),
+        ("pixi.lock", []),
+        ("pyproject.toml", []),
+        ("README.md", []),
+        ("requirements.txt", []),
+    ],
+)
+
+
+kbkit_clean_tree = (
+    "kbkit/",
+    [
+        (
+            ".github/",
+            [
+                (
+                    "workflows/",
+                    [
+                        ("build-and-test.yml", []),
+                        ("publish.yml", []),
+                    ],
+                ),
+            ],
+        ),
+        (
+            "docs/",
+            [
+                ("index.rst", []),
+                (
+                    "Examples/",
+                    [
+                        ("test_data/", []),
+                        ("kbkit_example.ipynb", []),
+                    ],
+                ),
+            ],
+        ),
+        (
+            "tests/",
+            [
+                ("__init__.py", []),
+                ("smoke_test.py", []),
+            ],
+        ),
+        (
+            "src/",
+            [
+                (
+                    "kbkit/",
+                    [
+                        ("__init__.py", []),
+                        ("_version.py", []),
+
+                        (
+                            "config/",
+                            [
+                                ("__init__.py", []),
+                                ("unit_registry.py", []),
+                            ]
+                        ),
+                        (
+                            "pipeline/",
+                            [
+                                ("__init__.py", []),
+                                ("kb_pipeline.py", []),
+                            ]
+                        ),
+                        (
+                            "data/",
+                            [
+                                ("__init__.py", []),
+                                ("mapped.py", []),
+                            ]
+                        ),
+                        (
+                            "analysis/",
+                            [
+                                ("__init__.py", []),
+                                ("kb_thermo.py", []),
+                                ("kbi.py", []),
+                                ("rdf.py", []),
+                                ("system_set.py", []),
+                            ],
+                        ),
+                        (
+                            "properties/",
+                            [
+                                ("__init__.py", []),
+                                ("energy_reader.py", []),
+                                ("system_properties.py", []),
+                                ("topology.py", []),
+                            ],
+                        ),
+                        (
+                            "viz/",
+                            [
+                                ("__init__.py", []),
+                                ("plotter.py", []),
+                                ("presentation.mplstyle", []),
+                            ]
+                        ),
+                        (
+                            "utils/",
+                            [
+                                ("__init__.py", []),
+                                ("utils.py", []),
+                            ]
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        (".coveragerc", []),
+        (".editorconfig", []),
+        (".gitattributes", []),
+        (".gitignore", []),
+        (".pre-commit-config.yaml", []),
+        (".readthedocs.yaml", []),
         ("LICENSE", []),
         ("pixi.lock", []),
         ("pyproject.toml", []),
@@ -143,8 +257,8 @@ kbkit_tree = (
 
 
 if __name__ == "__main__":
-    tree_name = sys_arg.argv[1] if len(sys_arg.argv) > 1 else "ex"
-    trees_mapped: dict[str, tuple] = {"ex": kb_ex_tree, "kbkit": kbkit_tree}
+    tree_name = sys_arg.argv[1] if len(sys_arg.argv) > 1 else "kbkit_cleaned"
+    trees_mapped: dict[str, tuple] = {"ex": kb_ex_tree, "kbkit": kbkit_tree, "kbkit_cleaned": kbkit_clean_tree}
     tree = trees_mapped.get(tree_name, kb_ex_tree)
     print(f"\nPrinting tree: {tree_name}\n")
     print_tree(tree)

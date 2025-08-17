@@ -10,8 +10,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.properties.system_properties import SystemProperties
-from kbkit.unit_registry import load_unit_registry
+from kbkit.properties import SystemProperties
+from kbkit.config import load_unit_registry
 
 
 class SystemSet:

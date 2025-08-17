@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from kbkit.kb.kb_thermo import KBThermo
+from kbkit.analysis import KBThermo
 
 
 class KBPipeline:
