@@ -1392,7 +1392,7 @@ packages:
 - pypi: ./
   name: kbkit
   version: 1.0.0
-  sha256: a921fdc10e8bec16d7d714b9b02cf803b9f00ce1a2b16bd4a36fcc71328a3c76
+  sha256: a014cc95dbd74f10b13de873be3ac4ededa47da20061dab74130dae8a91aefc4
   requires_dist:
   - sphinx>=7.0
   - numpy>=2.3.2,<3
