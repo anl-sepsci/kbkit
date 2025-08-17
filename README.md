@@ -13,7 +13,7 @@
 
 ## Installation
 
-`kbkit` can be installed from cloning github repository.
+`kbkit` can be installed from cloning its github repository.
 
 ```python
 git clone https://github.com/aperoutka/kbkit.git
