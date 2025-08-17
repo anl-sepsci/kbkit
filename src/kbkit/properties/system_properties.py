@@ -2,6 +2,9 @@
 
 from typing import Any, Callable
 
+import numpy as np
+from numpy.typing import NDArray
+
 from kbkit.mapped import energy_aliases, get_gmx_unit, resolve_attr_key
 from kbkit.properties.energy_reader import EnergyReader
 from kbkit.properties.topology import TopologyParser
@@ -60,13 +63,13 @@ class SystemProperties:
             start_time: float = 0,
             return_std: bool = False,
             timeseries: bool = False,
-        ) -> float | tuple[Any, Any]:
+        ) -> float | tuple[NDArray[np.float64], NDArray[np.float64]] | tuple[float, float]:
             # get property units
             units = units if units else gmx_units
 
             # first search for heat capacity (unique case)
             if prop == "heat_capacity":
-                result = self.energy.heat_capacity(nmol=self.topology.total_molecules, units=units)
+                return self.energy.heat_capacity(nmol=self.topology.total_molecules, units=units)
 
             # then if volume and ensemble is nvt
             elif prop == "volume" and self.energy.ensemble == "nvt":
@@ -74,15 +77,14 @@ class SystemProperties:
 
             # if timeseries is desired, return arrays instead of floats
             elif timeseries:
-                result = self.energy.stitch_property_timeseries(
+                time_qty, val_qty = self.energy.stitch_property_timeseries(
                     prop, start_time=start_time, time_units=time_units, units=units
                 )
+                return time_qty.magnitude, val_qty.magnitude
 
             # defaults to the averaged property
             else:
-                result = self.energy.average_property(prop, start_time=start_time, units=units, return_std=return_std)
-
-            return result
+                return self.energy.average_property(prop, start_time=start_time, units=units, return_std=return_std)
 
         # special case for enthalpy
         if prop == "enthalpy":

@@ -27,3 +27,4 @@ sympy
 tomli
 pytest
 pytest-cov
+stubs

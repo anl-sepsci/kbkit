@@ -5,7 +5,7 @@ import os
 import types
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -45,8 +45,8 @@ class SystemSet:
 
     def __init__(
         self,
-        base_path: Optional[str],
-        pure_component_path: Optional[str],
+        base_path: str,
+        pure_component_path: str,
         base_systems: list[str],
         pure_component_systems: list[str],
         rdf_dir: str,

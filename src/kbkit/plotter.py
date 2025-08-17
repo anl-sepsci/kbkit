@@ -4,7 +4,7 @@ import os
 import warnings
 from itertools import combinations_with_replacement
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Tuple, TypedDict
+from typing import Any, Callable, List, Tuple, TypedDict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -57,7 +57,7 @@ class Plotter:
         self,
         kb_obj: KBThermo,
         x_mol: str = "",
-        molecule_map: Optional[dict[str, str]] = None,
+        molecule_map: None | dict[str, str] = None,
     ) -> None:
         self.kb = kb_obj
         self.x_mol = x_mol
@@ -136,8 +136,9 @@ class Plotter:
                     print(f"Error processing system '{system}': {e}")
 
             # Assign unique colors to each pair
-            all_pairs = sorted(all_pairs)
-            n_pairs = len(all_pairs)
+            all_pairs_list: list[tuple[str, ...]] = list(all_pairs)
+            all_pairs_list = sorted(all_pairs_list)
+            n_pairs = len(all_pairs_list)
             try:
                 colormap = plt.cm.get_cmap(cmap, n_pairs)
             except Exception as e:
@@ -145,7 +146,7 @@ class Plotter:
                 colormap = plt.cm.get_cmap("jet", n_pairs)
 
             color_map = {}
-            for i, pair in enumerate(all_pairs):
+            for i, pair in enumerate(all_pairs_list):
                 try:
                     color_map[pair] = colormap(i)
                 except Exception as e:
@@ -369,7 +370,7 @@ class Plotter:
                 i, j = [self.kb._mol_idx(mol) for mol in (mol_i, mol_j)]
                 color = color_dict.get(mol_i, {}).get(mol_j)
                 kbi = self.kb.kbi_mat()[:, i, j]
-                kbi = self.kb.Q_(kbi, "nm^3/molecule").to(units)
+                kbi = self.kb.Q_(kbi, "nm^3/molecule").to(units).magnitude
                 line = ax.scatter(self.kb.mol_fr[:, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=mols)
                 if mols not in legend_info:
                     legend_info[mols] = line
@@ -651,8 +652,6 @@ class Plotter:
         prop_key = resolve_attr_key(prop.lower(), kb_aliases)
         energy_units = units if units else "kJ/mol"
         kbi_units = units if units else "cm^3/mol"
-        xlim = xlim if any(xlim) != 0 else None
-        ylim = ylim if any(ylim) != 0 else None
 
         if system:
             # plot system rdfs

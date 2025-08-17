@@ -58,8 +58,8 @@ class KBPipeline:
     ):
         # create KBThermo object
         self.kb = KBThermo(
-            base_path=base_path,
-            pure_component_path=pure_component_path,
+            base_path=base_path if base_path is not None else "",
+            pure_component_path=pure_component_path if pure_component_path is not None else "",
             base_systems=base_systems if base_systems is not None else [],
             pure_component_systems=pure_component_systems if pure_component_systems is not None else [],
             rdf_dir=rdf_dir,

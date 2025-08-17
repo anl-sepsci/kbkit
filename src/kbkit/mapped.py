@@ -121,7 +121,7 @@ def resolve_attr_key(key: str, alias_map: dict[str, set[str]], cutoff: float = 0
         raise TypeError(f"Input value must be a string, got {type(value)}: {value!r}") from e
 
     best_match = None
-    best_score = 0
+    best_score = 0.0
     match_to_key = {}
 
     # Flatten all aliases to map them back to their canonical key
@@ -137,6 +137,7 @@ def resolve_attr_key(key: str, alias_map: dict[str, set[str]], cutoff: float = 0
                 alias_lower = alias.lower()
             except AttributeError as e:
                 raise TypeError(f"Alias must be a string, got {type(alias)}: {alias!r}") from e
+
             match_to_key[alias_lower] = canonical_key.lower()
             score = difflib.SequenceMatcher(None, value, alias_lower).ratio()
             if score > best_score:
