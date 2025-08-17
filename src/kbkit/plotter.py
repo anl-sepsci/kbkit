@@ -4,7 +4,7 @@ import os
 import warnings
 from itertools import combinations_with_replacement
 from pathlib import Path
-from typing import Any, Callable, List, Tuple, TypedDict
+from typing import Any, Callable, List, Optional, Tuple, TypedDict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -57,7 +57,7 @@ class Plotter:
         self,
         kb_obj: KBThermo,
         x_mol: str = "",
-        molecule_map: None | dict[str, str] = None,
+        molecule_map: Optional[dict[str, str]] = None,
     ) -> None:
         self.kb = kb_obj
         self.x_mol = x_mol
