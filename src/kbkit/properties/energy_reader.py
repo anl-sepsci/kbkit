@@ -270,8 +270,8 @@ class EnergyReader:
         property_name: str,
         start_time: float = 0,
         units: str = "",
-        xlim: tuple[float, float] = (-1, 1),
-        ylim: tuple[float, float] = (-1, 1),
+        xlim: tuple[float, float] = (0.0, 0.0),
+        ylim: tuple[float, float] = (0.0, 0.0),
     ) -> None:
         """
         Plot gmx property timeseries with running average.
@@ -305,9 +305,9 @@ class EnergyReader:
         ax.set_xlabel(f"time / {format_unit_str(time_qty)}")
         ax.set_ylabel(f"{resolve_attr_key(property_name, energy_aliases)} / {format_unit_str(values_qty)}")
         ax.legend()
-        if xlim is not (-1, 1):
+        if any(xlim) != 0.0:
             ax.set_xlim(xlim)
-        if ylim is not (-1, 1):
+        if any(ylim) != 0.0:
             ax.set_ylim(ylim)
         plt.show()
 

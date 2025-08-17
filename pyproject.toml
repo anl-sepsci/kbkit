@@ -89,3 +89,6 @@ doctest_optionflags = "NORMALIZE_WHITESPACE"
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
+
+[tool.hatch.build]
+sources=["src"]
