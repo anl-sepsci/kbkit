@@ -29,6 +29,7 @@ types = { cmd="mypy" }
 test = { cmd="pytest" }
 all = { depends-on = ["fmt", "lint", "types", "test"] }
 bump-version = { cmd = "python tools/bump_version.py" }
+filetree = { cmd = "python tools/filetree.py" }
 
 [tool.pixi.feature.dev.dependencies]
 pytest = ">=8.3"
