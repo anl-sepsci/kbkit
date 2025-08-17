@@ -5,7 +5,7 @@ import os
 import types
 from functools import cached_property
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -19,7 +19,7 @@ class SystemSet:
     A class to manage a set of systems for Kirkwood-Buff analysis.
 
     This class provides methods to handle system properties, molecule counts,
-    and other thermodynamic properties for a set of systems, including pure components.
+    and other properties for a set of systems, including pure components.
 
     Parameters
     ----------
@@ -37,10 +37,6 @@ class SystemSet:
         The starting time for analysis, used in temperature and enthalpy calculations. Defaults to 0.
     ensemble : str, optional
         The ensemble type for the systems, e.g., 'npt', 'nvt'. Defaults to 'npt'.
-    gamma_integration_type : str, optional
-        The type of integration to use for gamma calculations. Defaults to 'numerical'.
-    gamma_polynomial_degree : int, optional
-        The degree of the polynomial for gamma integration. Defaults to 5.
     cation_list : list, optional
         A list of cation names to consider for salt pairs. Defaults to an empty list.
     anion_list : list, optional
@@ -49,23 +45,19 @@ class SystemSet:
 
     def __init__(
         self,
-        base_path: str,
-        pure_component_path: str,
+        base_path: Optional[str],
+        pure_component_path: Optional[str],
         base_systems: list[str],
         pure_component_systems: list[str],
         rdf_dir: str,
         start_time: int,
         ensemble: str,
-        gamma_integration_type: str,
-        gamma_polynomial_degree: int,
         cation_list: list[str],
         anion_list: list[str],
     ) -> None:
         self.rdf_dir = rdf_dir
         self.start_time = start_time
         self.ensemble = ensemble.lower()
-        self.gamma_integration_type = gamma_integration_type
-        self.gamma_polynomial_degree = gamma_polynomial_degree
 
         self.base_path = base_path
         self.pure_component_path = pure_component_path

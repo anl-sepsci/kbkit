@@ -1,10 +1,10 @@
 """Calculate thermodynamics from Kirkwood-Buff theory."""
 
 import os
-from functools import partial
+from functools import cached_property, partial
 from itertools import product
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -16,10 +16,108 @@ from .system_set import SystemSet
 
 
 class KBThermo(SystemSet):
-    """Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties from RDF."""
+    """Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties from RDF.
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    This class inherits system properties from :class:`SystemSet` and uses them for the calculation of
+    Kirkwood-Buff integrals and other thermodynamic properties.
+
+    Parameters
+    ----------
+    base_path : str, optional
+        The base path where the systems are located. Defaults to the current working directory.
+    pure_component_path : str, optional
+        The path where pure component systems are located. Defaults to a 'pure_components' directory next to the base path.
+    base_systems : list, optional
+        A list of base systems to include. If not provided, it will automatically detect systems in the base path.
+    pure_component_systems : list, optional
+        A list of pure component systems to include. If not provided, it will automatically detect systems in the pure component path.
+    rdf_dir : str, optional
+        The directory name where RDF files are stored. Defaults to 'rdf_files'.
+    start_time : int, optional
+        The starting time for analysis, used in temperature and enthalpy calculations. Defaults to 0.
+    ensemble : str, optional
+        The ensemble type for the systems, e.g., 'npt', 'nvt'. Defaults to 'npt'.
+    gamma_integration_type : str, optional
+        The type of integration to use for gamma calculations. Defaults to 'numerical'.
+    gamma_polynomial_degree : int, optional
+        The degree of the polynomial for gamma integration. Defaults to 5.
+    cation_list : list, optional
+        A list of cation names to consider for salt pairs. Defaults to an empty list.
+    anion_list : list, optional
+        A list of anion names to consider for salt pairs. Defaults to an empty list.
+    """
+
+    def __init__(
+        self,
+        base_path: Optional[str],
+        pure_component_path: Optional[str],
+        base_systems: list[str],
+        pure_component_systems: list[str],
+        rdf_dir: str,
+        start_time: int,
+        ensemble: str,
+        gamma_integration_type: str,
+        gamma_polynomial_degree: int,
+        cation_list: list[str],
+        anion_list: list[str],
+    ) -> None:
+        # initialize SystemSet
+        super().__init__(
+            base_path=base_path,
+            pure_component_path=pure_component_path,
+            base_systems=base_systems,
+            pure_component_systems=pure_component_systems,
+            rdf_dir=rdf_dir,
+            start_time=start_time,
+            ensemble=ensemble,
+            cation_list=cation_list,
+            anion_list=anion_list,
+        )
+
+        self.gamma_integration_type = gamma_integration_type
+        self.gamma_polynomial_degree = gamma_polynomial_degree
+
+    @property
+    def salt_pairs(self) -> list[tuple[str, str]]:
+        """list: List of salt pairs as (cation, anion) tuples."""
+        return self._salt_pairs
+
+    @salt_pairs.setter
+    def salt_pairs(self, pairs: list[tuple[str, str]]) -> None:
+        # validates the salt_pairs list
+        if not isinstance(pairs, list):
+            raise TypeError(f"Expected a list of salt pairs, got {type(pairs).__name__}: {pairs}")
+        PAIR = 2
+        if not all(isinstance(pair, tuple) and len(pair) == PAIR for pair in pairs):
+            raise ValueError("Each salt pair must be a tuple of two elements (cation, anion).")
+        # checks molecules in pairs are in top_molecules
+        for pair in pairs:
+            if not all(mol in self.top_molecules for mol in pair):
+                raise ValueError(
+                    f"Salt pair {pair} contains molecules not present in top_molecules: {self.top_molecules}"
+                )
+        self._salt_pairs = pairs
+
+    @cached_property
+    def nosalt_molecules(self) -> list[str]:
+        """list: Molecules not part of any salt pair."""
+        # filter out molecules that are part of salt pairs
+        return [mol for mol in self.top_molecules if mol not in [x for pair in self.salt_pairs for x in pair]]
+
+    @cached_property
+    def salt_molecules(self) -> list[str]:
+        """list: Unique molecules in salt-pairs."""
+        return ["-".join(pair) for pair in self.salt_pairs]
+
+    @cached_property
+    def unique_molecules(self) -> list[str]:
+        """list: Molecules after combining salt pairs as single entries."""
+        return self.nosalt_molecules + self.salt_molecules
+
+    @property
+    def n_comp(self) -> int:
+        """int: Number of unique components (molecules) in the system set."""
+        return len(self.unique_molecules)
 
     def _top_mol_idx(self, mol: str) -> int:
         """
