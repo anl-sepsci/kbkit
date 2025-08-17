@@ -33,7 +33,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --cov=src/kbkit --cov-report=xml
+          pytest --cov=kbkit --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
