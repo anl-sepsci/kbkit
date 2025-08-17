@@ -26,6 +26,17 @@ conda activate kbkit
 pip install .
 ```
 
+## Examples
+
+A Jupyter notebook example for a binary system is available and provided in documentation.
+This notebook demonstrates how to apply `kbkit` to simulation data.
+An example of file structure is provided in `docs/test_data`.
+
+```python
+docs/examples/kbkit_example.ipynb
+```
+
+
 ## Credits
 
 This package was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) and the [jevandezande/pixi-cookiecutter](https://github.com/jevandezande/pixi-cookiecutter) project template.
