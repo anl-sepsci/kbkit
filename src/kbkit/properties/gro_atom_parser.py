@@ -1,8 +1,7 @@
 """Create an iterable object over valid atom lines in GROMACS .gro file."""
 
 import re
-from kbkit.utils.logging import get_logger
-from kbkit.utils.validation import validate_file
+from kbkit.utils import get_logger, validate_file
 
 class GroAtomParser:
     """

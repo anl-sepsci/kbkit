@@ -3,7 +3,7 @@
 from natsort import natsorted
 from pathlib import Path
 
-from kbkit.utils.logging import get_logger
+from kbkit.utils import get_logger, resolve_units
 from kbkit.config import load_unit_registry
 from kbkit.data import energy_aliases, get_gmx_unit, resolve_attr_key
 from kbkit.properties import EdrFileParser, TopFileParser, GroFileParser
@@ -60,11 +60,6 @@ class SystemProperties:
             "gro": self.gro.gro_path,
             "edr": self.edr.edr_path,
         }
-    
-    def _resolve_units(self, requested: str, default: str) -> str:
-        """Return the requested unit if provided, otherwise fall back to the default."""
-        return requested if requested else default
-
 
     def _get_average_property(
         self, name: str, start_time: float = 0, units: str = "", return_std: bool = False
@@ -73,7 +68,7 @@ class SystemProperties:
 
         prop = resolve_attr_key(name, energy_aliases)
         gmx_units = get_gmx_unit(prop)
-        units = self._resolve_units(units, gmx_units)
+        units = resolve_units(units, gmx_units)
         self.logger.debug(f"Fetching average property '{prop}' from .edr starting at {start_time}s with units '{units}'")
 
         if not self.edr.has_property(prop):
@@ -107,7 +102,7 @@ class SystemProperties:
         prop = resolve_attr_key("heat_capacity", energy_aliases)
         gmx_units = get_gmx_unit(prop)
         cap = self.edr.heat_capacity(nmol=self.top.total_molecules)
-        units = self._resolve_units(units, gmx_units)
+        units = resolve_units(units, gmx_units)
         unit_corr = self.Q_(cap, gmx_units).to(units).magnitude
         return float(unit_corr)
 
@@ -120,7 +115,7 @@ class SystemProperties:
         V = self._get_average_property("volume", start_time=start_time, units="m^3")
         
         H = (U + P * V) / self.top.total_molecules # convert to per molecule
-        units = self._resolve_units(units, "kJ/mol")
+        units = resolve_units(units, "kJ/mol")
         unit_corr = self.Q_(H, "kJ/mol").to(units).magnitude
         return float(unit_corr)
 

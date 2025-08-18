@@ -3,10 +3,8 @@
 from collections import defaultdict
 from functools import cached_property
 
-from kbkit.utils.chem import get_atomic_number
 from kbkit.properties import GroAtomParser
-from kbkit.utils.logging import get_logger
-from kbkit.utils.validation import validate_file
+from kbkit.utils import get_logger, validate_file, get_atomic_number
 
 
 class GroFileParser:
