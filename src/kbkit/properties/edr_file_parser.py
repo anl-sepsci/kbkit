@@ -24,8 +24,11 @@ class EdrFileParser:
         If True, enables detailed logging output.
     """
 
-    def __init__(self, edr_path: str | Sequence[str], verbose: bool = False) -> None:
-        edr_files = [edr_path] if isinstance(edr_path, str) else edr_path
+    def __init__(self, edr_path: str | list[str], verbose: bool = False) -> None:
+        if isinstance(edr_path, (str, Path)):
+            edr_files = [str(edr_path)]
+        else:
+            edr_files = [str(f) for f in edr_path]
         self.edr_path = [validate_file(f, suffix=".edr") for f in edr_files]
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.logger.info(f"Validated .edr file: {self.edr_path}")

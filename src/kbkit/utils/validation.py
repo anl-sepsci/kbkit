@@ -4,10 +4,12 @@ from pathlib import Path
 
 def validate_file(path: str | Path, suffix: str) -> Path:
     path = Path(path)
+    # first validate suffix
+    if path.suffix != suffix:
+        raise ValueError(f"Suffix {suffix} does not match file suffix: {path.suffix}")
+    # check if file is a file and exists
     if not path.is_file():
         raise FileNotFoundError(f"File not found: {path}")
-    if path.suffix != suffix:
-        raise ValueError(f"Expected a {suffix} file, got: {path.name}")
     # special checks for certain file types
     if suffix == ".gro":
         if len(path.read_text().splitlines()) < 3:

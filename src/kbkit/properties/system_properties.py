@@ -25,7 +25,7 @@ class SystemProperties:
         }
 
         for suffix, (attr, parser_cls) in file_map.items():
-            filepath = self._find_file(suffix)
+            filepath = self.find_file(suffix)
             setattr(self, attr, parser_cls(filepath, verbose=verbose))
 
 

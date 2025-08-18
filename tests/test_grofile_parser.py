@@ -7,9 +7,12 @@ from kbkit.properties import GroFileParser  # Adjust import path as needed
 # Sample minimal .gro content
 SAMPLE_GRO_CONTENT = """Test GRO file
    3
-    1WAT     OW    1   0.000   0.000   0.000
-    1WAT    HW1    2   0.100   0.000   0.000
-    1WAT    HW2    3   0.000   0.100   0.000
+    1WAT    O     1   0.000   0.000   0.000
+    1WAT    H     2   0.100   0.000   0.000
+    1WAT    H1    3   0.000   0.100   0.000
+    2WAT    O     4   1.000   1.000   1.000
+    2WAT    H     5   1.100   1.000   1.000
+    2WAT    H1    6   1.000   1.100   1.000
    1.00000  1.00000  1.00000
 """
 
@@ -38,7 +41,7 @@ def test_box_volume_calculation():
 
     temp_dir.cleanup()
 
-def test_invalid_file_extension():
+def test_invalid_suffix():
     with pytest.raises(ValueError):
         GroFileParser("invalid.txt")
 
