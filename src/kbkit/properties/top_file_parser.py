@@ -1,0 +1,136 @@
+"""Parses .top and .gro files from GROMACS simulations.
+
+Topology file is ued to determine molecules and their respective numbers present.
+GROMACS (.gro) file is used to determine electron number of each molecule.
+"""
+
+import re
+from pathlib import Path
+from functools import cached_property
+import logging
+
+
+class TopFileParser:
+    def __init__(self, top_path: str, verbose: bool = False):
+        """
+        Initializes the parser with the path to the topology file.
+
+        Parameters
+        ----------
+        top_path : str
+            Path to the topology (.top) file.
+        verbose : bool, optional
+            If True, enables detailed logging output.
+        """
+        self.top_path = Path(top_path)
+        self.verbose = verbose
+        self.skipped_lines = []
+
+        # Logger setup
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        handler.setFormatter(formatter)
+
+        if not self.logger.hasHandlers():
+            self.logger.addHandler(handler)
+
+        self.logger.setLevel(logging.DEBUG if self.verbose else logging.WARNING)
+
+        if not self.top_path.exists():
+            raise FileNotFoundError(f"Topology file not found: {self.top_path}")
+
+    def _is_valid_molecule_name(self, name: str) -> bool:
+        # Allow letters, numbers, underscores, and hyphens
+        return bool(re.match(r"^[A-Za-z0-9_\-]{2,50}$", name))
+    
+    def _is_valid_count(self, count: str) -> bool:
+        # check if string is valid number
+        return count.isdigit()
+
+    def parse(self) -> dict[str, int]:
+        """Read the topology file and returns a dictionary of molecule names and counts.
+        
+        Returns
+        -------
+        dict
+            Dictionary containing molecules present and their number.
+        """
+
+        self.logger.info(f"Reading topology file: {self.top_path}")
+        lines = self.top_path.read_text().splitlines()
+        molecules = {} 
+        in_molecules_section = False
+
+        # extract molecule name and numbers from file
+        for line_num, line in enumerate(lines, start=1):
+            original_line = line
+            line = line.split(";")[0].strip()  # Remove comments (anything after a semicolon) and leading/trailing whitespace
+            if not line:
+                self.logger.debug(f"[Line {line_num}] Skipped empty or comment line.")
+                continue  # Skip empty lines
+
+            # search for 'molecules' line
+            if line.lower().startswith("[ molecules ]"):
+                in_molecules_section = True
+                self.logger.debug(f"[Line {line_num}] Found '[ molecules ]' section.")
+                continue          
+
+            if in_molecules_section:
+                if line.startswith("["):
+                    self.logger.debug(f"[Line {line_num}] Encountered new section. Stopping molecule parsing.")
+                    break # Stop parsing if we encounter another section
+
+                # Split the line by spaces and tabs, filtering out empty strings
+                parts = re.split(r"\s+", line)
+
+                if len(parts) < 2:
+                    self.logger.warning(f"[Line {line_num}] Skipped: Missing molecule name or count → '{original_line}'")
+                    self.skipped_lines.append((original_line, "Missing molecule name or count"))
+                    continue 
+
+                molecule_name, count_str = parts[0], parts[1]
+
+                if not self._is_valid_molecule_name(molecule_name):
+                    self.logger.warning(f"[Line {line_num}] Skipped: Invalid molecule name => '{molecule_name}'")
+                    self.skipped_lines.append((original_line, "Invalid molecule name format"))
+                    continue
+
+                if not self._is_valid_count(count_str):
+                    self.logger.warning(f"[Line {line_num}] Skipped: Invalid molecule count → '{count_str}'")
+                    self.skipped_lines.append((original_line, "Invalid molecule count"))
+                    continue
+
+                molecules[molecule_name] = int(count_str)
+                self.logger.debug(f"[Line {line_num}] Parsed molecule: {molecule_name} → {count_str}")
+
+        if not molecules:
+            self.logger.error("No molecules found in topology file.")
+            raise ValueError("No molecules found in topology file.")
+
+        self.logger.info(f"Successfully parsed {len(molecules)} molecules.")
+        return molecules
+    
+    def report_skipped(self) -> None:
+        """Prints a summary of lines that were skipped during parsing, including the line content and the reason for skipping."""
+        if self.skipped_lines:
+            print("Skipped lines during parsing:")
+            for line, reason in self.skipped_lines:
+                print(f"  Line: '{line}' => Reason: {reason}")
+        
+
+    @cached_property
+    def molecule_dict(self) -> dict[str, int]:
+        """dict[str, int]: Dictionary of molecules present and their corresponding numbers."""
+        return self.parse()
+
+    @property
+    def molecules(self) -> list[str]:
+        """list[str]: Names of molecules present."""
+        return list(self.molecule_dict.keys())
+
+    @property
+    def total_molecules(self) -> int:
+        """int: Total number of molecules present."""
+        return sum(self.molecule_dict.values())
+
