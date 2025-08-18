@@ -1,12 +1,9 @@
 """General purpose utilities."""
 
-from kbkit.utils.utils import (
-    _str_to_latex_math,
-    format_quantity,
-    format_unit_str,
-    generate_mol_frac_matrix,
-    mkdir,
-)
 
+from kbkit.utils.chem import (is_valid_element, get_atomic_number)
+from kbkit.utils.format import (resolve_units, format_unit_str)
+from kbkit.utils.logging import get_logger
+from kbkit.utils.validation import validate_file
 
-__all__ = ["_str_to_latex_math", "format_quantity", "format_quantity", "format_unit_str", "format_unit_str", "generate_mol_frac_matrix", "mkdir"]
+__all__ = ["is_valid_element", "get_atomic_number", "resolve_units", "format_unit_str", "get_logger", "validate_file"]
