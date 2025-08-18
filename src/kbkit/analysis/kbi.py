@@ -1,4 +1,8 @@
-"""Calculation and correction of Kirkwood-Buff Integrals for a given RDF file."""
+"""
+Computes Kirkwood-Buff integrals (KBIs) from RDF data and applies thermodynamic limit corrections.
+
+Relies on RDF parsing and system composition data to produce corrected KBIs for use in thermodynamic models.
+"""
 
 import os
 from pathlib import Path
@@ -9,9 +13,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.analysis import RDF
-from kbkit.properties import SystemProperties
-from kbkit.utils import to_float
+from kbkit.analysis.rdf import RDF
+from kbkit.core.system_properties import SystemProperties
 
 
 class KBI:
@@ -69,7 +72,7 @@ class KBI:
     def box_vol(self) -> float:
         """Return the volume of the system box in nm^3."""
         vol = self.system_properties.volume(units="nm^3")
-        return to_float(vol)
+        return float(vol)
 
     def rdf_molecules(self) -> list[str]:
         """Get the molecules corresponding to the RDF file from the system topology.

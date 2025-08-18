@@ -1,4 +1,10 @@
-"""Unit registry to support flexible units of parameters."""
+"""
+Defines and exposes a Pint UnitRegistry used throughout kbkit for consistent and flexible unit handling.
+
+This registry ensures that all physical quantities—whether parsed from GROMACS files or computed in analysis—are
+interpreted and converted using a shared unit system.
+"""
+
 
 import pint
 

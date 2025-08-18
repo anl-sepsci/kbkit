@@ -1,4 +1,4 @@
-"""General purpose utilities."""
+"""General-purpose helpers."""
 
 
 from kbkit.utils.chem import (is_valid_element, get_atomic_number)

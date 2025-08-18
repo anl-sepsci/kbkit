@@ -1,4 +1,8 @@
-"""Manages system properties for a collection of systems."""
+"""
+Discovers and manages multiple simulation systems based on directory structure and input parameters.
+
+Calculates system-level properties (e.g., composition, volume) and prepares data for KBI and thermodynamic analysis.
+"""
 
 import itertools
 import os
@@ -10,8 +14,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.config import load_unit_registry
-from kbkit.properties import SystemProperties
+from kbkit.config.unit_registry import load_unit_registry
+from kbkit.core.system_properties import SystemProperties
 
 
 class SystemSet:

@@ -1,4 +1,9 @@
-"""Provide a unified interface to compute topology, electron counts, and GROMACS properties."""
+"""
+Provides a unified interface for extracting molecular and system-level properties from GROMACS input files.
+
+This module wraps the gro/top/edr parsers and exposes structured access to quantities like temperature, pressure,
+volume, and molecular composition. It serves as the foundation for downstream analysis modules.
+"""
 
 from natsort import natsorted
 from pathlib import Path
@@ -6,7 +11,7 @@ from pathlib import Path
 from kbkit.utils import get_logger, resolve_units
 from kbkit.config import load_unit_registry
 from kbkit.data import energy_aliases, get_gmx_unit, resolve_attr_key
-from kbkit.properties import EdrFileParser, TopFileParser, GroFileParser
+from kbkit.parsers import EdrFileParser, TopFileParser, GroFileParser
 
 
 class SystemProperties:

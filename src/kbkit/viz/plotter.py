@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MultipleLocator
 
-from kbkit.analysis import KBThermo
-from kbkit.data import kb_aliases, resolve_attr_key
-from kbkit.utils import format_unit_str
+from kbkit.analysis.kb_thermo import KBThermo
+from kbkit.data.mapped import kb_aliases, resolve_attr_key
+from kbkit.utils.format import format_unit_str
 
 plt.style.use(Path(__file__).parent / "presentation.mplstyle")
 warnings.filterwarnings("ignore")

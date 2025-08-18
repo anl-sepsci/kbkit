@@ -1,4 +1,4 @@
-"""Utility functions used within KBKit interface."""
+"""String and data formatting."""
 
 import re
 from re import Match

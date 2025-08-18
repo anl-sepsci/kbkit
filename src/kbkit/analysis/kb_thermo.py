@@ -1,4 +1,9 @@
-"""Calculate thermodynamics from Kirkwood-Buff theory."""
+"""
+Constructs thermodynamic property matrices from KBIs across multiple systems.
+
+Supports calculation of chemical potentials, partial molar volumes, and other derived quantities.
+Acts as the computational backbone for the kb_pipeline.
+"""
 
 import os
 from functools import cached_property, partial
@@ -10,8 +15,9 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.analysis import KBI, RDF, SystemSet
-
+from kbkit.analysis.kbi import KBI
+from kbkit.analysis.rdf import RDF
+from kbkit.analysis.system_set import SystemSet
 
 class KBThermo(SystemSet):
     """Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties from RDF.

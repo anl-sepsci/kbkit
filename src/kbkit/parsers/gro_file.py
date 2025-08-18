@@ -3,9 +3,10 @@
 from collections import defaultdict
 from functools import cached_property
 
-from kbkit.properties import GroAtomParser
-from kbkit.utils import get_logger, validate_file, get_atomic_number
-
+from kbkit.parsers.gro_atom import GroAtomParser
+from kbkit.utils.chem import get_atomic_number
+from kbkit.utils.logging import get_logger
+from kbkit.utils.validation import validate_file
 
 class GroFileParser:
     def __init__(self, gro_path: str, verbose: bool = False) -> None:

@@ -1,4 +1,5 @@
-"""Uses RDkit to retrieve element information."""
+"""Contains general-purpose chemical utilities such as element lookup."""
+
 
 from rdkit.Chem import GetPeriodicTable
 

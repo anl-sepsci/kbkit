@@ -1,11 +1,16 @@
-"""Pipeline for performing Kirkwood-Buff Analysis on group of systems."""
+"""
+High-level orchestration layer for running thermodynamic analysis workflows.
+
+This module coordinates system discovery, RDF/KBI parsing, and thermodynamic matrix construction.
+Intended for use in CLI tools, notebooks, or automated pipelines.
+"""
 
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 
-from kbkit.analysis import KBThermo
+from kbkit.analysis.kb_thermo import KBThermo
 
 
 class KBPipeline:

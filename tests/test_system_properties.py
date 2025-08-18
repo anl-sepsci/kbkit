@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from kbkit.properties import SystemProperties
+from kbkit.core import SystemProperties
 
 # Sample minimal .gro content
 SAMPLE_GRO_CONTENT = """Test GRO file
@@ -38,7 +38,7 @@ def test_file_registry(system):
     assert "gro" in registry
     assert "edr" in registry
 
-@patch("kbkit.properties.edr_file_parser.EdrFileParser.heat_capacity", return_value=42.0)
+@patch("kbkit.parsers.edr_file.EdrFileParser.heat_capacity", return_value=42.0)
 def test_get_heat_capacity(mock_heat_capacity, system):
     cap = system.get("heat_capacity")
     assert isinstance(cap, float)

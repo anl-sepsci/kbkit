@@ -1,4 +1,4 @@
-"""Centralize logging configuration."""
+"""Custom logging setup."""
 
 import logging
 

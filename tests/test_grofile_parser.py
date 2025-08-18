@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from kbkit.properties import GroFileParser  # Adjust import path as needed
+from kbkit.parsers import GroFileParser  # Adjust import path as needed
 
 # Sample minimal .gro content
 SAMPLE_GRO_CONTENT = """Test GRO file

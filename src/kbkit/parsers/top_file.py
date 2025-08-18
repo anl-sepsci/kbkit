@@ -3,7 +3,8 @@
 import re
 from functools import cached_property
 
-from kbkit.utils import get_logger, validate_file
+from kbkit.utils.logging import get_logger
+from kbkit.utils.validation import validate_file
 
 class TopFileParser:
     def __init__(self, top_path: str, verbose: bool = False):

@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 import numpy as np
 
-from kbkit.properties import EdrFileParser
+from kbkit.parsers import EdrFileParser
 
 @pytest.fixture
 def edr_file(tmp_path):
@@ -23,7 +23,7 @@ def test_edrfileparser_load(edr_file):
     assert parser.available_properties() is not None
     assert isinstance(parser.available_properties(), list)
 
-@patch("kbkit.properties.edr_file_parser.subprocess.run")
+@patch("kbkit.parsers.edr_file.subprocess.run")
 def test_average_property(mock_run, edr_file):
     mock_run.return_value = None  # Simulate successful run
     parser = EdrFileParser(edr_file)

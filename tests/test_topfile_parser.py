@@ -1,6 +1,6 @@
 import pytest 
 from pathlib import Path 
-from kbkit.properties import TopFileParser
+from kbkit.parsers import TopFileParser
 
 @pytest.fixture
 def sample_top_file(tmp_path):

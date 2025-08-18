@@ -6,9 +6,9 @@ import numpy as np
 from numpy.typing import NDArray
 from pathlib import Path
 
-from kbkit.data import energy_aliases, resolve_attr_key
-from kbkit.utils import get_logger, validate_file
-
+from kbkit.data.mapped import energy_aliases, resolve_attr_key
+from kbkit.utils.logging import get_logger
+from kbkit.utils.validation import validate_file
 
 class EdrFileParser:
     """

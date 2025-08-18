@@ -1,4 +1,4 @@
-"""Configuration settings and constants."""
+"""Centralized configuration and registries."""
 
 from kbkit.config.unit_registry import load_unit_registry
 
