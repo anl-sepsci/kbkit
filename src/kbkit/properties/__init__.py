@@ -1,7 +1,9 @@
 """SubModule for managing GROMACS properties."""
 
-from kbkit.properties.energy_reader import EnergyReader
+from kbkit.properties.top_file_parser import TopFileParser
+from kbkit.properties.gro_atom_parser import GroAtomParser
+from kbkit.properties.gro_file_parser import GroFileParser
+from kbkit.properties.edr_file_parser import EdrFileParser
 from kbkit.properties.system_properties import SystemProperties
-from kbkit.properties.topology import TopologyParser
 
-__all__ = ["EnergyReader", "SystemProperties", "TopologyParser"]
+__all__ = ["TopFileParser", "GroAtomParser", "GroFileParser", "EdrFileParser", "SystemProperties"]

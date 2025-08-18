@@ -1,149 +1,143 @@
 """Provide a unified interface to compute topology, electron counts, and GROMACS properties."""
 
-from typing import Any, Callable
+from natsort import natsorted
+from pathlib import Path
 
-import numpy as np
-from numpy.typing import NDArray
-
+from kbkit.utils.logging import get_logger
 from kbkit.config import load_unit_registry
 from kbkit.data import energy_aliases, get_gmx_unit, resolve_attr_key
-from kbkit.properties import EnergyReader, TopologyParser
-from kbkit.utils import to_float
+from kbkit.properties import EdrFileParser, TopFileParser, GroFileParser
 
 
 class SystemProperties:
-    """
-    Unified interface for access properties from GROMACS simulations.
-
-    Accesses system properties (both energy and topology) for a GROMACS molecular dynamics simulation.
-    Includes specific property calculations from functions in parent classes.
-
-    Parameters
-    ----------
-    syspath: str
-        Absolute path to system.
-    ensemble: str, optional
-        Ensemble for simulations. Default is '`npt`'.
-
-    See Also
-    --------
-    :class:`kbkit.properties.topology.TopologyParser`: Topology parent class for molecule names, molecule numbers, and electron numbers.
-    :class:`kbkit.properties.energy_reader.EnergyReader`: GROMACS properties to calculate with gmx energy.
-
-    """
-
-    def __init__(self, syspath: str, ensemble: str = "npt") -> None:
-        self.topology = TopologyParser(syspath, ensemble)
-        self.energy = EnergyReader(syspath, ensemble)  # system path that contains .top and .edr files
+    def __init__(self, syspath: str, ensemble: str = "npt", verbose: bool = False) -> None:
+        self.syspath = Path(syspath) 
+        self.ensemble = ensemble.lower()
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.ureg = load_unit_registry()  # Load the unit registry for unit conversions
+        self.Q_ = self.ureg.Quantity
 
-    def __getattr__(self, name: str) -> Callable[..., Any]:
-        """
-        Dynamically resolves and computes system properties as attributes.
+        # File discover and parser setup
+        file_map = {
+            ".top": ("top", TopFileParser),
+            ".gro": ("gro", GroFileParser),
+            ".edr": ("edr", EdrFileParser),
+        }
 
-        Parameters
-        ----------
-        name : str
-            Name of the property to resolve.
+        for suffix, (attr, parser_cls) in file_map.items():
+            filepath = self._find_file(suffix)
+            setattr(self, attr, parser_cls(filepath, verbose=verbose))
 
-        Returns
-        -------
-        function
-            A function that computes the requested property with optional arguments for units, time range,
-            and output format.
-        """
-        # get energy attribute
-        prop = resolve_attr_key(name.lower(), energy_aliases)
+
+    def find_file(self, suffix: str) -> str | list[str]:
+        """Find files in `syspath` that contain `suffix` and `ensemble`."""
+        try:
+            files = list(self.syspath.glob(f"*{self.ensemble}*{suffix}"))
+            filtered = [f for f in files if not any(x in f.name for x in ("init", "eqm"))]
+
+            if not filtered:
+                self.logger.error(f"No {suffix} files found.")
+                raise ValueError(f"No {suffix} files found.")
+
+            if suffix == ".edr":
+                return natsorted(filtered)
+
+            if len(filtered) > 1:
+                self.logger.warning(f"Multiple {suffix} files found: {filtered}. Using {filtered[0]}.")
+            return str(filtered[0])
+
+        except Exception as e:
+            raise RuntimeError(
+                f"Error finding files in '{self.syspath}' with suffix '{suffix}' and ensemble '{self.ensemble}': {e}"
+            ) from e
+        
+    
+    @property
+    def file_registry(self) -> dict[str, str | list[str]]:
+        """str | list[str]: Registry of GROMACS file types and their values."""
+        return {
+            "top": self.top.top_path,
+            "gro": self.gro.gro_path,
+            "edr": self.edr.edr_path,
+        }
+    
+    def _resolve_units(self, requested: str, default: str) -> str:
+        """Return the requested unit if provided, otherwise fall back to the default."""
+        return requested if requested else default
+
+
+    def _get_average_property(
+        self, name: str, start_time: float = 0, units: str = "", return_std: bool = False
+    ) -> float | tuple[float, float]:
+        """Returns the average property from .edr file."""
+
+        prop = resolve_attr_key(name, energy_aliases)
         gmx_units = get_gmx_unit(prop)
+        units = self._resolve_units(units, gmx_units)
+        self.logger.debug(f"Fetching average property '{prop}' from .edr starting at {start_time}s with units '{units}'")
 
-        def prop_getter(
-            time_units: str = "ns",
-            units: str = "",
-            start_time: float = 0,
-            return_std: bool = False,
-            timeseries: bool = False,
-        ) -> float | tuple[NDArray[np.float64], NDArray[np.float64]] | tuple[float, float]:
-            # get property units
-            units = units if units else gmx_units
-
-            # first search for heat capacity (unique case)
-            if prop == "heat_capacity":
-                return self.energy.heat_capacity(nmol=self.topology.total_molecules, units=units)
-
-            # then if volume and ensemble is nvt
-            elif prop == "volume" and self.energy.ensemble == "nvt":
-                return self.topology.box_volume(units=units)
-
-            # if timeseries is desired, return arrays instead of floats
-            elif timeseries:
-                time_qty, val_qty = self.energy.stitch_property_timeseries(
-                    prop, start_time=start_time, time_units=time_units, units=units
-                )
-                return time_qty.magnitude, val_qty.magnitude
-
-            # defaults to the averaged property
-            else:
-                return self.energy.average_property(prop, start_time=start_time, units=units, return_std=return_std)
-
-        # special case for enthalpy
-        if prop == "enthalpy":
-
-            def enthalpy_getter(start_time: float = 0, units: str = "kJ/mol") -> float:
-                # get potential energy
-                U = self.energy.average_property("potential", start_time=start_time, units="kJ/mol", return_std=False)
-                # get pressure
-                P = self.energy.average_property("pressure", start_time=start_time, units="kPa", return_std=False)
-                # get volume, from gmx energy (npt) or .gro file (nvt)
-                if self.energy.ensemble == "npt":
-                    V = self.energy.average_property("volume", start_time=start_time, units="m^3", return_std=False)
-                elif self.energy.ensemble == "nvt":
-                    # For NVT, volume is not directly computed, so we use the box volume from the topology
-                    V = self.topology.box_volume(units="m^3")
-
-                U, P, V = to_float(U), to_float(P), to_float(V)
-                H = U + P * V
-                H /= self.topology.total_molecules  # Convert to per molecule
-
-                # convert units
+        if not self.edr.has_property(prop):
+            if prop == "volume":
                 try:
-                    H = self.ureg.Quantity(H, "kJ/mol").to(units).magnitude
-                except Exception as e:
-                    raise RuntimeError(f"Failed to convert enthalpy units: {e}") from e
+                    self.logger.info("Using .gro file to estimate volume since .edr lacks volume data")
+                    vol = self.gro.calculate_box_volume()
+                    vol_converted = float(self.Q_(vol, gmx_units).to(units).magnitude)                    
+                    return (vol_converted, 0.0) if return_std else vol_converted
+                except ValueError as e:
+                    self.logger.error(f"Volume estimation from .gro file failed: {e}")
+                    raise ValueError(f"Alternative volume calculation from .gro file failed: {e}") from e
+            else:
+                raise ValueError(f"GROMACS .edr file {self.file_registry['edr']} does not contain property: {prop}.")
 
-                return float(H)
+        result = self.edr.average_property(name=prop, start_time=start_time, return_std=return_std)
 
-            return enthalpy_getter
-
-        # Return the property getter function so it can accept optional units argument
+        if return_std:
+            avg_val, std_val = result
+            avg_converted = self.Q_(avg_val, gmx_units).to(units).magnitude
+            std_converted = self.Q_(std_val, gmx_units).to(units).magnitude
+            return float(avg_converted), float(std_converted)
         else:
-            return prop_getter
+            avg_converted = self.Q_(result, gmx_units).to(units).magnitude
+            return float(avg_converted)
+        
 
-    def get(self, name: str, **kwargs: Any) -> Any:
-        """
-        Get average property from gmx energy with automatic reading of topology information.
+    def heat_capacity(self, units: str = "") -> float:
+        """Compute the heat capacity of the system."""
+        self.logger.debug(f"Calculating heat capacity with units '{units}'")
+        prop = resolve_attr_key("heat_capacity", energy_aliases)
+        gmx_units = get_gmx_unit(prop)
+        cap = self.edr.heat_capacity(nmol=self.top.total_molecules)
+        units = self._resolve_units(units, gmx_units)
+        unit_corr = self.Q_(cap, gmx_units).to(units).magnitude
+        return float(unit_corr)
 
-        Parameters
-        ----------
-        name: str
-            Property to retrieve from gmx energy.
+    def enthalpy(self, start_time: float = 0, units: str = "") -> float:
+        """Compute the enthalpy of the system at a specified start time."""
+        self.logger.debug(f"Calculating enthalpy from U, P, V at {start_time}s with units '{units}'")
 
-        Returns
-        -------
-        float or list[float, float]
-            Scalar of average property if `return_std` option is False, else list of (average, standard deviation).
-        """
-        return getattr(self, name)(**kwargs)
+        U = self._get_average_property("potential", start_time=start_time, units="kJ/mol")
+        P = self._get_average_property("pressure", start_time=start_time, units="kPa")
+        V = self._get_average_property("volume", start_time=start_time, units="m^3")
+        
+        H = (U + P * V) / self.top.total_molecules # convert to per molecule
+        units = self._resolve_units(units, "kJ/mol")
+        unit_corr = self.Q_(H, "kJ/mol").to(units).magnitude
+        return float(unit_corr)
 
-    def plot(self, property_name: str, **kwargs: Any) -> None:
-        """Plot gmx energy timeseries property.
+    
+    def get(self, name: str, start_time: float = 0, units: str = "", std: bool = False) -> float | tuple[float, float]:
+        """Fetch any available GROMACS property by name, with alias resolution and optional standard deviation."""
+        name = resolve_attr_key(name, energy_aliases)
+        self.logger.debug(f"Requested property '{name}' with std={std}, units='{units}', start_time={start_time}")
 
-        Parameters
-        ----------
-        property_name: str
-            Property to plot from gmx energy
 
-        See Also
-        --------
-        :meth:`kbkit.properties.energy_reader.EnergyReader.plot_property`: More details on the gmx energy plotting function.
-        """
-        self.energy.plot_property(property_name, **kwargs)
+        if name == "heat_capacity":
+            return self.heat_capacity(units=units)
+        elif name == "enthalpy":
+            return self.enthalpy(start_time=start_time, units=units)
+        
+        return self._get_average_property(name=name, start_time=start_time, units=units, return_std=std)
+
+
+    
+

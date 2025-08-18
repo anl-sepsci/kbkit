@@ -1,13 +1,11 @@
 """Utility functions used within KBKit interface."""
 
-import glob
 import itertools
 import os
 import re
 from re import Match
 
 import numpy as np
-from natsort import natsorted
 from numpy.typing import NDArray
 from pint import Quantity
 from uncertainties import ufloat
@@ -59,40 +57,7 @@ def to_float(val: float | list[float] | tuple[float, ...]) -> float:
         raise TypeError(f"Could not convert value of type({type(val)}) to float.") from e
 
 
-def _find_file(syspath: str, suffix: str, ensemble: str = "npt") -> list[str]:
-    """
-    Find files in `syspath` that contain `suffix` and `ensemble`.
 
-    Parameters
-    ----------
-    syspath: str
-        Path to simulation system containing GROMACS files
-    suffix: str
-        Type of file to look for, i.e., '`edr`', '`gro`', '`top`'.
-    ensemble: str
-        Molecular dynamics ensemble. Options: '`'npt`', '`nvt`'. Default 'npt'.
-
-    Returns
-    -------
-    list
-        List of files that match pattern.
-    """
-    try:
-        # create pattern and use glob to find files matching pattern
-        pattern = os.path.join(syspath, f"*{ensemble}*{suffix}")
-        files = glob.glob(pattern)
-        # Exclude equilibration/init files
-        filtered = [f for f in files if not any(x in f for x in ("init", "eqm"))]
-        # return empty list if no files left after filter
-        if not filtered:
-            return []
-        else:
-            # natural sort files by name
-            return natsorted(filtered)
-    except Exception as e:
-        raise RuntimeError(
-            f"Error finding files in '{syspath}' with suffix '{suffix}' and ensemble '{ensemble}': {e}"
-        ) from e
 
 
 def _str_to_latex_math(text: str) -> str:

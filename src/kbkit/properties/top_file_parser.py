@@ -1,14 +1,10 @@
-"""Parses .top and .gro files from GROMACS simulations.
-
-Topology file is ued to determine molecules and their respective numbers present.
-GROMACS (.gro) file is used to determine electron number of each molecule.
-"""
+"""Parses a GROMACS .top file to extract molecule names and their counts from the [ molecules ] section."""
 
 import re
-from pathlib import Path
 from functools import cached_property
-import logging
 
+from kbkit.utils.logging import get_logger
+from kbkit.utils.validation import validate_file
 
 class TopFileParser:
     def __init__(self, top_path: str, verbose: bool = False):
@@ -22,23 +18,11 @@ class TopFileParser:
         verbose : bool, optional
             If True, enables detailed logging output.
         """
-        self.top_path = Path(top_path)
+        self.top_path = validate_file(top_path, suffix=".top")
         self.verbose = verbose
         self.skipped_lines = []
-
-        # Logger setup
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
-
-        if not self.logger.hasHandlers():
-            self.logger.addHandler(handler)
-
-        self.logger.setLevel(logging.DEBUG if self.verbose else logging.WARNING)
-
-        if not self.top_path.exists():
-            raise FileNotFoundError(f"Topology file not found: {self.top_path}")
+        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
+        self.logger.info(f"Validated .top file: {self.top_path}")
 
     def _is_valid_molecule_name(self, name: str) -> bool:
         # Allow letters, numbers, underscores, and hyphens
@@ -102,7 +86,7 @@ class TopFileParser:
                     continue
 
                 molecules[molecule_name] = int(count_str)
-                self.logger.debug(f"[Line {line_num}] Parsed molecule: {molecule_name} → {count_str}")
+                self.logger.debug(f"[Line {line_num}] Parsed molecule: {molecule_name} => {count_str}")
 
         if not molecules:
             self.logger.error("No molecules found in topology file.")
