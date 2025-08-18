@@ -12,7 +12,7 @@ from matplotlib.ticker import MultipleLocator
 
 from kbkit.analysis import KBThermo
 from kbkit.data import kb_aliases, resolve_attr_key
-from kbkit.utils import format_unit_str, generate_mol_frac_matrix, mkdir
+from kbkit.utils import format_unit_str
 
 plt.style.use(Path(__file__).parent / "presentation.mplstyle")
 warnings.filterwarnings("ignore")
@@ -66,8 +66,11 @@ class Plotter:
 
     def _setup_folders(self) -> None:
         # create folders for figures if they don't exist
-        self.kb_dir = mkdir(os.path.join(self.kb.base_path, "kb_analysis"))
-        self.sys_dir = mkdir(os.path.join(self.kb_dir, "system_figures"))
+        self.kb_dir = Path(os.path.join(self.kb.base_path, "kb_analysis"))
+        self.sys_dir = Path(os.path.join(self.kb_dir, "system_figures"))
+        for path in (self.kb_dir, self.sys_dir):
+            if not path.exists():
+                os.mkdir(path)
 
     @property
     def molecule_map(self) -> dict[str, str]:
@@ -499,8 +502,7 @@ class Plotter:
 
                     if fit_fns is not None:
                         fit = fit_fns[mol]
-                        zplot = generate_mol_frac_matrix(n_components=self.kb.n_comp)
-                        xfit = zplot[:, self._x_idx] if self.kb.n_comp == BINARY_SYSTEM else zplot[:, i]
+                        xfit = np.arange(0, 1.01, 0.01)
                         ax.plot(xfit, fit(xfit), c=colors[i], lw=2)
 
                 ax.legend(
