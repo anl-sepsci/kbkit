@@ -11,10 +11,10 @@ import numpy as np
 from matplotlib.ticker import MultipleLocator
 
 from kbkit.analysis.kb_thermo import KBThermo
-from kbkit.data.mapped import kb_aliases, resolve_attr_key
 from kbkit.utils.format import format_unit_str
+from kbkit.config.mplstyle import load_mplstyle
 
-plt.style.use(Path(__file__).parent / "presentation.mplstyle")
+load_mplstyle() # load figure config file
 warnings.filterwarnings("ignore")
 
 BINARY_SYSTEM = 2
@@ -651,7 +651,10 @@ class Plotter:
         show: bool, optional
             Display figure (default True).
         """
-        prop_key = resolve_attr_key(prop.lower(), kb_aliases)
+        prop_key = prop.lower()
+        if prop_key not in self.available_properties():
+            raise ValueError(f"Property {prop_key} not valid.")
+        
         energy_units = units if units else "kJ/mol"
         kbi_units = units if units else "cm^3/mol"
 

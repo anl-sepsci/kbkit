@@ -1,5 +1,5 @@
 """Domain-specific mappings and reference data."""
 
-from kbkit.data.mapped import energy_aliases, get_gmx_unit, gmx_unit_map, kb_aliases, resolve_attr_key
+from kbkit.data.property_resolver import get_gmx_unit, resolve_attr_key
 
-__all__ = ["energy_aliases", "get_gmx_unit", "gmx_unit_map", "kb_aliases", "resolve_attr_key"]
+__all__ = ["get_gmx_unit", "resolve_attr_key"]

@@ -14,8 +14,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 
-plt.style.use(Path(__file__).parent.parent / "viz" / "presentation.mplstyle")
+from kbkit.config.mplstyle import load_mplstyle
 
+load_mplstyle() # load mpl figure configuration
 
 class RDF:
     """

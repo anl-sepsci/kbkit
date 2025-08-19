@@ -1,0 +1,12 @@
+{
+  "enthalpy": "kJ/mol",
+  "temperature": "K",
+  "volume": "nm^3",
+  "heat_capacity": "kJ/mol/K",
+  "pressure": "bar",
+  "density": "kg/m^3",
+  "potential": "kJ/mol",
+  "kinetic-en": "kJ/mol",
+  "total-energy": "kJ/mol",
+  "time": "ps"
+}

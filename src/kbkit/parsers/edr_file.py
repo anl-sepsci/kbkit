@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pathlib import Path
 
-from kbkit.data.mapped import energy_aliases, resolve_attr_key
+from kbkit.data.property_resolver import ENERGY_ALIASES, resolve_attr_key
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_file
 
@@ -76,7 +76,7 @@ class EdrFileParser:
 
     def extract_timeseries(self, name: str, start_time: float = 0) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Extracts time series data for a given property."""
-        prop = resolve_attr_key(name, energy_aliases)
+        prop = resolve_attr_key(name, ENERGY_ALIASES)
         all_time = []
         all_values = []
 
