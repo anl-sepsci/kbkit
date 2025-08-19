@@ -8,7 +8,7 @@ from pathlib import Path
 
 from kbkit.data.property_resolver import ENERGY_ALIASES, resolve_attr_key
 from kbkit.utils.logging import get_logger
-from kbkit.utils.validation import validate_file
+from kbkit.utils.validation import validate_path
 
 class EdrFileParser:
     """
@@ -27,7 +27,7 @@ class EdrFileParser:
             edr_files = [str(edr_path)]
         else:
             edr_files = [str(f) for f in edr_path]
-        self.edr_path = [validate_file(f, suffix=".edr") for f in edr_files]
+        self.edr_path = [validate_path(f, suffix=".edr") for f in edr_files]
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.logger.info(f"Validated .edr file: {self.edr_path}")
     

@@ -6,7 +6,7 @@ from functools import cached_property
 from kbkit.parsers.gro_atom import GroAtomParser
 from kbkit.utils.chem import get_atomic_number
 from kbkit.utils.logging import get_logger
-from kbkit.utils.validation import validate_file
+from kbkit.utils.validation import validate_path
 
 class GroFileParser:
     def __init__(self, gro_path: str, verbose: bool = False) -> None:
@@ -20,7 +20,7 @@ class GroFileParser:
         verbose: bool, optional
             If True, enables detailed logging output.
         """
-        self.gro_path = validate_file(gro_path, suffix=".gro")
+        self.gro_path = validate_path(gro_path, suffix=".gro")
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.logger.info(f"Validated .gro file: {self.gro_path}")
 

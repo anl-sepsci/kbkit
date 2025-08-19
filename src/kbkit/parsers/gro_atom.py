@@ -2,7 +2,7 @@
 
 import re
 from kbkit.utils.logging import get_logger
-from kbkit.utils.validation import validate_file
+from kbkit.utils.validation import validate_path
 
 class GroAtomParser:
     """
@@ -15,7 +15,7 @@ class GroAtomParser:
     """
 
     def __init__(self, gro_path: str, verbose: bool  = False) -> None:
-        self.gro_path = validate_file(gro_path, suffix=".gro")
+        self.gro_path = validate_path(gro_path, suffix=".gro")
         self.verbose = verbose
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
 
