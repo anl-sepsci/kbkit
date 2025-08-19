@@ -14,7 +14,7 @@ from kbkit.analysis.kb_thermo import KBThermo
 from kbkit.utils.format import format_unit_str
 from kbkit.config.mplstyle import load_mplstyle
 
-load_mplstyle() # load figure config file
+load_mplstyle()
 warnings.filterwarnings("ignore")
 
 BINARY_SYSTEM = 2

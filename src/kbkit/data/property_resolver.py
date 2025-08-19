@@ -21,7 +21,7 @@ ENERGY_ALIASES: dict[str, set[str]] = {
     "time": {"time", "timestep", "dt"}
 }
 
-def load_gmx_unit_map(path: str = "gmx_units.json") -> dict[str, str]:
+def load_gmx_unit_map() -> dict[str, str]:
     """
     Load GROMACS unit definitions from a JSON file.
 
@@ -35,7 +35,7 @@ def load_gmx_unit_map(path: str = "gmx_units.json") -> dict[str, str]:
     dict
         Mapping of canonical property names to unit strings.
     """
-    unit_path = Path(path)
+    unit_path = Path(__file__).parent / "gmx_units.json"
     if not unit_path.exists():
         raise FileNotFoundError(f"Unit definition file not found: {unit_path}")
     with unit_path.open("r", encoding="utf-8") as f:
@@ -76,7 +76,7 @@ def resolve_attr_key(key: str, alias_map: dict[str, set[str]], cutoff: float = 0
     raise KeyError(f"No close match found for '{key}' (best score: {best_score:.2f})")
 
 
-def get_gmx_unit(name: str, alias_map: dict[str, set[str]] = ENERGY_ALIASES, unit_path: str = "gmx_units.json") -> str:
+def get_gmx_unit(name: str, alias_map: dict[str, set[str]] = ENERGY_ALIASES) -> str:
     """
     Retrieve the GROMACS unit for a given property name using alias resolution.
 
@@ -95,8 +95,8 @@ def get_gmx_unit(name: str, alias_map: dict[str, set[str]] = ENERGY_ALIASES, uni
         Unit string (e.g., 'kJ/mol').
     """
     canonical = resolve_attr_key(name, alias_map)
-    unit_map = load_gmx_unit_map(unit_path)
+    unit_map = load_gmx_unit_map()
     try:
         return unit_map[canonical]
     except KeyError:
-        raise KeyError(f"No unit defined for canonical property '{canonical}' in {unit_path}")
+        raise KeyError(f"No unit defined for canonical property '{canonical}' in {unit_map}")

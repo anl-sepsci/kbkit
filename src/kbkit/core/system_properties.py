@@ -8,11 +8,13 @@ volume, and molecular composition. It serves as the foundation for downstream an
 from natsort import natsorted
 from pathlib import Path
 
-from kbkit.utils import get_logger, resolve_units
-from kbkit.config import load_unit_registry
-from kbkit.data import energy_aliases, get_gmx_unit, resolve_attr_key
-from kbkit.parsers import EdrFileParser, TopFileParser, GroFileParser
-
+from kbkit.utils.logging import get_logger
+from kbkit.utils.format import resolve_units
+from kbkit.config.unit_registry import load_unit_registry
+from kbkit.data.property_resolver import ENERGY_ALIASES, get_gmx_unit, resolve_attr_key
+from kbkit.parsers.edr_file import EdrFileParser
+from kbkit.parsers.top_file import TopFileParser
+from kbkit.parsers.gro_file import GroFileParser
 
 class SystemProperties:
     def __init__(self, syspath: str, ensemble: str = "npt", verbose: bool = False) -> None:
@@ -71,7 +73,7 @@ class SystemProperties:
     ) -> float | tuple[float, float]:
         """Returns the average property from .edr file."""
 
-        prop = resolve_attr_key(name, energy_aliases)
+        prop = resolve_attr_key(name, ENERGY_ALIASES)
         gmx_units = get_gmx_unit(prop)
         units = resolve_units(units, gmx_units)
         self.logger.debug(f"Fetching average property '{prop}' from .edr starting at {start_time}s with units '{units}'")
@@ -104,7 +106,7 @@ class SystemProperties:
     def heat_capacity(self, units: str = "") -> float:
         """Compute the heat capacity of the system."""
         self.logger.debug(f"Calculating heat capacity with units '{units}'")
-        prop = resolve_attr_key("heat_capacity", energy_aliases)
+        prop = resolve_attr_key("heat_capacity", ENERGY_ALIASES)
         gmx_units = get_gmx_unit(prop)
         cap = self.edr.heat_capacity(nmol=self.top.total_molecules)
         units = resolve_units(units, gmx_units)
@@ -127,7 +129,7 @@ class SystemProperties:
     
     def get(self, name: str, start_time: float = 0, units: str = "", std: bool = False) -> float | tuple[float, float]:
         """Fetch any available GROMACS property by name, with alias resolution and optional standard deviation."""
-        name = resolve_attr_key(name, energy_aliases)
+        name = resolve_attr_key(name, ENERGY_ALIASES)
         self.logger.debug(f"Requested property '{name}' with std={std}, units='{units}', start_time={start_time}")
 
 

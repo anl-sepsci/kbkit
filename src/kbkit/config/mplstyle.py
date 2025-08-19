@@ -1,9 +1,10 @@
 
 
 import matplotlib.pyplot as plt 
-
+from pathlib import Path
 
 def load_mplstyle() -> plt.style:
-    return plt.style.use("presentation.mplstyle")
+    style_path = Path(__file__).parent / "presentation.mplstyle"
+    return plt.style.use(style_path)
 
 
