@@ -30,7 +30,7 @@ def system(tmp_path):
     (syspath / "test_npt.top").write_text(SAMPLE_TOP_CONTENT)
     (syspath / "test_npt.gro").write_text(SAMPLE_GRO_CONTENT)
     (syspath / "test_npt.edr").write_text("Mock edr content")
-    return SystemProperties(syspath=str(syspath), ensemble="npt", verbose=True)
+    return SystemProperties(system_path=str(syspath), ensemble="npt", verbose=True)
 
 def test_file_registry(system):
     registry = system.file_registry

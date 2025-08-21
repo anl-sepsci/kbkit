@@ -1,8 +1,7 @@
-"""Module for managing tools for Kirkwood-Buff analysis."""
+"""Scientific computation and transformation."""
 
-from kbkit.analysis.kb_thermo import KBThermo
-from kbkit.analysis.kbi import KBI
-from kbkit.analysis.rdf import RDF
-from kbkit.analysis.system_set import SystemSet
+from kbkit.analysis.thermo import KBThermo
+from kbkit.analysis.integrator import KBIntegrator
+from kbkit.analysis.analyzer import SystemAnalyzer
 
-__all__ = ["KBI", "RDF", "KBThermo", "SystemSet"]
+__all__ = ["KBIntegrator", "KBThermo", "SystemAnalyzer"]

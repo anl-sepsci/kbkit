@@ -65,6 +65,9 @@ kb = 1.380649e-23 J / K = Boltzmann_constant
 
 # Ideal gas constant
 R = 8.314462618 J / mol / K = gas_constant
+
+# electron radius
+re = 2.81794092e-13 cm = electron_radius
 """
 
 

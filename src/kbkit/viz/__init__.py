@@ -1,4 +1,4 @@
-"""Visualization tools."""
+"""Plotting and visualization tools."""
 
 from kbkit.viz.plotter import Plotter
 

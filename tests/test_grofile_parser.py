@@ -16,9 +16,9 @@ SAMPLE_GRO_CONTENT = """Test GRO file
    1.00000  1.00000  1.00000
 """
 
-def create_temp_gro_file(content=SAMPLE_GRO_CONTENT):
+def create_temp_gro_file(content=SAMPLE_GRO_CONTENT, name="test.gro"):
     temp_dir = TemporaryDirectory()
-    gro_path = Path(temp_dir.name) / "test.gro"
+    gro_path = Path(temp_dir.name) / name
     gro_path.write_text(content)
     return gro_path, temp_dir
 
@@ -26,9 +26,9 @@ def test_valid_gro_file_parsing():
     gro_path, temp_dir = create_temp_gro_file()
     parser = GroFileParser(str(gro_path))
 
-    assert isinstance(parser.electron_dict, dict)
-    assert "WAT" in parser.electron_dict
-    assert parser.electron_dict["WAT"] > 0
+    assert isinstance(parser.electron_count, dict)
+    assert "WAT" in parser.electron_count
+    assert parser.electron_count["WAT"] > 0
 
     temp_dir.cleanup()
 
@@ -42,8 +42,9 @@ def test_box_volume_calculation():
     temp_dir.cleanup()
 
 def test_invalid_suffix():
+    gro_path, temp_dir = create_temp_gro_file(name="test.txt")
     with pytest.raises(ValueError):
-        GroFileParser("invalid.txt")
+        GroFileParser(gro_path)
 
 def test_missing_file():
     with pytest.raises(FileNotFoundError):

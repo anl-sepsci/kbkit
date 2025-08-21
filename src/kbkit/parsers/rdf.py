@@ -18,7 +18,7 @@ from kbkit.config.mplstyle import load_mplstyle
 
 load_mplstyle() # load mpl figure configuration
 
-class RDF:
+class RDFParser:
     """
     Class to handle RDF (Radial Distribution Function) data.
 
@@ -232,7 +232,7 @@ class RDF:
         plt.show()
 
     @staticmethod
-    def extract_mols(rdf_file: str, mol_list: list[str]) -> list[str]:
+    def extract_mols(filename: str, mol_list: list[str]) -> list[str]:
         """
         Extract molecule names used in RDF from the RDF file name.
 
@@ -252,5 +252,6 @@ class RDF:
         pattern = r"(" + "|".join(re.escape(mol) for mol in mol_list) + r")"
 
         # find matches of pattern in filename
-        matches = re.findall(pattern, os.path.basename(rdf_file))
+
+        matches = re.findall(pattern, filename)
         return matches

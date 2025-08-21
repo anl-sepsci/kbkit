@@ -53,7 +53,7 @@ class GroFileParser:
         return dict(residue_electrons)
 
     @cached_property
-    def electron_dict(self) -> dict[str, int]:
+    def electron_count(self) -> dict[str, int]:
         """dict[str, int]: Dictionary of residue types and their total valence electrons."""
         return self.count_electrons()
 

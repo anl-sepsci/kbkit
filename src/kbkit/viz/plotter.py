@@ -8,9 +8,11 @@ from typing import Any, Callable, List, Tuple, TypedDict
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.typing import NDArray
 from matplotlib.ticker import MultipleLocator
 
-from kbkit.analysis.kb_thermo import KBThermo
+from kbkit.analysis.thermo import KBThermo
+from kbkit.core.pipeline import KBPipeline
 from kbkit.utils.format import format_unit_str
 from kbkit.config.mplstyle import load_mplstyle
 
@@ -39,7 +41,7 @@ class _MultiPlotSpec(TypedDict):
     multi: bool
 
 
-class Plotter:
+class Plotter(KBPipeline):
     r"""
     A class for plotting results from KB analysis (:class:`kbkit.kb.kb_thermo.KBThermo`).
 
@@ -55,20 +57,32 @@ class Plotter:
 
     def __init__(
         self,
-        kb_obj: KBThermo,
+        pipeline: KBPipeline,
         molecule_map: dict[str, str],
         x_mol: str = "",
     ) -> None:
-        self.kb = kb_obj
+        self.pipe = pipeline
         self.x_mol = x_mol
         self._setup_folders()
         self.molecule_map = molecule_map
 
+        # create a dict of properties to plot to eliminate nested structures
+        self.property_map = self.pipe.to_dict()
+
+        # thermo obj
+        self.thermo = self.pipe.thermo
+
+        # and also get the config for the systems
+        self.config = self.pipe.thermo.config
+
+        # and the analyzer
+        self.analyzer = self.pipe.thermo.analyzer
+
     def _setup_folders(self) -> None:
         # create folders for figures if they don't exist
-        self.kb_dir = Path(os.path.join(self.kb.base_path, "kb_analysis"))
-        self.sys_dir = Path(os.path.join(self.kb_dir, "system_figures"))
-        for path in (self.kb_dir, self.sys_dir):
+        self.thermo_dir = Path(os.path.join(self.config.base_path, "kb_analysis"))
+        self.sys_dir = Path(os.path.join(self.thermo_dir, "system_figures"))
+        for path in (self.thermo_dir, self.sys_dir):
             if not path.exists():
                 os.mkdir(path)
 
@@ -83,15 +97,15 @@ class Plotter:
     def molecule_map(self, mapped: dict[str, str]) -> None:
         # if not specified fall back on molecule name in topology file
         if not mapped:
-            mapped = {mol: mol for mol in self.kb.unique_molecules}
+            mapped = {mol: mol for mol in self.analyzer.unique_molecules}
 
         # check that all molecules are defined in map
-        found_mask = np.array([mol not in self.kb.unique_molecules for mol in mapped])
+        found_mask = np.array([mol not in self.analyzer.unique_molecules for mol in mapped])
         if any(found_mask):
             missing_mols = np.fromiter(mapped.keys(), dtype=str)[found_mask]
             raise ValueError(
                 f"Molecules missing from molecule_map: {', '.join(missing_mols)}. "
-                f"Available molecules: {', '.join(self.kb.unique_molecules)}"
+                f"Available molecules: {', '.join(self.analyzer.unique_molecules)}"
             )
 
         self._molecule_map = mapped
@@ -107,36 +121,33 @@ class Plotter:
     def x_mol(self, mol: str) -> None:
         # if not specified default to first molecule in list
         if not mol:
-            self._x_mol = self.kb.unique_molecules[0]
+            self._x_mol = self.analyzer.unique_molecules[0]
 
         # check if mol is in unique molecules
-        if mol not in self.kb.unique_molecules:
-            raise ValueError(f"Molecule {mol} not in available molecules: {', '.join(self.kb.unique_molecules)}")
+        if mol not in self.analyzer.unique_molecules:
+            raise ValueError(f"Molecule {mol} not in available molecules: {', '.join(self.analyzer.unique_molecules)}")
 
         self._x_mol = mol
 
     @property
     def unique_names(self) -> list[str]:
         """list: Names of molecules to use in figure labels."""
-        return [self.molecule_map[mol] for mol in self.kb.unique_molecules]
+        return [self.molecule_map[mol] for mol in self.analyzer.unique_molecules]
 
     @property
     def _x_idx(self) -> int:
         # get index of x_mol in kb.unique_molecules
-        return self.kb._mol_idx(self.x_mol)
+        return self.analyzer.unique_molecules.index(self.x_mol)
 
     def _get_rdf_colors(self, cmap: str = "jet") -> dict[str, dict[str, tuple[float, ...]]]:
         # create a colormap mapping pairs of molecules with a color
         if "_color_dict" not in self.__dict__:
             # Collect all unique unordered molecule pairs across systems
             all_pairs: set[tuple[str, ...]] = set()
-            for system in self.kb.system_properties:
-                try:
-                    mol_ids = self.kb.system_properties[system].topology.molecules
-                    pairs = combinations_with_replacement(mol_ids, 2)
-                    all_pairs.update(tuple(sorted(p)) for p in pairs)
-                except Exception as e:
-                    print(f"Error processing system '{system}': {e}")
+            for meta in self.config.registry:
+                mol_ids = meta.props.topology.molecules
+                pairs = combinations_with_replacement(mol_ids, 2)
+                all_pairs.update(tuple(sorted(p)) for p in pairs)
 
             # Assign unique colors to each pair
             all_pairs_list: list[tuple[str, ...]] = list(all_pairs)
@@ -166,6 +177,11 @@ class Plotter:
             self._color_dict = color_dict
 
         return self._color_dict
+    
+    def _convert_kbi(self, value) -> NDArray[np.float64]:
+        """Conver KBI metadata value to desired units."""
+        converted = self.analyzer.Q_(value, "nm^3/molecule").to("cm^3/mol")
+        return np.asarray(converted.magnitude)
 
     def plot_system_kbi_analysis(
         self,
@@ -193,22 +209,22 @@ class Plotter:
         """
         # add legend to above figure.
         color_dict = self._get_rdf_colors(cmap=cmap)
-        kbi_system_dict = self.kb.kbi_dict().get(system, {})
+        kbi_meta = self.thermo.kbi_metadata.get(system)
         units = "cm^3/mol" if units == "" else units
 
         fig, ax = plt.subplots(1, 3, figsize=(12, 4))
-        for mols, mol_dict in kbi_system_dict.items():
-            mol_i, mol_j = mols.split("-")
+        for meta in kbi_meta:
+            mol_i, mol_j = meta.mols
             color = color_dict.get(mol_i, {}).get(mol_j)
 
-            rkbi = self.kb.Q_(mol_dict["rkbi"], "nm^3/molecule").to(units).magnitude
-            lkbi = self.kb.Q_(mol_dict["lambda_kbi"], "nm^3/molecule").to(units).magnitude
-            lkbi_fit = self.kb.Q_(mol_dict["lambda_kbi_fit"], "nm^3/molecule").to(units).magnitude
-            kbi_inf = self.kb.Q_(mol_dict["kbi_inf"], "nm^3/molecule").to(units).magnitude
+            rkbi = self._convert_kbi(meta.rkbi)
+            lkbi = self._convert_kbi(meta.lam_rkbi)
+            lkbi_fit = self._convert_kbi(meta.lam_rkbi_fit)
+            kbi_inf = self._convert_kbi(meta.kbi)
 
-            ax[0].plot(mol_dict["r"], mol_dict["g"], lw=3, c=color, alpha=alpha, label=mols)
+            ax[0].plot(meta.r, meta.g, lw=3, c=color, alpha=alpha, label=meta.mols)
             ax[1].plot(
-                mol_dict["r"],
+                meta.r,
                 rkbi,
                 lw=3,
                 c=color,
@@ -216,14 +232,14 @@ class Plotter:
                 label=f"G$_{{ij}}^R$: {rkbi[-1]:.4g}",
             )
             ax[2].plot(
-                mol_dict["lambda"],
+                meta.lam,
                 lkbi,
                 lw=3,
                 c=color,
                 alpha=alpha,
                 label=rf"G$_{{ij}}^\infty$: {kbi_inf:.4g}",
             )
-            ax[2].plot(mol_dict["lambda_fit"], lkbi_fit, ls="--", lw=4, c="k")
+            ax[2].plot(meta.lam_fit, lkbi_fit, ls="--", lw=4, c="k")
 
         ax[0].set_xlabel("r / nm")
         ax[1].set_xlabel("r / nm")
@@ -272,8 +288,8 @@ class Plotter:
         show: bool, optional
             Display figures. Default is False.
         """
-        for system in self.kb.systems:
-            self.plot_system_kbi_analysis(system, units=units, show=show)
+        for system_meta in self.config.registry:
+            self.plot_system_kbi_analysis(system_meta.name, units=units, show=show)
 
     def plot_system_rdf(
         self,
@@ -320,15 +336,15 @@ class Plotter:
         inset_ax.tick_params(axis="y", labelsize=11)
 
         color_dict = self._get_rdf_colors(cmap=cmap)
-        kbi_system_dict = self.kb.kbi_dict().get(system, {})
+        kbi_meta = self.thermo.kbi_metadata.get(system)
 
-        for mols, mol_dict in kbi_system_dict.items():
-            mol_i, mol_j = mols.split("-")
+        for meta in kbi_meta:
+            mol_i, mol_j = meta.mols
             color = color_dict.get(mol_i, {}).get(mol_j)
 
             # add plot content
             for ax in main_ax, inset_ax:
-                ax.plot(mol_dict["r"], mol_dict["g"], c=color, alpha=alpha, label=mols)  # first example line
+                ax.plot(meta.r, meta.g, c=color, alpha=alpha, label=meta.mols)  # first example line
 
             # add zoom leaders
             main_ax.indicate_inset_zoom(inset_ax, edgecolor="black")
@@ -367,14 +383,13 @@ class Plotter:
         color_dict = self._get_rdf_colors(cmap=cmap)
         fig, ax = plt.subplots(1, 1, figsize=(5, 4))
         legend_info = {}
-        for mol_dict in self.kb.kbi_dict().values():
-            for mols in mol_dict:
-                mol_i, mol_j = mols.split("-")
-                i, j = [self.kb._mol_idx(mol) for mol in (mol_i, mol_j)]
+        for meta in self.thermo.kbi_metadata.values():
+            for mols in meta.mols:
+                mol_i, mol_j = mols
+                i, j = [self.analyzer._get_mol_idx(mol) for mol in (mol_i, mol_j)]
                 color = color_dict.get(mol_i, {}).get(mol_j)
-                kbi = self.kb.kbi_mat()[:, i, j]
-                kbi = self.kb.Q_(kbi, "nm^3/molecule").to(units).magnitude
-                line = ax.scatter(self.kb.mol_fr[:, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=mols)
+                kbi = self._convert_kbi(meta.kbi)
+                line = ax.scatter(self.analyzer.mol_fr[:, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=mols)
                 if mols not in legend_info:
                     legend_info[mols] = line
         lines = list(legend_info.values())
@@ -393,48 +408,56 @@ class Plotter:
         ax.set_xticks(ticks=np.arange(0, 1.1, 0.1))
         ax.set_xlabel(f"x$_{{{self.molecule_map[self.x_mol]}}}$")
         ax.set_ylabel(rf"G$_{{ij}}^{{\infty}}$ / {format_unit_str(units)}")
-        plt.savefig(self.kb_dir + f"/composition_kbi_{units.replace('^', '').replace('/', '_')}.png")
+        plt.savefig(self.thermo_dir + f"/composition_kbi_{units.replace('^', '').replace('/', '_')}.png")
         if show:
             plt.show()
         else:
             plt.close()
 
-    def _get_plot_spec(self, prop: str, energy_units: str = "kJ/mol") -> _SinglePlotSpec | _MultiPlotSpec:
+    def _get_plot_spec(self, prop: str) -> _SinglePlotSpec | _MultiPlotSpec:
         # get the figure specifications for a given property
         if prop in ["lngamma", "dlngamma", "lngamma_fits", "dlngamma_fits"]:
+            # get fit functions if applicable
+            if prop == "lngamma_fits":
+                fit_fns = self.thermo._lngamma_fn_dict
+            elif prop == "dlngamma_fits":
+                fit_fns = self.thermo._dlngamma_fn_dict
+            else:
+                fit_fns = None
+
             # Handle the properties that return a _SinglePlotSpec
             return _SinglePlotSpec(
-                x_data=self.kb.mol_fr,
-                y_data=self.kb.lngammas() if prop.endswith("gamma") else self.kb.dlngammas_dxs(),
+                x_data=self.analyzer.mol_fr,
+                y_data=self.property_map.get("lngammas") if "dln" not in prop else self.property_map.get("dlngammas_dxs"),
                 ylabel=r"$\ln \gamma_{i}$"
-                if prop.endswith("gamma")
+                if "dln" not in prop
                 else r"$\partial \ln(\gamma_{i})$ / $\partial x_{i}$",
                 filename=f"{prop}.png",  # Simplified for example
-                fit_fns={mol: self.kb.lngamma_fn(mol) for mol in self.kb.unique_molecules} if "fits" in prop else None,
+                fit_fns=fit_fns,
             )
 
         elif prop in ["mixing", "excess"]:
             # Handle the properties that return a _MultiPlotSpec
             y_series_list = [
-                (self.kb.hmix(energy_units), "violet", "s", r"$\Delta H_{mix}$"),
-                (-self.kb.temperature() * self.kb.se(energy_units), "limegreen", "o", r"$-TS^E$"),
+                (self.analyzer.h_mix(), "violet", "s", r"$\Delta H_{mix}$"),
+                (-self.analyzer.temperature() * self.property_map.get("se"), "limegreen", "o", r"$-TS^E$"),
             ]
             if prop == "mixing":
                 y_series_list.extend(
                     [
-                        (self.kb.gid(energy_units), "darkorange", "<", r"$G^{id}$"),
-                        (self.kb.gm(energy_units), "mediumblue", "^", r"$\Delta G_{mix}$"),
+                        (self.property_map.get("gid"), "darkorange", "<", r"$G^{id}$"),
+                        (self.property_map.get("gm"), "mediumblue", "^", r"$\Delta G_{mix}$"),
                     ]
                 )
             else:  # prop == excess
-                y_series_list.append((self.kb.ge(energy_units), "mediumblue", "^", r"$G^E$"))
+                y_series_list.append((self.property_map.get("ge"), "mediumblue", "^", r"$G^E$"))
 
             return _MultiPlotSpec(
-                x_data=self.kb.mol_fr[:, self._x_idx],
+                x_data=self.property_map.get("mol_fr")[:, self._x_idx],
                 y_series=y_series_list,
-                ylabel=rf"Contributions to $\Delta G_{{mix}}$ / {format_unit_str(energy_units)}"
+                ylabel=rf"Contributions to $\Delta G_{{mix}}$ / {format_unit_str("kJ/mol")}"
                 if prop == "mixing"
-                else f"Excess Properties / {format_unit_str(energy_units)}",
+                else f"Excess Properties / {format_unit_str("kJ/mol")}",
                 filename=f"gibbs_{'mixing' if prop == 'mixing' else 'excess'}_contributions.png",
                 multi=True,
             )
@@ -442,11 +465,11 @@ class Plotter:
         elif prop in ["i0", "det_h"]:
             # Handle other single-data plots
             return _SinglePlotSpec(
-                x_data=self.kb.mol_fr[:, self._x_idx],
-                y_data=self.kb.i0(units="1/cm") if prop == "i0" else self.kb.det_hessian(units=energy_units),
+                x_data=self.property_map.get("mol_fr")[:, self._x_idx],
+                y_data=self.property_map.get("i0") if prop == "i0" else self.property_map.get("det_hessian"),
                 ylabel=f"I$_0$ / {format_unit_str('cm^{-1}')}"
                 if prop == "i0"
-                else f"$|H_{{ij}}|$ / {format_unit_str(energy_units)}",
+                else f"$|H_{{ij}}|$ / {format_unit_str("kJ/mol")}",
                 filename=f"saxs_{'I0' if prop == 'i0' else 'det_hessian'}.png",
                 fit_fns=None,
             )
@@ -492,11 +515,11 @@ class Plotter:
                 ax.scatter(x_data, y_data, c="mediumblue", marker=marker)
 
             else:  # for many components
-                colors = plt.cm.get_cmap(cmap)(np.linspace(0, 1, self.kb.n_comp))
+                colors = plt.cm.get_cmap(cmap)(np.linspace(0, 1, self.analyzer.n_comp))
                 fit_fns = spec.get("fit_fns", None)
 
-                for i, mol in enumerate(self.kb.unique_molecules):
-                    xi = x_data[:, self._x_idx] if self.kb.n_comp == BINARY_SYSTEM else x_data[:, i]
+                for i, mol in enumerate(self.analyzer.unique_molecules):
+                    xi = x_data[:, self._x_idx] if self.analyzer.n_comp == BINARY_SYSTEM else x_data[:, i]
                     yi = y_data[:, i]
                     ax.scatter(xi, yi, c=[colors[i]], marker=marker, label=self.molecule_map[mol])
 
@@ -514,7 +537,7 @@ class Plotter:
                     shadow=True,
                 )
 
-        ax.set_xlabel(f"x$_{{{self.molecule_map[self.x_mol]}}}$" if self.kb.n_comp == BINARY_SYSTEM else "x$_i$")
+        ax.set_xlabel(f"x$_{{{self.molecule_map[self.x_mol]}}}$" if self.analyzer.n_comp == BINARY_SYSTEM else "x$_i$")
         ax.set_ylabel(spec["ylabel"])
         ax.set_xlim(-0.05, 1.05)
         ax.set_xticks(np.arange(0, 1.1, 0.1))
@@ -527,7 +550,7 @@ class Plotter:
             y_lb = 0 if spec["y_data"].ndim == 1 else -0.05
             ax.set_ylim(min([y_lb, y_min - pad]), max([0.05, y_max + pad]))
 
-        plt.savefig(os.path.join(self.kb_dir, str(spec["filename"])))
+        plt.savefig(os.path.join(self.thermo_dir, str(spec["filename"])))
         if show:
             plt.show()
         else:
@@ -540,18 +563,9 @@ class Plotter:
         cmap: str = "jet",
         show: bool = False,
     ) -> None:
-        # create a ternary plot for a given property
-        _map = {
-            "ge": self.kb.ge(energy_units),
-            "gm": self.kb.gm(energy_units),
-            "hmix": self.kb.hmix(energy_units),
-            "se": self.kb.se(energy_units),
-            "i0": self.kb.i0("1/cm"),
-            "det_h": self.kb.det_hessian(energy_units),
-        }
-        arr = np.asarray(_map[property_name])
+        arr = np.asarray(self.property_map.get(property_name))
         xtext, ytext, ztext = self.unique_names
-        a, b, c = self.kb.mol_fr[:, 0], self.kb.mol_fr[:, 1], self.kb.mol_fr[:, 2]
+        a, b, c = self.property_map.get("mol_fr")[:, 0], self.property_map.get("mol_fr")[:, 1], self.property_map.get("mol_fr")[:, 2]
 
         valid_mask = (a >= 0) & (b >= 0) & (c >= 0) & ~np.isnan(arr) & ~np.isinf(arr)
         a = a[valid_mask]
@@ -575,7 +589,7 @@ class Plotter:
         ax.laxis.set_major_locator(MultipleLocator(0.10))  # type: ignore[attr-defined]
         ax.raxis.set_major_locator(MultipleLocator(0.10))  # type: ignore[attr-defined]
 
-        plt.savefig(os.path.join(self.kb_dir, f"ternary_{property_name}.png"))
+        plt.savefig(os.path.join(self.thermo_dir, f"ternary_{property_name}.png"))
         if show:
             plt.show()
         else:
@@ -673,7 +687,7 @@ class Plotter:
         elif prop_key == "kbi":
             self.plot_kbis(units=kbi_units, cmap=cmap, show=show)
 
-        elif self.kb.n_comp == BINARY_SYSTEM or prop_key in {
+        elif self.analyzer.n_comp == BINARY_SYSTEM or prop_key in {
             "lngamma",
             "dlngamma",
             "lngamma_fits",
@@ -682,12 +696,12 @@ class Plotter:
             spec = self._get_plot_spec(prop_key, energy_units=energy_units)
             self._render_binary_plot(spec, marker=marker, ylim=ylim, cmap=cmap, show=show)
 
-        elif self.kb.n_comp == TERNAY_SYSTEM and prop_key in {"gm", "ge", "hmix", "se", "i0", "det_h"}:
+        elif self.analyzer.n_comp == TERNAY_SYSTEM and prop_key in {"gm", "ge", "hmix", "se", "i0", "det_h"}:
             self._render_ternary_plot(property_name=prop_key, energy_units=energy_units, cmap=cmap, show=show)
 
-        elif self.kb.n_comp > TERNAY_SYSTEM:
+        elif self.analyzer.n_comp > TERNAY_SYSTEM:
             print(
-                f"WARNING: plotter does not support {prop_key} for more than 3 components. ({self.kb.n_comp} components detected.)"
+                f"WARNING: plotter does not support {prop_key} for more than 3 components. ({self.analyzer.n_comp} components detected.)"
             )
 
     def make_figures(self, energy_units: str = "kJ/mol") -> None:
@@ -709,19 +723,19 @@ class Plotter:
             self.plot(prop=thermo_prop, units=energy_units, show=False)
 
         # plot polynomial fits to activity coefficient derivatives if polynomial integration is performed
-        if self.kb.gamma_integration_type == "polynomial":
+        if self.pipe.gamma_integration_type == "polynomial":
             for thermo_prop in ["lngamma_fits", "dlngamma_fits"]:
                 self.plot(prop=thermo_prop, units=energy_units, show=False)
 
         # for binary systems plot mixing and excess energy contributions
-        if self.kb.n_comp == BINARY_SYSTEM:
+        if self.analyzer.n_comp == BINARY_SYSTEM:
             for thermo_prop in ["mixing", "excess"]:
                 self.plot(prop=thermo_prop, units=energy_units, show=False)
 
         # for ternary system plot individual energy contributions on separate figure
-        elif self.kb.n_comp == TERNAY_SYSTEM:
+        elif self.analyzer.n_comp == TERNAY_SYSTEM:
             for thermo_prop in ["ge", "gm", "hmix", "se"]:
                 self.plot(prop=thermo_prop, units=energy_units, show=False)
 
         else:
-            print(f"WARNING: plotter does not support more than 3 components. ({self.kb.n_comp} components detected.)")
+            print(f"WARNING: plotter does not support more than 3 components. ({self.analyzer.n_comp} components detected.)")

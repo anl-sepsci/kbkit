@@ -1,6 +1,8 @@
-"""Foundational logic central to toolkit's orchestration."""
+"""Domain models and orchestration logic."""
 
-from kbkit.core.kb_pipeline import KBPipeline
-from kbkit.core.system_properties import SystemProperties
+from kbkit.core.pipeline import KBPipeline
+from kbkit.core.properties import SystemProperties
+from kbkit.core.loader import SystemLoader
+from kbkit.core.registry import SystemRegistry
 
-__all__ = ["KBPipeline", "SystemProperties"]
+__all__ = ["KBPipeline", "SystemProperties", "SystemLoader", "SystemRegistry"]

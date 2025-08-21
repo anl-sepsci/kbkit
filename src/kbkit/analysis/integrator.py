@@ -13,11 +13,11 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.analysis.rdf import RDF
-from kbkit.core.system_properties import SystemProperties
+from kbkit.parsers.rdf import RDFParser
+from kbkit.core.properties import SystemProperties
 
 
-class KBI:
+class KBIntegrator:
     """
     Class to compute the Kirkwood-Buff Integrals (KBI) from RDF data.
 
@@ -31,10 +31,9 @@ class KBI:
         Ensemble type for the system properties. Default is 'npt'.
     """
 
-    def __init__(self, rdf_file: str, sys_path: Optional[str] = None, ensemble: str = "npt") -> None:
-        self.rdf = RDF(rdf_file)
-        self.syspath = sys_path if sys_path is not None else self._syspath()
-        self.system_properties = SystemProperties(self.syspath, ensemble)
+    def __init__(self, rdf_file: str, system_properties: SystemProperties) -> None:
+        self.rdf = RDFParser(rdf_file)
+        self.system_properties = system_properties
 
     def _syspath(self) -> str:
         """
@@ -71,7 +70,7 @@ class KBI:
 
     def box_vol(self) -> float:
         """Return the volume of the system box in nm^3."""
-        vol = self.system_properties.volume(units="nm^3")
+        vol = self.system_properties.get("volume", units="nm^3")
         return float(vol)
 
     def rdf_molecules(self) -> list[str]:
@@ -83,7 +82,7 @@ class KBI:
             List of molecule IDs corresponding to the RDF file.
         """
         # extract molecules from file name and topology information
-        rdf_mols = RDF.extract_mols(self.rdf.rdf_file, self.system_properties.topology.molecules)
+        rdf_mols = RDFParser.extract_mols(self.rdf.rdf_file, self.system_properties.topology.molecules)
         # check length of molecules found --- must be two for rdfs
         N_RDF_MOLS = 2
         if len(rdf_mols) != N_RDF_MOLS:
@@ -96,7 +95,7 @@ class KBI:
 
     def n_j(self) -> int:
         """Return the number of molecule :math:`j` in the system."""
-        return self.system_properties.topology.molecule_counts[self.rdf_molecules()[1]]
+        return self.system_properties.topology.molecule_count[self.rdf_molecules()[1]]
 
     def g_gv(self) -> NDArray[np.float64]:
         r"""

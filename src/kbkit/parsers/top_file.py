@@ -104,17 +104,17 @@ class TopFileParser:
         
 
     @cached_property
-    def molecule_dict(self) -> dict[str, int]:
+    def molecule_count(self) -> dict[str, int]:
         """dict[str, int]: Dictionary of molecules present and their corresponding numbers."""
         return self.parse()
 
     @property
     def molecules(self) -> list[str]:
         """list[str]: Names of molecules present."""
-        return list(self.molecule_dict.keys())
+        return list(self.molecule_count.keys())
 
     @property
     def total_molecules(self) -> int:
         """int: Total number of molecules present."""
-        return sum(self.molecule_dict.values())
+        return sum(self.molecule_count.values())
 
