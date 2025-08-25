@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 import numpy as np
 from pathlib import Path
 
+from kbkit.analysis.analyzer import SystemAnalyzer
 from kbkit.analysis.calculator import KBICalculator
 from kbkit.analysis.thermo import KBThermo
 from kbkit.core.loader import SystemLoader
@@ -50,9 +51,9 @@ class KBPipeline:
         gamma_integration_type: str = "numerical"
     ):
         
-
         # build configuration
-        config = SystemLoader.build_config(
+        loader = SystemLoader(verbose=verbose)
+        self.config = loader.build_config(
             base_path=base_path,
             pure_path=pure_path,
             ensemble=ensemble,
@@ -60,14 +61,19 @@ class KBPipeline:
             anions=anions or [],
             start_time=start_time,
             system_names=system_names,
-            verbose=verbose
         )
 
-        # create calculator
-        self.calculator = KBICalculator(config)
+        # get composition analyzer
+        self.analyzer = SystemAnalyzer(self.config) 
+
+        # create KBI calculator
+        self.calculator = KBICalculator(self.config, self.analyzer)
+        kbi_matrix = self.calculator.get_corrected_kbi_matrix()
 
         # create thermo object
-        self.thermo = KBThermo(config)
+        self.thermo = KBThermo(self.analyzer, kbi_matrix)
+
+        # get property for activity coefficient integration
         self.gamma_integration_type = gamma_integration_type
 
 
@@ -99,7 +105,7 @@ class KBPipeline:
     def to_dict(self) -> dict[str, NDArray[np.float64]]:
         """Create a dictionary of properties calculated from :class:`kbkit.kb.kb_thermo.KBThermo`."""
         value_dict: dict[str, NDArray[np.float64]] = {}
-        value_dict["mol_fr"] = self.thermo.analyzer.mol_fr
+        value_dict["mol_fr"] = self.analyzer.mol_fr
         value_dict.update({name: meta.value for name, meta in self.thermo._cache.items()})
         return value_dict
 

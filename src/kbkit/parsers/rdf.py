@@ -248,10 +248,15 @@ class RDFParser:
         list of str
             List of molecule names found in the RDF file name.
         """
+        if not isinstance(filename, str):
+            try:
+                filename = str(filename)
+            except TypeError:
+                raise TypeError(f"Could not convert filename to type str.")
+            
         # define pattern for mol in mol_list
         pattern = r"(" + "|".join(re.escape(mol) for mol in mol_list) + r")"
 
         # find matches of pattern in filename
-
         matches = re.findall(pattern, filename)
         return matches

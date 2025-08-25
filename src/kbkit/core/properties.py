@@ -43,7 +43,8 @@ class SystemProperties:
                     filepath = self.file_resolver.get_all(attr)
                 setattr(self, attr, parser_cls(filepath, verbose=verbose))
             except FileNotFoundError:
-                self.logger.warning(f"No file(s) found for role '{attr}' in {self.system_path}")
+                if verbose:
+                    self.logger.warning(f"No file(s) found for role '{attr}' in {self.system_path}")
                 setattr(self, attr, None)
     
     @property

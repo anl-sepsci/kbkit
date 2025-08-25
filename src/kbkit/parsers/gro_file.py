@@ -1,7 +1,7 @@
 """Parses a GROMACS .gro file to extract residue electron counts and box volume."""
 
-from collections import defaultdict
 from functools import cached_property
+from collections import defaultdict
 
 from kbkit.parsers.gro_atom import GroAtomParser
 from kbkit.utils.chem import get_atomic_number
@@ -30,7 +30,7 @@ class GroFileParser:
     
     def count_electrons(self) -> dict[str, int]:
         """
-        Compute total valence electrons per residue type.
+        Compute total valence electrons per unique residue type.
 
         Returns
         -------
@@ -40,14 +40,18 @@ class GroFileParser:
         self.logger.debug("Starting electron count per residue.")
         parser = self.get_atom_parser()
         residue_electrons = defaultdict(int)
+        seen_residues = {}
 
-        for _, res_name, atom_name in parser:
+        for idx, res_name, atom_name in parser:
+
+            if res_name not in seen_residues:
+                seen_residues[res_name] = idx
+
+            if idx != seen_residues[res_name]:
+                continue
+
             element = ''.join(filter(str.isalpha, atom_name)).capitalize()
-            try:
-                electrons = get_atomic_number(element)
-                residue_electrons[res_name] += electrons
-            except Exception as e:
-                self.logger.warning(f"Invalid element '{element}' from atom '{atom_name}' in residue '{res_name}': {e}")
+            residue_electrons[res_name] += get_atomic_number(element)
 
         self.logger.info("Completed electron count.")
         return dict(residue_electrons)

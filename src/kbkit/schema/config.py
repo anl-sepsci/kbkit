@@ -12,6 +12,6 @@ class SystemConfig:
     ensemble: str
     cations: list[str]
     anions: list[str]
-    start_time: int
     registry: SystemRegistry
     logger: logging.Logger
+    molecules: list[str]

@@ -11,12 +11,15 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
+import warnings
 
-from kbkit.schema.config import SystemConfig
+from kbkit.analysis.analyzer import SystemAnalyzer
 from kbkit.schema.cache import PropertyCache
-from kbkit.analysis.calculator import KBICalculator
 
-class KBThermo(KBICalculator):
+# Suppress only the specific RuntimeWarning from numpy.linalg
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="numpy.linalg")
+
+class KBThermo:
     """Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties from KBI matrix.
 
     This class inherits system properties from :class:`KBICalculator` and uses them for the calculation of thermodynamic properties.
@@ -24,17 +27,18 @@ class KBThermo(KBICalculator):
 
     def __init__(
         self,
-        config: SystemConfig,
+        analyzer: SystemAnalyzer,
+        kbi_matrix: NDArray[np.float64]
     ) -> None:
         
         # initialize SystemAnalyzer with config.
-        super().__init__(config=config)
+        self.analyzer = analyzer
 
         # initialize cache to store units 
         self._cache: dict[str, PropertyCache] = {}
 
         # add kbi matrix to cache
-        self.kbis = self.get_corrected_kbi_matrix()
+        self.kbis = kbi_matrix
         self._populate_cache("kbis", self.kbis, "nm^3/molecule")
 
     def _populate_cache(self, name: str, value: Any, units: str = "", tags: list | None = None) -> None:
@@ -83,14 +87,18 @@ class KBThermo(KBICalculator):
     @property
     def _b_inv(self) -> NDArray[np.float64]:
         """np.ndarray: Inverse of the B matrix."""
-        with np.errstate(divide="ignore", invalid="ignore"):
-            return np.asarray(np.linalg.inv(self.b_matrix()))
+        # Create an empty array to store the inverse matrices
+        b_mat = self.b_matrix()
+        inverses = np.zeros_like(b_mat)
+        # Iterate and compute the inverse for each 2x2 matrix
+        for i in range(b_mat.shape[0]):
+            inverses[i] = np.linalg.inv(b_mat[i, :, :])
+        return inverses
 
     @property
     def _b_det(self) -> NDArray[np.float64]:
         """np.ndarray: Determinant of the B matrix."""
-        with np.errstate(divide="ignore", invalid="ignore"):
-            return np.asarray(np.linalg.det(self.b_matrix()))
+        return np.asarray(np.linalg.det(self.b_matrix()))
 
     def b_cofactors(self) -> NDArray[np.float64]:
         r"""
@@ -147,7 +155,7 @@ class KBThermo(KBICalculator):
     @property
     def R(self) -> float:
         """Gas constant."""
-        return float(self.ureg("R").to("kJ/mol/K").magnitude) 
+        return float(self.analyzer.ureg("R").to("kJ/mol/K").magnitude) 
 
     def isothermal_compressability(self) -> NDArray[np.float64]:
         r"""
@@ -241,8 +249,8 @@ class KBThermo(KBICalculator):
                 * b_frac
                 / (self.analyzer.volume() * self._b_det)[:, np.newaxis, np.newaxis]
             )
-            dmu_dn_mat = np.asarray(dmu_dn_mat)
-            self._populate_cache("dmu_dn", dmu_dn_mat, "kJ/mol")
+            self._dmu_dn_mat = np.asarray(dmu_dn_mat)
+            self._populate_cache("dmu_dn", self._dmu_dn_mat, "kJ/mol")
         return self._dmu_dn_mat
 
     def _matrix_setup(self, matrix: np.ndarray) -> NDArray[np.float64]:
@@ -291,24 +299,31 @@ class KBThermo(KBICalculator):
         if "_H_ij" not in self.__dict__:
             # difference between ij interactions with each other and last component
             delta_G = self._matrix_setup(self.kbis)
+            mol_fraction = self.analyzer.mol_fr.copy()
+            mol_fraction[mol_fraction == 0] = np.nan
 
-            with np.errstate(divide="ignore", invalid="ignore"):
-                # get Delta matrix for Hessian calc
-                Delta_ij = (
-                    self.kd()[np.newaxis, :] * self.analyzer.volume_bar()[:, np.newaxis, np.newaxis] / self.analyzer.mol_fr[:, np.newaxis]
-                    + (self.analyzer.volume_bar() / (self.analyzer.mol_fr[:, self.analyzer.n_comp - 1]))[:, np.newaxis, np.newaxis]
-                    + delta_G
-                )
-                Delta_ij_inv = np.linalg.inv(Delta_ij)
+            # get Delta matrix for Hessian calc
+            Delta_ij = (
+                self.kd()[np.newaxis, :] * self.analyzer.volume_bar()[:, np.newaxis, np.newaxis] / mol_fraction[:, np.newaxis]
+                + (self.analyzer.volume_bar() / (mol_fraction[:, self.analyzer.n_comp - 1]))[:, np.newaxis, np.newaxis]
+                + delta_G
+            )
+            
+            # Create an empty array to store the inverse matrices
+            Delta_ij_inv = np.zeros_like(Delta_ij)
+            # Iterate and compute the inverse for each N x N matrix
+            for i in range(Delta_ij.shape[0]):
+                Delta_ij_inv[i] = np.linalg.inv(Delta_ij[i, :, :])
 
-                # get M matrix for hessian calculation
-                M_ij = (
-                    Delta_ij_inv
-                    * self.R
-                    * self.analyzer.temperature()[:, np.newaxis, np.newaxis]
-                    * self.analyzer.volume_bar()[:, np.newaxis, np.newaxis]
-                    / (self.analyzer.mol_fr[:, :, np.newaxis] * self.analyzer.mol_fr[:, np.newaxis, :])
-                )
+            # get M matrix for hessian calculation
+            M_ij = (
+                Delta_ij_inv
+                * self.R
+                * self.analyzer.temperature()[:, np.newaxis, np.newaxis]
+                * self.analyzer.volume_bar()[:, np.newaxis, np.newaxis]
+                / (mol_fraction[:, :, np.newaxis] * mol_fraction[:, np.newaxis, :])
+            )
+
             self._H_ij = self._matrix_setup(M_ij)
             self._populate_cache("hessian", self._H_ij, "kJ/mol")
         return self._H_ij
@@ -327,8 +342,7 @@ class KBThermo(KBICalculator):
         np.ndarray
             A 1D array of shape ``(n_sys)``
         """
-        with np.errstate(divide="ignore", invalid="ignore"):
-            det_h = np.asarray(np.linalg.det(self.hessian()))
+        det_h = np.asarray(np.linalg.det(self.hessian()))
         self._populate_cache("det_hessian", det_h, "kJ/mol")
         return det_h
         
@@ -393,15 +407,15 @@ class KBThermo(KBICalculator):
         # molar volume difference
         delta_V = self.analyzer.molar_volume(units)[:-1] - self.analyzer.molar_volume(units)[-1]
         # electron number difference
-        delta_N = self.n_electrons[:-1] - self.n_electrons[-1]
+        delta_N = self.analyzer.n_electrons[:-1] - self.analyzer.n_electrons[-1]
         # linear combination of electron number
-        N_bar = self.analyzer.top_mol_fr @ self.n_electrons
+        N_bar = self.analyzer.top_mol_fr @ self.analyzer.n_electrons
         # linear combination of molar volume
-        volume_bar = self.analyzer.volume_bar(units)
+        V_bar = self.analyzer.volume_bar(units)
 
         # calculate electron density contrast
-        drho_elec_dx = (1 / volume_bar)[:, np.newaxis] * (
-            delta_N[np.newaxis, :] - N_bar[:, np.newaxis] * delta_V[np.newaxis, :] / volume_bar[:, np.newaxis]
+        drho_elec_dx = (1 / V_bar)[:, np.newaxis] * (
+            delta_N[np.newaxis, :] - N_bar[:, np.newaxis] * delta_V[np.newaxis, :] / V_bar[:, np.newaxis]
         )
 
         return drho_elec_dx
@@ -439,7 +453,7 @@ class KBThermo(KBICalculator):
         :meth:`drho_elec_dx`: Electron density constrast calculation
         """
         if "_i0" not in self.__dict__:
-            re = self.analyzer.ureg.re.magnitude # electron radius
+            re = self.analyzer.ureg("re").to("cm").magnitude # electron radius
             drho_dx = self.drho_elec_dx("cm^3/molecule") # electron contrast
             V_bar = self.analyzer.volume_bar("cm^3/molecule") # avg molar vol
 
@@ -486,13 +500,15 @@ class KBThermo(KBICalculator):
             n = self.analyzer.n_comp - 1
             total_mol = self.analyzer.total_molecules[:, np.newaxis, np.newaxis]
             dmu_dn = self.dmu_dn()
+            mol_fraction = self.analyzer.mol_fr.copy()
+            mol_fraction[mol_fraction == 0] = np.nan
 
             dmu_dxs = total_mol * (dmu_dn[:, :n, :n] - dmu_dn[:, :n, -1][:, :, np.newaxis])
-            dmui_dxi = np.full_like(self.analyzer.mol_fr, np.nan)
+            dmui_dxi = np.full_like(mol_fraction, np.nan)
             dmui_dxi[:, :-1] = np.diagonal(dmu_dxs, axis1=1, axis2=2)
 
-            sum_xi_dmui = (self.analyzer.mol_fr[:, :-1] * dmui_dxi[:, :-1]).sum(axis=1)
-            dmui_dxi[:, -1] = sum_xi_dmui / self.analyzer.mol_fr[:, -1]
+            sum_xi_dmui = (mol_fraction[:, :-1] * dmui_dxi[:, :-1]).sum(axis=1)
+            dmui_dxi[:, -1] = sum_xi_dmui / mol_fraction[:, -1]
 
             self._dmu_dxs = dmui_dxi
             self._populate_cache("dmu_dxs", self._dmu_dxs, "kJ/mol")
@@ -542,7 +558,7 @@ class KBThermo(KBICalculator):
         z0[np.isnan(z0)] = 0
         comp_max = z0.max(axis=1)
         # get mol index
-        i = self._get_mol_idx(mol, self.analyzer.unique_molecules)
+        i = self.analyzer._get_mol_idx(mol, self.analyzer.unique_molecules)
         # get mask for max mol frac at each composition
         is_max = z0[:, i] == comp_max
 
@@ -778,7 +794,7 @@ class KBThermo(KBICalculator):
             GID = self.R * self.analyzer.temperature(units="K") * (mfr * np.log(mfr)).sum(axis=1)
 
             self._gibbs_ideal = np.asarray(GID)
-            self._populate_cache("gid", self._gibbs_excess, "kJ/mol")
+            self._populate_cache("gid", self._gibbs_ideal, "kJ/mol")
 
         return self._gibbs_ideal
 

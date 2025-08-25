@@ -1,44 +1,26 @@
 """Extract properties from systems."""
 
-
-
 from functools import cached_property
 import itertools
-from dataclasses import replace
 from numpy.typing import NDArray
 import numpy as np
+from collections import defaultdict
 
 from kbkit.config.unit_registry import load_unit_registry
 from kbkit.schema.config import SystemConfig
-from kbkit.schema.system_metadata import SystemMetadata
 
 
-class SystemAnalyzer: # go back and add logger flags: self.config.logger
+class SystemAnalyzer:
 
     def __init__(self, config: SystemConfig) -> None:
-        self.top_molecules = self._extract_top_molecules(config)
-        sorted_registry = self._sort_systems(config.registry.all())
-        self.config = replace(config, registry=sorted_registry)
+        # setup config
+        self.config = config
+        self.top_molecules = self.config.molecules
 
         # set up unit registry
         self.ureg = load_unit_registry()
         self.Q_ = self.ureg.Quantity
 
-    def _extract_top_molecules(self, config: SystemConfig) -> list[str]:
-        """list: A list of unique molecules present in all systems. This encompasses all anions and cations individually, before being combined into salt pairs."""
-        mols_present = set()
-        for meta in config.registry:
-            mols_present.update(meta.props.topology.molecules)
-        return list(mols_present)
-    
-    def _sort_systems(self, systems: list[SystemMetadata]) -> list[SystemMetadata]:
-        """Sort systems by their mol fraction vectors in ascending order."""
-        def mol_fr_vector(meta: SystemMetadata) -> tuple[float, ...]:
-            counts = meta.props.topology.molecule_count
-            total = meta.props.topology.total_molecules
-            return tuple(counts.get(mol, 0) / total for mol in self.top_molecules)
-
-        return sorted(systems, key=mol_fr_vector)
     
     @property
     def n_sys(self) -> int:
@@ -98,19 +80,27 @@ class SystemAnalyzer: # go back and add logger flags: self.config.logger
     @cached_property
     def n_electrons(self) -> NDArray[np.float64]:
         """np.ndarray: Compute number of electrons in each molecule."""
-        electrons = set()
-        added_molecules = []
+        # get unique electron count for residues
+        residue_electrons = defaultdict(int)
         for meta in self.config.registry:
-            for mol, elec in meta.props.structure.electron_count.items():
-                if mol not in added_molecules:
-                    electrons.update(elec)
-                    added_molecules.append(mol)
-        return np.ndarray(list(electrons))
+            try:
+                for mol, elec in meta.props.structure.electron_count.items():
+                    residue_electrons[mol] = elec
+            except AttributeError:
+                continue # skip systems without gro file
+
+        # get electron counts in same order as top molecules
+        n_elec = np.array([residue_electrons.get(mol, 0) for mol in self.top_molecules])
+
+        # check that all molecules are accounted for
+        if len(residue_electrons) != len(self.top_molecules):
+            raise ValueError(f"Electron counts for unique molecules ({len(n_elec)}) is not equal to number of molecules ({len(self.top_molecules)})")
+        return  n_elec
     
     @cached_property
     def top_mol_fr(self) -> NDArray[np.float64]:
         """np.ndarray: Mol fraction for molecules in top molecules."""
-        return self.molecule_counts / self.molecule_counts.sum(axis=1)
+        return self.molecule_counts / self.molecule_counts.sum(axis=1)[:,np.newaxis]
     
     def _get_mol_idx(self, mol: str, molecule_list: list[str]) -> int:
         """Get index of mol in molecule list."""
@@ -138,20 +128,20 @@ class SystemAnalyzer: # go back and add logger flags: self.config.logger
                         salt_idx = self._get_mol_idx(salt, self.top_molecules)
                         mfr[i,j] += self.top_mol_fr[i,salt_idx]
                 else:
-                    mol_idx = self._get_mol_idx(salt, self.top_molecules)
+                    mol_idx = self._get_mol_idx(mol, self.top_molecules)
                     mfr[i,j] += self.top_mol_fr[i,mol_idx]
         return mfr
     
     def temperature(self, units: str = "K") -> NDArray[np.float64]:
         """Temperature of each simulation."""
         return np.array([
-            meta.props.get("temperature", units) for meta in self.config.registry
+            meta.props.get("temperature", units=units) for meta in self.config.registry
         ])
     
     def volume(self, units: str = "nm^3") -> NDArray[np.float64]:
         """Volume of each simulation."""
         return np.array([
-            meta.props.get("volume", units) for meta in self.config.registry
+            meta.props.get("volume", units=units) for meta in self.config.registry
         ])
     
     def molar_volume(self, units: str = "nm^3 / molecule") -> NDArray[np.float64]:
@@ -161,7 +151,7 @@ class SystemAnalyzer: # go back and add logger flags: self.config.logger
         # make dict in same order as top molecules
         volumes_map: dict[str, float] = {mol: 0 for mol in self.top_molecules}
         for i, meta in enumerate(self.config.registry):
-            top = meta.props.top
+            top = meta.props.topology
             # only for pure systems
             if meta.kind == "pure":
                 N = self.Q_(top.total_molecules, "molecule").to(N_unit).magnitude
@@ -171,7 +161,7 @@ class SystemAnalyzer: # go back and add logger flags: self.config.logger
     def enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Enthalpy of each simulation."""
         return np.array([
-            meta.props.get("enthalpy", units) for meta in self.config.registry
+            meta.props.get("enthalpy", units=units) for meta in self.config.registry
         ])
     
     def pure_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
@@ -179,7 +169,7 @@ class SystemAnalyzer: # go back and add logger flags: self.config.logger
         enth: dict[str, float] = {mol: 0 for mol in self.top_molecules}
         for meta in self.config.registry:
             if meta.kind == "pure":
-                enth[meta.props.topology.molecules[0]] = meta.props.get("enthalpy", units)
+                enth[meta.props.topology.molecules[0]] = meta.props.get("enthalpy", units=units)
         return np.fromiter(enth.values(), dtype=np.float64)
 
     def ideal_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:

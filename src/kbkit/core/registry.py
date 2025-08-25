@@ -29,6 +29,11 @@ class SystemRegistry:
         """Get all systems."""
         return self._systems
     
+    def get_idx(self, name: str) -> int:
+        """Get system index in registry list."""
+        systems_list = list(self._by_name.keys())
+        return systems_list.index(name)
+    
     def __iter__(self) -> None:
         """Allows you to loop over systems directly.
         

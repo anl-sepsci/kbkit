@@ -13,9 +13,9 @@ from kbkit.schema.kbi_metadata import KBIMetadata
 
 class KBICalculator:
 
-    def __init__(self, config: SystemConfig) -> None:
+    def __init__(self, config: SystemConfig, analyzer: SystemAnalyzer) -> None:
         self.config = config
-        self.analyzer = SystemAnalyzer(self.config)
+        self.analyzer = analyzer
         self.kbi_metadata: dict[str, KBIMetadata] = {}
 
     def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
@@ -38,7 +38,7 @@ class KBICalculator:
         :class:`kbkit.parsers.rdf.RDFParser` : Parses RDF files.
         :class:`kbkit.analysis.integrator.KBIntegrator` : Performs the RDF integration to compute KBIs and apply finite-size corrections.
         """      
-        kbis = np.full((self.n_sys, len(self.top_molecules), len(self.top_molecules)), fill_value=np.nan)
+        kbis = np.full((self.analyzer.n_sys, len(self.analyzer.top_molecules), len(self.analyzer.top_molecules)), fill_value=np.nan)
 
         # iterate through all systems
         for s, meta in enumerate(self.config.registry):
@@ -47,9 +47,9 @@ class KBICalculator:
                 continue
 
             # read all rdf_files
-            for filepath in meta.rdf_path.iter_dir():
-                rdf_mols = RDFParser.extract_mols(filepath.name, self.top_molecules)
-                i, j = [self._get_mol_idx(mol, self.top_molecules) for mol in rdf_mols]
+            for filepath in meta.rdf_path.iterdir():
+                rdf_mols = RDFParser.extract_mols(filepath.name, self.analyzer.top_molecules)
+                i, j = [self.analyzer._get_mol_idx(mol, self.analyzer.top_molecules) for mol in rdf_mols]
 
                 # integrate rdf --> kbi calc
                 integrator = KBIntegrator(filepath, meta.props)
@@ -92,7 +92,6 @@ class KBICalculator:
     
     @staticmethod
     def apply_electrolyte_correction(
-        self, 
         kbi_matrix: NDArray[np.float64],
         salt_pairs: list[tuple[str, str]],
         top_molecules: list[str],
@@ -144,8 +143,6 @@ class KBICalculator:
             - :math:`N_c` and :math:`N_a` are the counts of the salt components in the system.
             - :math:`G_{cc}`, :math:`G_{aa}`, and :math:`G_{ca}` are the KBIs for the respective pairs of molecules.
         """
-
-        kbi_matrix = self.compute_raw_kbi_matrix()
 
         # if no salt pairs detected return original matrix
         if len(salt_pairs) == 0:
