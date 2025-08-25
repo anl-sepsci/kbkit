@@ -183,7 +183,10 @@ class SystemAnalyzer:
         enth: dict[str, float] = dict.fromkeys(self.top_molecules, 0)
         for meta in self.config.registry:
             if meta.kind == "pure":
-                enth[meta.props.topology.molecules[0]] = meta.props.get("enthalpy", units=units)
+                value = meta.props.get("enthalpy", units=units, std=False)
+                if isinstance(value, tuple):
+                    value = value[0]  # or whatever logic you want
+                enth[meta.props.topology.molecules[0]] = float(value)
         return np.fromiter(enth.values(), dtype=np.float64)
 
     def ideal_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:

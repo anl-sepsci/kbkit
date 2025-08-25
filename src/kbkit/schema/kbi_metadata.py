@@ -7,6 +7,7 @@ Used in structural analysis, mixture characterization, and thermodynamic inferen
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -45,12 +46,12 @@ class KBIMetadata:
     - Can be serialized or visualized for structural diagnostics.
     """
 
-    mols: tuple[str, str]
+    mols: tuple[str, ...]
     r: NDArray[np.float64]
     g: NDArray[np.float64]
     rkbi: NDArray[np.float64]
     lam: NDArray[np.float64]
     lam_rkbi: NDArray[np.float64]
     lam_fit: NDArray[np.float64]
-    lam_rkbi_fit: NDArray[np.float64]
+    lam_rkbi_fit: NDArray[np.floating[Any]]
     kbi: float

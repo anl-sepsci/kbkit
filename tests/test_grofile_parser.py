@@ -89,7 +89,7 @@ def test_invalid_suffix():
     Uses a '.txt' file to trigger the error.
     """
     gro_path, _ = create_temp_gro_file(name="test.txt")
-    with pytest.raises(ValueError, match=f"Invalid file suffix '{gro_path.suffix}', expected '.gro'."):
+    with pytest.raises(ValueError, match=f"Suffix .gro does not match file suffix: {gro_path.suffix}"):
         GroFileParser(gro_path)
 
 

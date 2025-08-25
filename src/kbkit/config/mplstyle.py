@@ -10,7 +10,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
-def load_mplstyle() -> plt.style:
+def load_mplstyle() -> None:
     """
     Apply the custom matplotlib style defined in `presentation.mplstyle`.
 

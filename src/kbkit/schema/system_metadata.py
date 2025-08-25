@@ -47,7 +47,7 @@ class SystemMetadata:
     kind: str
     path: Path
     props: SystemProperties
-    rdf_path: Path = field(default_factory=str)
+    rdf_path: Path = field(default_factory=Path)
     tags: list[str] = field(default_factory=list)
 
     def has_rdf(self) -> bool:

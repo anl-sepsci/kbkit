@@ -45,7 +45,7 @@ class FileResolver:
         self.ensemble = ensemble
         self.logger = logger or get_logger(f"{__name__}.{self.__class__.__name__}", verbose=False)
 
-    def get_file(self, role: str) -> str | list[str]:
+    def get_file(self, role: str) -> str:
         """
         Return the first matching file for a given semantic role.
 

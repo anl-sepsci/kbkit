@@ -20,6 +20,7 @@ def build_tree(
     path: Path, spec: pathspec.PathSpec, root: Path, exclude_names: set[str] | None = None
 ) -> tuple[str, list]:
     """Recursively build a tree-format-compatible tuple, excluding .gitignore and manual names."""
+    exclude_names = exclude_names if exclude_names is not None else {"__pycache__"}
     children = []
     for entry in sorted(path.iterdir(), key=lambda x: (x.is_file(), x.name.lower())):
         rel_path = entry.relative_to(root)

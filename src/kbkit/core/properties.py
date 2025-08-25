@@ -52,26 +52,12 @@ class SystemProperties:
         self.file_resolver = FileResolver(self.system_path, self.ensemble, self.logger)
 
         # File discover and parser setup
-        role_map = {
-            "topology": ("single", TopFileParser),
-            "structure": ("single", GroFileParser),
-            "energy": ("multi", EdrFileParser),
-        }
-
-        for attr, (mode, parser_cls) in role_map.items():
-            try:
-                if mode == "single":
-                    filepath = self.file_resolver.get_file(attr)
-                elif mode == "multi":
-                    filepath = self.file_resolver.get_all(attr)
-                setattr(self, attr, parser_cls(filepath, verbose=verbose))
-            except FileNotFoundError:
-                if verbose:
-                    self.logger.warning(f"No file(s) found for role '{attr}' in {self.system_path}")
-                setattr(self, attr, None)
+        self.topology = TopFileParser(self.file_resolver.get_file("topology"), verbose=verbose)
+        self.structure = GroFileParser(self.file_resolver.get_file("structure"), verbose=verbose)
+        self.energy = EdrFileParser(self.file_resolver.get_all("energy"), verbose=verbose)
 
     @property
-    def file_registry(self) -> dict[str, str | list[str]]:
+    def file_registry(self) -> dict[str, Path | list[Path]]:
         """
         Return a registry of resolved GROMACS file paths.
 
@@ -130,8 +116,7 @@ class SystemProperties:
                 raise ValueError(f"GROMACS .edr file {self.file_registry['edr']} does not contain property: {prop}.")
 
         result = self.energy.average_property(name=prop, start_time=start_time, return_std=return_std)
-
-        if return_std:
+        if isinstance(result, tuple):
             avg_val, std_val = result
             avg_converted = self.Q_(avg_val, gmx_units).to(units).magnitude
             std_converted = self.Q_(std_val, gmx_units).to(units).magnitude
@@ -184,9 +169,13 @@ class SystemProperties:
         self.logger.debug(f"Calculating enthalpy from U, P, V at {start_time}s with units '{units}'")
         start_time = start_time if start_time > 0 else self.start_time
 
-        U = self._get_average_property("potential", start_time=start_time, units="kJ/mol")
-        P = self._get_average_property("pressure", start_time=start_time, units="kPa")
-        V = self._get_average_property("volume", start_time=start_time, units="m^3")
+        U = self._get_average_property("potential", start_time=start_time, units="kJ/mol", return_std=False)
+        P = self._get_average_property("pressure", start_time=start_time, units="kPa", return_std=False)
+        V = self._get_average_property("volume", start_time=start_time, units="m^3", return_std=False)
+
+        U = float(U[0]) if isinstance(U, tuple) else U
+        P = float(P[0]) if isinstance(P, tuple) else P
+        V = float(V[0]) if isinstance(V, tuple) else V
 
         H = (U + P * V) / self.topology.total_molecules  # convert to per molecule
         units = resolve_units(units, "kJ/mol")

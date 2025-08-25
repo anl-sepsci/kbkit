@@ -7,6 +7,7 @@ to support reproducible system discovery and contributor-friendly diagnostics.
 """
 
 from collections import defaultdict
+from typing import Iterator
 
 from kbkit.schema.system_metadata import SystemMetadata
 
@@ -29,7 +30,7 @@ class SystemRegistry:
         self._by_name = {s.name: s for s in systems}
         self._by_kind = self._group_by_kind(systems)
 
-    def _group_by_kind(self, systems: SystemMetadata) -> dict:
+    def _group_by_kind(self, systems: list[SystemMetadata]) -> dict[str, list[SystemMetadata]]:
         """
         Group systems by their kind attribute.
 
@@ -113,7 +114,7 @@ class SystemRegistry:
         systems_list = list(self._by_name.keys())
         return systems_list.index(name)
 
-    def __iter__(self) -> None:
+    def __iter__(self) -> Iterator[SystemMetadata]:
         """
         Enable iteration over registered systems.
 

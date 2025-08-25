@@ -39,7 +39,7 @@ class KBICalculator:
     def __init__(self, config: SystemConfig, analyzer: SystemAnalyzer) -> None:
         self.config = config
         self.analyzer = analyzer
-        self.kbi_metadata: dict[str, KBIMetadata] = {}
+        self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
 
     def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
         r"""
@@ -94,7 +94,9 @@ class KBICalculator:
 
         return kbis
 
-    def _populate_kbi_metadata(self, system: str, rdf_mols: tuple[str, str], integrator: KBIntegrator) -> None:
+    def _populate_kbi_metadata(
+        self, system: str, rdf_mols: tuple[str, ...] | list[str], integrator: KBIntegrator
+    ) -> None:
         r"""
         Populate KBI metadata dictionary with integration results for a given RDF file.
 

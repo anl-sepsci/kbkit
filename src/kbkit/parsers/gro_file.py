@@ -51,7 +51,7 @@ class GroFileParser:
         """
         self.logger.debug("Starting electron count per residue.")
         parser = self.get_atom_parser()
-        residue_electrons = defaultdict(int)
+        residue_electrons: dict[str, int] = defaultdict(int)
         seen_residues = {}
 
         for idx, res_name, atom_name in parser:
@@ -90,13 +90,13 @@ class GroFileParser:
         parts = last_line.split()
 
         if len(parts) < MIN_BOX_LINE_PARTS:
-            self.logger.error(f"Invalid box line: {last_line!r}")
-            raise ValueError(f"Invalid box line: {last_line!r}")
+            self.logger.error("Box dimensions missing or invalid")
+            raise ValueError("Box dimensions missing or invalid")
 
         try:
             x, y, z = map(float, parts[:3])
             self.logger.info("Successfully parsed .gro file for box dimensions.")
             return x * y * z
         except ValueError as e:
-            self.logger.error(f"Failed to parse box dimensions: {last_line!r}")
-            raise ValueError(f"Failed to parse box dimensions: {last_line!r}") from e
+            self.logger.error("Box dimensions missing or invalid")
+            raise ValueError("Box dimensions missing or invalid") from e

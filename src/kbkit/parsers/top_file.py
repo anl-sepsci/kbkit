@@ -2,6 +2,7 @@
 
 import re
 from functools import cached_property
+from typing import Any
 
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
@@ -24,7 +25,7 @@ class TopFileParser:
     def __init__(self, top_path: str, verbose: bool = False):
         self.top_path = validate_path(top_path, suffix=".top")
         self.verbose = verbose
-        self.skipped_lines = []
+        self.skipped_lines: list[Any] = []
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.logger.info(f"Validated .top file: {self.top_path}")
 

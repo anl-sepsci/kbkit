@@ -1,6 +1,7 @@
 """Create an iterable object over valid atom lines in GROMACS .gro file."""
 
 import re
+from pathlib import Path
 
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
@@ -18,7 +19,7 @@ class GroAtomParser:
         Path to the .gro file.
     """
 
-    def __init__(self, gro_path: str, verbose: bool = False) -> None:
+    def __init__(self, gro_path: str | Path, verbose: bool = False) -> None:
         self.gro_path = validate_path(gro_path, suffix=".gro")
         self.verbose = verbose
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)

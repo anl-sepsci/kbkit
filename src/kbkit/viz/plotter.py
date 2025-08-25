@@ -2,8 +2,9 @@
 
 import os
 import warnings
+from dataclasses import dataclass
 from itertools import combinations_with_replacement
-from typing import Any, Callable, List, Tuple, TypedDict
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,22 +22,36 @@ BINARY_SYSTEM = 2
 TERNARY_SYSTEM = 3
 
 
-class _SinglePlotSpec(TypedDict):
-    # a class for the single-data plot
-    x_data: np.ndarray
-    y_data: np.ndarray
+@dataclass
+class PlotSpec:
+    """
+    Specification for a single plot to be rendered by the Plotter.
+
+    Attributes
+    ----------
+    x_data : NDArray[np.float64]
+        The x-axis data for the plot.
+    ylabel : str
+        Label for the y-axis.
+    filename : str
+        Output filename for the saved plot.
+    multi : bool, optional
+        Whether the plot includes multiple y-series (e.g., stacked thermodynamic contributions).
+    y_data : Optional[NDArray[np.float64]], optional
+        Single y-axis data for simple plots.
+    y_series : Optional[list[tuple[NDArray[np.float64], str, str, str]]], optional
+        List of (y_data, color, marker, label) tuples for multi-series plots.
+    fit_fns : Optional[dict[str, Callable[..., Any]]], optional
+        Optional dictionary of molecule-specific fit functions for overlaying curves.
+    """
+
+    x_data: NDArray[np.float64]
     ylabel: str
     filename: str
-    fit_fns: dict[str, Callable[..., Any]] | None
-
-
-class _MultiPlotSpec(TypedDict):
-    # class for multi-series plot
-    x_data: np.ndarray
-    y_series: List[Tuple[np.ndarray, str, str, str]]
-    ylabel: str
-    filename: str
-    multi: bool
+    multi: bool = False
+    y_data: Optional[NDArray[np.float64]] = None
+    y_series: Optional[list[tuple[NDArray[np.float64], str, str, str]]] = None
+    fit_fns: Optional[dict[str, np.poly1d]] = None
 
 
 class Plotter:
@@ -70,9 +85,9 @@ class Plotter:
 
     def _setup_folders(self) -> None:
         # create folders for figures if they don't exist
-        self.pipe.thermo_dir = os.path.join(self.pipe.config.base_path, "kb_analysis")
-        self.sys_dir = os.path.join(self.pipe.thermo_dir, "system_figures")
-        for path in (self.pipe.thermo_dir, self.sys_dir):
+        self.thermo_dir = os.path.join(self.pipe.config.base_path, "kb_analysis")
+        self.sys_dir = os.path.join(self.thermo_dir, "system_figures")
+        for path in (self.thermo_dir, self.sys_dir):
             if not os.path.exists(path):
                 os.mkdir(path)
 
@@ -202,14 +217,14 @@ class Plotter:
         # add legend to above figure.
         color_dict = self._get_rdf_colors(cmap=cmap)
         kbi_meta = self.pipe.calculator.kbi_metadata.get(system)
-        if not kbi_meta:
+        if kbi_meta is None:
             raise ValueError(f"No KBIs for sytem: {system}")
         units = "cm^3/mol" if units == "" else units
 
         fig, ax = plt.subplots(1, 3, figsize=(12, 4))
         for meta in kbi_meta:
             mol_i, mol_j = meta.mols
-            color = color_dict.get(mol_i, {}).get(mol_j)
+            color = color_dict.get(mol_i, {})[mol_j]
 
             rkbi = self._convert_kbi(meta.rkbi)
             lkbi = self._convert_kbi(meta.lam_rkbi)
@@ -305,13 +320,13 @@ class Plotter:
         # get list of SystemMeta for each system
         for s, system_meta in enumerate(self.pipe.config.registry):
             # get kbi meta for system
-            meta_list = self.pipe.calculator.kbi_metadata.get(system_meta.name)
-            if not meta_list:
+            meta_list = self.pipe.calculator.kbi_metadata.get(system_meta.name, [])
+            if len(meta_list) < 1:
                 continue
             # then iterate through all metas
             for meta in meta_list:
                 mol_i, mol_j = meta.mols
-                color = color_dict.get(mol_i, {}).get(mol_j)
+                color = color_dict.get(mol_i, {})[mol_j]
                 kbi = self._convert_kbi(meta.kbi)
                 label = f"{self.molecule_map[mol_i]}-{self.molecule_map[mol_j]}"
                 line = ax.scatter(
@@ -335,52 +350,56 @@ class Plotter:
         ax.set_xticks(ticks=np.arange(0, 1.1, 0.1))
         ax.set_xlabel(f"x$_{{{self.molecule_map[self.x_mol]}}}$")
         ax.set_ylabel(rf"G$_{{ij}}^{{\infty}}$ / {format_unit_str(units)}")
-        plt.savefig(self.pipe.thermo_dir + f"/composition_kbi_{units.replace('^', '').replace('/', '_')}.png")
+        plt.savefig(self.thermo_dir + f"/composition_kbi_{units.replace('^', '').replace('/', '_')}.png")
         if show:
             plt.show()
         else:
             plt.close()
 
-    def _get_plot_spec(self, prop: str) -> _SinglePlotSpec | _MultiPlotSpec:
-        # get the figure specifications for a given property
-        if prop in ["lngammas", "dlngammas", "lngammas_fits", "dlngammas_fits"]:
-            # get fit functions if applicable
-            if prop == "lngammas_fits":
-                fit_fns = self.pipe.thermo._lngamma_fn_dict
-            elif prop == "dlngammas_fits":
-                fit_fns = self.pipe.thermo._dlngamma_fn_dict
-            else:
-                fit_fns = None
+    def _get_plot_spec(self, prop: str) -> PlotSpec:
+        """
+        Generate a PlotSpec object for a given thermodynamic property.
 
-            # Handle the properties that return a _SinglePlotSpec
-            return _SinglePlotSpec(
+        Parameters
+        ----------
+        prop : str
+            The name of the property to plot (e.g., 'lngammas', 'mixing', 'i0').
+
+        Returns
+        -------
+        PlotSpec
+            A fully populated PlotSpec object containing data and metadata for rendering.
+        """
+        if prop in ["lngammas", "dlngammas", "lngammas_fits", "dlngammas_fits"]:
+            fit_fns = None
+            if prop.endswith("fits"):
+                fit_fns = (
+                    self.pipe.thermo._lngamma_fn_dict if prop == "lngammas_fits" else self.pipe.thermo._dlngamma_fn_dict
+                )
+            return PlotSpec(
                 x_data=self.pipe.analyzer.mol_fr,
-                y_data=self.property_map.get("lngammas")
-                if "dln" not in prop
-                else self.property_map.get("dlngammas_dxs"),
-                ylabel=r"$\ln \gamma_{i}$" if "dln" not in prop else r"$\partial \ln(\gamma_{i})$ / $\partial x_{i}$",
-                filename=f"{prop}.png",  # Simplified for example
+                y_data=self.property_map["lngammas"] if "dln" not in prop else self.property_map["dlngammas_dxs"],
+                ylabel=r"$\ln \gamma_{i}$" if "dln" not in prop else r"$\partial \ln(\gamma_{i})$ / \partial x_{i}$",
+                filename=f"{prop}.png",
                 fit_fns=fit_fns,
+                multi=False,
             )
 
         elif prop in ["mixing", "excess"]:
-            # Handle the properties that return a _MultiPlotSpec
             y_series_list = [
                 (self.pipe.analyzer.h_mix(), "violet", "s", r"$\Delta H_{mix}$"),
-                (-self.pipe.analyzer.temperature() * self.property_map.get("se"), "limegreen", "o", r"$-TS^E$"),
+                (-self.pipe.analyzer.temperature() * self.property_map["se"], "limegreen", "o", r"$-TS^E$"),
             ]
             if prop == "mixing":
-                y_series_list.extend(
-                    [
-                        (self.property_map.get("gid"), "darkorange", "<", r"$G^{id}$"),
-                        (self.property_map.get("gm"), "mediumblue", "^", r"$\Delta G_{mix}$"),
-                    ]
-                )
-            else:  # prop == excess
-                y_series_list.append((self.property_map.get("ge"), "mediumblue", "^", r"$G^E$"))
+                y_series_list += [
+                    (self.property_map["gid"], "darkorange", "<", r"$G^{id}$"),
+                    (self.property_map["gm"], "mediumblue", "^", r"$\Delta G_{mix}$"),
+                ]
+            else:
+                y_series_list.append((self.property_map["ge"], "mediumblue", "^", r"$G^E$"))
 
-            return _MultiPlotSpec(
-                x_data=self.property_map.get("mol_fr")[:, self._x_idx],
+            return PlotSpec(
+                x_data=self.pipe.analyzer.mol_fr[:, self._x_idx],
                 y_series=y_series_list,
                 ylabel=rf"Contributions to $\Delta G_{{mix}}$ / {format_unit_str('kJ/mol')}"
                 if prop == "mixing"
@@ -390,40 +409,48 @@ class Plotter:
             )
 
         elif prop in ["i0", "det_h"]:
-            # Handle other single-data plots
-            return _SinglePlotSpec(
-                x_data=self.property_map.get("mol_fr")[:, self._x_idx],
-                y_data=self.property_map.get("i0") if prop == "i0" else self.property_map.get("det_hessian"),
+            return PlotSpec(
+                x_data=self.pipe.analyzer.mol_fr[:, self._x_idx],
+                y_data=self.property_map["i0"] if prop == "i0" else self.property_map["det_hessian"],
                 ylabel=f"I$_0$ / {format_unit_str('cm^{-1}')}"
                 if prop == "i0"
                 else f"$|H_{{ij}}|$ / {format_unit_str('kJ/mol')}",
                 filename=f"saxs_{'I0' if prop == 'i0' else 'det_hessian'}.png",
-                fit_fns=None,
+                multi=False,
             )
+
         else:
             raise ValueError(f"Unknown property: '{prop}'")
 
     def _render_binary_plot(
         self,
-        spec: _SinglePlotSpec | _MultiPlotSpec,
+        spec: PlotSpec,
         ylim: tuple[float, float] = (0.0, 0.0),
         show: bool = True,
         cmap: str = "jet",
         marker: str = "o",
     ) -> None:
-        # create a binary plot for a given property
+        """
+        Render a binary system plot based on the provided PlotSpec.
+
+        Parameters
+        ----------
+        spec : PlotSpec
+            The plot specification containing data and metadata.
+        ylim : tuple[float, float], optional
+            Manual y-axis limits. If (0.0, 0.0), limits are auto-scaled.
+        show : bool, optional
+            Whether to display the plot interactively.
+        cmap : str, optional
+            Colormap used for multi-component plots.
+        marker : str, optional
+            Marker style for scatter plots.
+        """
         fig, ax = plt.subplots(figsize=(5, 4))
 
-        # Check the type of the spec object using a runtime check
-        if "y_series" in spec:
-            x = spec["x_data"]
-            for y_data, color, mk, label in spec["y_series"]:
-                if isinstance(x, (list, np.ndarray)) and isinstance(y_data, (list, np.ndarray)):
-                    ax.scatter(x, y_data, c=color, marker=mk, label=label)
-                else:
-                    raise TypeError(
-                        f"Incompatible data type for plotting, x-data type({type(spec['x_data'])}); y-data type({type(y_data)})."
-                    )
+        if spec.multi and spec.y_series:
+            for y_data, color, mk, label in spec.y_series:
+                ax.scatter(spec.x_data, y_data, c=color, marker=mk, label=label)
 
             ax.legend(
                 loc="lower center",
@@ -434,26 +461,21 @@ class Plotter:
                 shadow=True,
             )
 
-        else:
-            x_data = spec["x_data"]
-            y_data = spec["y_data"]
-
-            if y_data.ndim == 1:  # single y_data for single component
-                ax.scatter(x_data, y_data, c="mediumblue", marker=marker)
-
-            else:  # for many components
+        elif spec.y_data is not None:
+            if spec.y_data.ndim == 1:
+                ax.scatter(spec.x_data, spec.y_data, c="mediumblue", marker=marker)
+            else:
                 colors = plt.cm.get_cmap(cmap)(np.linspace(0, 1, self.pipe.analyzer.n_comp))
-                fit_fns = spec.get("fit_fns", None)
-
                 for i, mol in enumerate(self.pipe.analyzer.unique_molecules):
-                    xi = x_data[:, self._x_idx] if self.pipe.analyzer.n_comp == BINARY_SYSTEM else x_data[:, i]
-                    yi = y_data[:, i]
+                    xi = (
+                        spec.x_data[:, self._x_idx] if self.pipe.analyzer.n_comp == BINARY_SYSTEM else spec.x_data[:, i]
+                    )
+                    yi = spec.y_data[:, i]
                     ax.scatter(xi, yi, c=[colors[i]], marker=marker, label=self.molecule_map[mol])
 
-                    if fit_fns is not None:
-                        fit = fit_fns[mol]
+                    if spec.fit_fns:
                         xfit = np.arange(0, 1.01, 0.01)
-                        ax.plot(xfit, fit(xfit), c=colors[i], lw=2)
+                        ax.plot(xfit, spec.fit_fns[mol](xfit), c=colors[i], lw=2)
 
                 ax.legend(
                     loc="lower center",
@@ -467,19 +489,19 @@ class Plotter:
         ax.set_xlabel(
             f"x$_{{{self.molecule_map[self.x_mol]}}}$" if self.pipe.analyzer.n_comp == BINARY_SYSTEM else "x$_i$"
         )
-        ax.set_ylabel(spec["ylabel"])
+        ax.set_ylabel(spec.ylabel)
         ax.set_xlim(-0.05, 1.05)
         ax.set_xticks(np.arange(0, 1.1, 0.1))
 
         if any(ylim) != 0:
             ax.set_ylim(*ylim)
-        elif "multi" not in spec and "y_data" in spec:
-            y_max, y_min = np.nanmax(spec["y_data"]), np.nanmin(spec["y_data"])
+        elif spec.y_data is not None:
+            y_max, y_min = np.nanmax(spec.y_data), np.nanmin(spec.y_data)
             pad = 0.1 * (y_max - y_min) if y_max != y_min else 0.05
-            y_lb = 0 if spec["y_data"].ndim == 1 else -0.05
+            y_lb = 0 if spec.y_data.ndim == 1 else -0.05
             ax.set_ylim(min([y_lb, y_min - pad]), max([0.05, y_max + pad]))
 
-        plt.savefig(os.path.join(self.pipe.thermo_dir, str(spec["filename"])))
+        plt.savefig(os.path.join(self.thermo_dir, spec.filename))
         if show:
             plt.show()
         else:
@@ -491,12 +513,12 @@ class Plotter:
         cmap: str = "jet",
         show: bool = False,
     ) -> None:
-        arr = np.asarray(self.property_map.get(property_name))
+        arr = np.asarray(self.property_map[property_name])
         xtext, ytext, ztext = self.unique_names
         a, b, c = (
-            self.property_map.get("mol_fr")[:, 0],
-            self.property_map.get("mol_fr")[:, 1],
-            self.property_map.get("mol_fr")[:, 2],
+            self.pipe.analyzer.mol_fr[:, 0],
+            self.pipe.analyzer.mol_fr[:, 1],
+            self.pipe.analyzer.mol_fr[:, 2],
         )
 
         valid_mask = (a >= 0) & (b >= 0) & (c >= 0) & ~np.isnan(arr) & ~np.isinf(arr)
@@ -521,7 +543,7 @@ class Plotter:
         ax.laxis.set_major_locator(MultipleLocator(0.10))  # type: ignore[attr-defined]
         ax.raxis.set_major_locator(MultipleLocator(0.10))  # type: ignore[attr-defined]
 
-        plt.savefig(os.path.join(self.pipe.thermo_dir, f"ternary_{property_name}.png"))
+        plt.savefig(os.path.join(self.thermo_dir, f"ternary_{property_name}.png"))
         if show:
             plt.show()
         else:
@@ -597,12 +619,8 @@ class Plotter:
             raise ValueError(f"Property {prop_key} not valid.")
 
         if system:
-            # plot system rdfs
-            if prop_key == "rdf":
-                self.plot_system_rdf(system=system, xlim=xlim, ylim=ylim, line=True, cmap=cmap, show=show)
-
             # plot system kbis
-            elif prop_key == "kbi":
+            if prop_key == "kbi":
                 self.plot_system_kbi_analysis(system=system, units="cm^3/mol", cmap=cmap, show=show)
 
             else:

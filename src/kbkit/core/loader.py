@@ -80,6 +80,10 @@ class SystemLoader:
         base_path = base_path or self._find_base_path()
         pure_path = pure_path or self._find_pure_path(base_path)
 
+        # check that paths are valid
+        base_path = validate_path(base_path)
+        pure_path = validate_path(pure_path)
+
         # get system paths and corresponding metatdata for base systems
         base_systems = system_names or self._find_systems(base_path)
         self.logger.debug(f"Discovered base systems: {base_systems}")
@@ -310,6 +314,8 @@ class SystemLoader:
             try:
                 molecules = props.topology.molecules
                 temp = props.get("temperature", units="K")
+                if isinstance(temp, tuple):
+                    temp = temp[0]
             except Exception:
                 continue  # Skip systems with invalid topology or temperature
 

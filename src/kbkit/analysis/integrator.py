@@ -31,46 +31,15 @@ class KBIntegrator:
         Ensemble type for the system properties. Default is 'npt'.
     """
 
-    def __init__(self, rdf_file: str, system_properties: SystemProperties) -> None:
-        self.rdf = RDFParser(rdf_file)
+    def __init__(self, rdf_file: str | Path, system_properties: SystemProperties) -> None:
+        self.rdf = RDFParser(str(rdf_file))
         self.system_properties = system_properties
-
-    def _syspath(self) -> str:
-        """
-        Get directory that contains .top file.
-
-        Search in same directory as rdf and its parent directory to find topology file.
-
-        Returns
-        -------
-        str
-            The path to the directory containing a .top file.
-        """
-        # create path obj to rdf file
-        rdf_path = Path(self.rdf.rdf_file)
-        # check that path exists
-        if not rdf_path.exists():
-            raise FileNotFoundError(f"RDF file does not exist: {rdf_path}")
-
-        # directories to check: RDF dir and its parent
-        for directory in [rdf_path.parent, rdf_path.parent.parent]:
-            # search for .top file
-            try:
-                top_files = list(directory.glob("*.top"))
-            except PermissionError as e:
-                raise PermissionError(f"Permission denied when accessing '{directory}': {e}") from e
-            except OSError as e:
-                raise RuntimeError(f"Error accessing '{directory}': {e}") from e
-
-            if top_files:
-                # return first match
-                return str(top_files[0].parent)
-
-        raise FileNotFoundError(f"Topology (.top) file not found in '{rdf_path.parent}' or '{rdf_path.parent.parent}'")
 
     def box_vol(self) -> float:
         """Return the volume of the system box in nm^3."""
         vol = self.system_properties.get("volume", units="nm^3")
+        if isinstance(vol, tuple):
+            vol = vol[0]
         return float(vol)
 
     def rdf_molecules(self) -> list[str]:
@@ -299,7 +268,9 @@ class KBIntegrator:
         ax[1].plot(lam_fit, lam_rkbi_fit, ls="--", c="k", label=f"KBI: {fit_params[0]:.2g} nm$^3$")
         ax[1].set_xlabel(r"$\lambda$")
         ax[1].set_ylabel(r"$\lambda$ G$_{ij}$ / nm$^3$")
-        fig.suptitle(f"KBI Analysis for system: {os.path.basename(self.syspath)} {'-'.join(self.rdf_molecules())}")
+        fig.suptitle(
+            f"KBI Analysis for system: {os.path.basename(self.system_properties.system_path)} {'-'.join(self.rdf_molecules())}"
+        )
         if save_dir is not None:
             plt.savefig(os.path.join(save_dir, self.rdf.rdf_file[:-4] + ".png"))
         plt.show()
