@@ -1,11 +1,48 @@
-"""Structured representation of systems."""
+"""
+Structured representation of molecular simulation systems.
+
+Defines the SystemMetadata dataclass, which encapsulates key attributes and
+semantic annotations for both pure and mixture systems. Used throughout the
+registry, config, and analysis layers to support reproducible workflows.
+"""
 
 from dataclasses import dataclass, field
-from pathlib import Path 
+from pathlib import Path
+
 from kbkit.core.properties import SystemProperties
+
 
 @dataclass
 class SystemMetadata:
+    """
+    Semantic container for a molecular simulation system.
+
+    Attributes
+    ----------
+    name : str
+        System name, typically derived from directory or input file.
+    kind : str
+        System type, either "pure" or "mixture".
+    path : Path
+        Filesystem path to the system directory.
+    props : SystemProperties
+        Parsed properties including topology, thermodynamics, and metadata.
+    rdf_path : Path, optional
+        Path to RDF directory if available (used for structural analysis).
+    tags : list[str], optional
+        Optional semantic tags for filtering, grouping, or annotation.
+
+    Methods
+    -------
+    has_rdf() -> bool
+        Return True if an RDF path is defined and non-empty.
+
+    Notes
+    -----
+    - Used by SystemRegistry, SystemConfig, and SystemAnalyzer to organize and filter systems.
+    - Supports reproducible analysis by encapsulating both structure and metadata.
+    """
+
     name: str
     kind: str
     path: Path
@@ -14,4 +51,5 @@ class SystemMetadata:
     tags: list[str] = field(default_factory=list)
 
     def has_rdf(self) -> bool:
+        """Return True if an RDF path is defined and non-empty."""
         return bool(self.rdf_path)

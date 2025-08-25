@@ -3,17 +3,16 @@
 import os
 import warnings
 from itertools import combinations_with_replacement
-from pathlib import Path
 from typing import Any, Callable, List, Tuple, TypedDict
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.typing import NDArray
 from matplotlib.ticker import MultipleLocator
+from numpy.typing import NDArray
 
+from kbkit.config.mplstyle import load_mplstyle
 from kbkit.core.pipeline import KBPipeline
 from kbkit.utils.format import format_unit_str
-from kbkit.config.mplstyle import load_mplstyle
 
 load_mplstyle()
 warnings.filterwarnings("ignore")
@@ -116,7 +115,9 @@ class Plotter:
 
         # check if mol is in unique molecules
         if mol not in self.pipe.analyzer.unique_molecules:
-            raise ValueError(f"Molecule {mol} not in available molecules: {', '.join(self.pipe.analyzer.unique_molecules)}")
+            raise ValueError(
+                f"Molecule {mol} not in available molecules: {', '.join(self.pipe.analyzer.unique_molecules)}"
+            )
 
         self._x_mol = mol
 
@@ -168,7 +169,7 @@ class Plotter:
             self._color_dict = color_dict
 
         return self._color_dict
-    
+
     def _convert_kbi(self, value) -> NDArray[np.float64]:
         """Conver KBI metadata value to desired units."""
         converted = self.pipe.analyzer.Q_(value, "nm^3/molecule").to("cm^3/mol")
@@ -215,7 +216,7 @@ class Plotter:
             lkbi_fit = self._convert_kbi(meta.lam_rkbi_fit)
             kbi_inf = self._convert_kbi(meta.kbi)
 
-            label=f"{self.molecule_map[mol_i]}-{self.molecule_map[mol_j]}"
+            label = f"{self.molecule_map[mol_i]}-{self.molecule_map[mol_j]}"
             ax[0].plot(meta.r, meta.g, lw=3, c=color, alpha=alpha, label=label)
             ax[1].plot(
                 meta.r,
@@ -282,9 +283,8 @@ class Plotter:
         show: bool, optional
             Display figures. Default is False.
         """
-        for system, kbi_meta in self.pipe.calculator.kbi_metadata.items():
+        for system, _kbi_meta in self.pipe.calculator.kbi_metadata.items():
             self.plot_system_kbi_analysis(system, units=units, show=show)
-
 
     def plot_kbis(self, units: str = "cm^3/mol", cmap: str = "jet", show: bool = False) -> None:
         """
@@ -314,7 +314,9 @@ class Plotter:
                 color = color_dict.get(mol_i, {}).get(mol_j)
                 kbi = self._convert_kbi(meta.kbi)
                 label = f"{self.molecule_map[mol_i]}-{self.molecule_map[mol_j]}"
-                line = ax.scatter(self.pipe.analyzer.mol_fr[s, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=label)
+                line = ax.scatter(
+                    self.pipe.analyzer.mol_fr[s, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=label
+                )
                 if meta.mols not in legend_info:
                     legend_info[label] = line
         lines = list(legend_info.values())
@@ -353,10 +355,10 @@ class Plotter:
             # Handle the properties that return a _SinglePlotSpec
             return _SinglePlotSpec(
                 x_data=self.pipe.analyzer.mol_fr,
-                y_data=self.property_map.get("lngammas") if "dln" not in prop else self.property_map.get("dlngammas_dxs"),
-                ylabel=r"$\ln \gamma_{i}$"
+                y_data=self.property_map.get("lngammas")
                 if "dln" not in prop
-                else r"$\partial \ln(\gamma_{i})$ / $\partial x_{i}$",
+                else self.property_map.get("dlngammas_dxs"),
+                ylabel=r"$\ln \gamma_{i}$" if "dln" not in prop else r"$\partial \ln(\gamma_{i})$ / $\partial x_{i}$",
                 filename=f"{prop}.png",  # Simplified for example
                 fit_fns=fit_fns,
             )
@@ -380,9 +382,9 @@ class Plotter:
             return _MultiPlotSpec(
                 x_data=self.property_map.get("mol_fr")[:, self._x_idx],
                 y_series=y_series_list,
-                ylabel=rf"Contributions to $\Delta G_{{mix}}$ / {format_unit_str("kJ/mol")}"
+                ylabel=rf"Contributions to $\Delta G_{{mix}}$ / {format_unit_str('kJ/mol')}"
                 if prop == "mixing"
-                else f"Excess Properties / {format_unit_str("kJ/mol")}",
+                else f"Excess Properties / {format_unit_str('kJ/mol')}",
                 filename=f"gibbs_{'mixing' if prop == 'mixing' else 'excess'}_contributions.png",
                 multi=True,
             )
@@ -394,7 +396,7 @@ class Plotter:
                 y_data=self.property_map.get("i0") if prop == "i0" else self.property_map.get("det_hessian"),
                 ylabel=f"I$_0$ / {format_unit_str('cm^{-1}')}"
                 if prop == "i0"
-                else f"$|H_{{ij}}|$ / {format_unit_str("kJ/mol")}",
+                else f"$|H_{{ij}}|$ / {format_unit_str('kJ/mol')}",
                 filename=f"saxs_{'I0' if prop == 'i0' else 'det_hessian'}.png",
                 fit_fns=None,
             )
@@ -462,7 +464,9 @@ class Plotter:
                     shadow=True,
                 )
 
-        ax.set_xlabel(f"x$_{{{self.molecule_map[self.x_mol]}}}$" if self.pipe.analyzer.n_comp == BINARY_SYSTEM else "x$_i$")
+        ax.set_xlabel(
+            f"x$_{{{self.molecule_map[self.x_mol]}}}$" if self.pipe.analyzer.n_comp == BINARY_SYSTEM else "x$_i$"
+        )
         ax.set_ylabel(spec["ylabel"])
         ax.set_xlim(-0.05, 1.05)
         ax.set_xticks(np.arange(0, 1.1, 0.1))
@@ -489,7 +493,11 @@ class Plotter:
     ) -> None:
         arr = np.asarray(self.property_map.get(property_name))
         xtext, ytext, ztext = self.unique_names
-        a, b, c = self.property_map.get("mol_fr")[:, 0], self.property_map.get("mol_fr")[:, 1], self.property_map.get("mol_fr")[:, 2]
+        a, b, c = (
+            self.property_map.get("mol_fr")[:, 0],
+            self.property_map.get("mol_fr")[:, 1],
+            self.property_map.get("mol_fr")[:, 2],
+        )
 
         valid_mask = (a >= 0) & (b >= 0) & (c >= 0) & ~np.isnan(arr) & ~np.isinf(arr)
         a = a[valid_mask]
@@ -521,21 +529,21 @@ class Plotter:
 
     def available_properties(self) -> list[str]:
         r"""Print out the available properties to plot with :meth:`plot_property`."""
-        properties =  [
-                "kbi",
-                "lngammas",
-                "dlngammas",
-                "lngammas_fits",
-                "dlngammas_fits",
-                "excess",
-                "mixing",
-                "gm",
-                "ge",
-                "hmix",
-                "se",
-                "i0",
-                "det_h",
-            ]
+        properties = [
+            "kbi",
+            "lngammas",
+            "dlngammas",
+            "lngammas_fits",
+            "dlngammas_fits",
+            "excess",
+            "mixing",
+            "gm",
+            "ge",
+            "hmix",
+            "se",
+            "i0",
+            "det_h",
+        ]
         return properties
 
     def plot(
@@ -587,7 +595,7 @@ class Plotter:
         prop_key = prop.lower()
         if prop_key not in self.available_properties():
             raise ValueError(f"Property {prop_key} not valid.")
-        
+
         if system:
             # plot system rdfs
             if prop_key == "rdf":
@@ -647,4 +655,6 @@ class Plotter:
                 self.plot(prop=thermo_prop, show=False)
 
         else:
-            print(f"WARNING: plotter does not support more than 3 components. ({self.pipe.analyzer.n_comp} components detected.)")
+            print(
+                f"WARNING: plotter does not support more than 3 components. ({self.pipe.analyzer.n_comp} components detected.)"
+            )

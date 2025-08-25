@@ -13,8 +13,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.parsers.rdf import RDFParser
 from kbkit.core.properties import SystemProperties
+from kbkit.parsers.rdf_file import RDFParser
 
 
 class KBIntegrator:

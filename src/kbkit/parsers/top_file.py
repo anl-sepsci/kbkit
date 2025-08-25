@@ -6,18 +6,22 @@ from functools import cached_property
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
-class TopFileParser:
-    def __init__(self, top_path: str, verbose: bool = False):
-        """
-        Initializes the parser with the path to the topology file.
+MAX_MOLECULE_PARTS = 2
 
-        Parameters
-        ----------
-        top_path : str
-            Path to the topology (.top) file.
-        verbose : bool, optional
-            If True, enables detailed logging output.
-        """
+
+class TopFileParser:
+    """
+    Initialize parser with the path to the topology file.
+
+    Parameters
+    ----------
+    top_path : str
+        Path to the topology (.top) file.
+    verbose : bool, optional
+        If True, enables detailed logging output.
+    """
+
+    def __init__(self, top_path: str, verbose: bool = False):
         self.top_path = validate_path(top_path, suffix=".top")
         self.verbose = verbose
         self.skipped_lines = []
@@ -27,29 +31,28 @@ class TopFileParser:
     def _is_valid_molecule_name(self, name: str) -> bool:
         # Allow letters, numbers, underscores, and hyphens
         return bool(re.match(r"^[A-Za-z0-9_\-]{2,50}$", name))
-    
+
     def _is_valid_count(self, count: str) -> bool:
         # check if string is valid number
         return count.isdigit()
 
     def parse(self) -> dict[str, int]:
         """Read the topology file and returns a dictionary of molecule names and counts.
-        
+
         Returns
         -------
         dict
             Dictionary containing molecules present and their number.
         """
-
         self.logger.info(f"Reading topology file: {self.top_path}")
         lines = self.top_path.read_text().splitlines()
-        molecules = {} 
+        molecules = {}
         in_molecules_section = False
 
         # extract molecule name and numbers from file
-        for line_num, line in enumerate(lines, start=1):
-            original_line = line
-            line = line.split(";")[0].strip()  # Remove comments (anything after a semicolon) and leading/trailing whitespace
+        for line_num, original_line in enumerate(lines, start=1):
+            # Remove comments (anything after a semicolon) and leading/trailing whitespace
+            line = original_line.split(";")[0].strip()
             if not line:
                 self.logger.debug(f"[Line {line_num}] Skipped empty or comment line.")
                 continue  # Skip empty lines
@@ -58,20 +61,22 @@ class TopFileParser:
             if line.lower().startswith("[ molecules ]"):
                 in_molecules_section = True
                 self.logger.debug(f"[Line {line_num}] Found '[ molecules ]' section.")
-                continue          
+                continue
 
             if in_molecules_section:
                 if line.startswith("["):
                     self.logger.debug(f"[Line {line_num}] Encountered new section. Stopping molecule parsing.")
-                    break # Stop parsing if we encounter another section
+                    break  # Stop parsing if we encounter another section
 
                 # Split the line by spaces and tabs, filtering out empty strings
                 parts = re.split(r"\s+", line)
 
-                if len(parts) < 2:
-                    self.logger.warning(f"[Line {line_num}] Skipped: Missing molecule name or count → '{original_line}'")
+                if len(parts) < MAX_MOLECULE_PARTS:
+                    self.logger.warning(
+                        f"[Line {line_num}] Skipped: Missing molecule name or count → '{original_line}'"
+                    )
                     self.skipped_lines.append((original_line, "Missing molecule name or count"))
-                    continue 
+                    continue
 
                 molecule_name, count_str = parts[0], parts[1]
 
@@ -94,14 +99,13 @@ class TopFileParser:
 
         self.logger.info(f"Successfully parsed {len(molecules)} molecules.")
         return molecules
-    
+
     def report_skipped(self) -> None:
-        """Prints a summary of lines that were skipped during parsing, including the line content and the reason for skipping."""
+        """Print a summary of lines that were skipped during parsing, including the line content and the reason for skipping."""
         if self.skipped_lines:
             print("Skipped lines during parsing:")
             for line, reason in self.skipped_lines:
                 print(f"  Line: '{line}' => Reason: {reason}")
-        
 
     @cached_property
     def molecule_count(self) -> dict[str, int]:
@@ -117,4 +121,3 @@ class TopFileParser:
     def total_molecules(self) -> int:
         """int: Total number of molecules present."""
         return sum(self.molecule_count.values())
-

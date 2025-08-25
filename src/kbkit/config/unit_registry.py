@@ -5,7 +5,6 @@ This registry ensures that all physical quantities—whether parsed from GROMACS
 interpreted and converted using a shared unit system.
 """
 
-
 import pint
 
 unit_definitions = """

@@ -5,51 +5,50 @@ These helpers abstract common patterns like safe file opening, extension checkin
 They are not tied to any specific file format or domain logic.
 """
 
-from pathlib import Path 
+from pathlib import Path
+
 from natsort import natsorted
 
 from kbkit.utils.validation import validate_path
 
-def find_files(
-    path: str | Path,
-    suffixes: list[str],
-    ensemble: str,
-    exclude: tuple = ("init", "eqm")
-) -> list[str]:
+
+def find_files(path: str | Path, suffixes: list[str], ensemble: str, exclude: tuple = ("init", "eqm")) -> list[str]:
     """
-    Stage 1: Find all files matching suffixes and excluding noisy patterns.
-    Stage 2: If multiple found, filter by ensemble name.
+    Discover and filter files in a directory based on suffixes, ensemble name, and exclusion patterns.
+
+    Performs a two-stage search:
+    1. Broad match by suffix and exclusion substrings
+    2. Refined match by ensemble name (if multiple candidates remain)
 
     Parameters
     ----------
     path : str or Path
-        Directory to search.
+        Directory to search for files.
     suffixes : list[str]
-        File extensions to match.
+        File extensions to include (e.g., [".gro", ".xtc"]).
     ensemble : str
-        Ensemble name to refine results.
+        Substring used to refine matches (e.g., "npt", "nvt").
     exclude : tuple[str], optional
-        Substrings to exclude from filenames.
+        Substrings to exclude from filenames (default: ("init", "eqm")).
 
     Returns
     -------
     list[str]
-        Sorted list of resolved file paths.
+        Sorted list of matching file paths as strings.
+
+    Notes
+    -----
+    - Uses `validate_path` to ensure input is a readable directory.
+    - Applies natural sorting for reproducibility across platforms.
+    - Ensemble filtering is applied only if multiple candidates are found.
     """
-    
     path = validate_path(path)  # Ensure it's a valid Path object
 
     # stage 1: broad match
-    candidates = [
-        f for f in path.iterdir()
-        if f.suffix in suffixes
-        and not any(ex in f.name for ex in exclude)
-    ]
+    candidates = [f for f in path.iterdir() if f.suffix in suffixes and not any(ex in f.name for ex in exclude)]
 
     # stage 2: ensemble refinement
     ensemble_matches = [f for f in candidates if ensemble in f.name]
     final = ensemble_matches if ensemble_matches else candidates
 
     return natsorted(str(f) for f in final)
-
-

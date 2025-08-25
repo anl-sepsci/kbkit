@@ -1,59 +1,146 @@
-"""Semantic wrapper around discovered systems."""
+"""
+Semantic wrapper around discovered systems.
+
+Provides a structured interface for accessing, filtering, and iterating over
+SystemMetadata objects. Used throughout config, analysis, and registry workflows
+to support reproducible system discovery and contributor-friendly diagnostics.
+"""
 
 from collections import defaultdict
+
 from kbkit.schema.system_metadata import SystemMetadata
 
 
 class SystemRegistry:
+    """
+    Registry of discovered molecular systems with semantic access patterns.
+
+    Stores and organizes SystemMetadata objects by name and kind, enabling
+    reproducible filtering, indexing, and iteration across pure and mixture systems.
+
+    Parameters
+    ----------
+    systems : list[SystemMetadata]
+        List of discovered systems to register.
+    """
+
     def __init__(self, systems: list[SystemMetadata]) -> None:
         self._systems = systems
         self._by_name = {s.name: s for s in systems}
         self._by_kind = self._group_by_kind(systems)
 
     def _group_by_kind(self, systems: SystemMetadata) -> dict:
-        """group the systems by kind."""
+        """
+        Group systems by their kind attribute.
+
+        Parameters
+        ----------
+        systems : list[SystemMetadata]
+            List of systems to group.
+
+        Returns
+        -------
+        dict[str, list[SystemMetadata]]
+            Dictionary mapping kind to list of systems.
+        """
         grouped = defaultdict(list)
         for s in systems:
             grouped[s.kind].append(s)
-        return grouped 
-    
+        return grouped
+
     def get(self, name: str) -> SystemMetadata:
-        """Get system by name."""
+        """
+        Retrieve a system by its name.
+
+        Parameters
+        ----------
+        name : str
+            Name of the system to retrieve.
+
+        Returns
+        -------
+        SystemMetadata
+            Corresponding system metadata object.
+        """
         return self._by_name[name]
-    
+
     def filter_by_kind(self, kind: str) -> list[SystemMetadata]:
-        """Get list of systems by kind."""
+        """
+        Retrieve all systems of a given kind.
+
+        Parameters
+        ----------
+        kind : str
+            Kind of system to filter by (e.g., "pure", "mixture").
+
+        Returns
+        -------
+        list[SystemMetadata]
+            List of systems matching the specified kind.
+        """
         return self._by_kind.get(kind, [])
-    
+
     def all(self) -> list[SystemMetadata]:
-        """Get all systems."""
+        """
+        Return all registered systems.
+
+        Returns
+        -------
+        list[SystemMetadata]
+            Full list of systems in the registry.
+        """
         return self._systems
-    
+
     def get_idx(self, name: str) -> int:
-        """Get system index in registry list."""
+        """
+        Get the index of a system by name in the registry list.
+
+        Parameters
+        ----------
+        name : str
+            Name of the system.
+
+        Returns
+        -------
+        int
+            Index of the system in the registry.
+
+        Raises
+        ------
+        ValueError
+            If the system name is not found.
+        """
         systems_list = list(self._by_name.keys())
         return systems_list.index(name)
-    
+
     def __iter__(self) -> None:
-        """Allows you to loop over systems directly.
-        
+        """
+        Enable iteration over registered systems.
+
+        Returns
+        -------
+        Iterator[SystemMetadata]
+            Iterator over all systems.
+
         Examples
         --------
-        >>> from kbkit.core import SystemRegistry
-        >>> registry = SystemRegistry(systems=[sys_1, sys_2])
         >>> for system in registry:
         ...     print(system.name)
         """
         return iter(self._systems)
-    
+
     def __len__(self) -> int:
-        """Get the number of systems in registry.
-        
+        """
+        Return the number of systems in the registry.
+
+        Returns
+        -------
+        int
+            Total number of registered systems.
+
         Examples
         --------
-        >>> registry = SystemRegistry([SystemMetadata(...), SystemMetadata(...)])
         >>> len(registry)
-        2
+        5
         """
         return len(self._systems)
-    

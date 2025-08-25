@@ -3,6 +3,7 @@
 import re
 from re import Match
 
+
 def resolve_units(requested: str, default: str) -> str:
     """Return the requested unit if provided, otherwise fall back to the default."""
     return requested if requested else default
@@ -79,5 +80,3 @@ def format_unit_str(text: str) -> str:
     # format text for plotting
     unit_str = _str_to_latex_math(text)
     return unit_str
-
-

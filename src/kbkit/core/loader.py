@@ -1,25 +1,40 @@
-"""Discovers systems based on directory structure and input parameters."""
+"""
+Discovers molecular systems based on directory structure and input parameters.
 
-from pathlib import Path
-import numpy as np
+SystemLoader identifies base and pure systems, extracts metadata, and constructs
+a registry for downstream analysis. It supports ensemble-aware discovery, temperature
+matching, and RDF validation for reproducible workflows.
+"""
+
+import logging
 import os
-import logging 
 from dataclasses import replace
+from pathlib import Path
+
+import numpy as np
 
 from kbkit.core.properties import SystemProperties
 from kbkit.core.registry import SystemRegistry
-from kbkit.utils.validation import validate_path
-from kbkit.utils.logging import get_logger
-from kbkit.schema.system_metadata import SystemMetadata
 from kbkit.schema.config import SystemConfig
+from kbkit.schema.system_metadata import SystemMetadata
+from kbkit.utils.logging import get_logger
+from kbkit.utils.validation import validate_path
 
 
 class SystemLoader:
-
     """
-    SystemLoader discovers molecular systems from directory structure and input parameters.
+    Discovers and organizes molecular systems for analysis.
 
-    It identifies base and pure systems, extracts metadata, and builds a registry for simulation workflows.
+    Uses directory structure and ensemble metadata to identify valid systems,
+    extract thermodynamic and structural properties, and build a registry for
+    simulation workflows.
+
+    Parameters
+    ----------
+    logger : logging.Logger, optional
+        Custom logger for diagnostics and traceability.
+    verbose : bool, optional
+        If True, enables detailed logging output.
     """
 
     def __init__(self, logger: logging.Logger | None = None, verbose: bool = False) -> None:
@@ -36,12 +51,35 @@ class SystemLoader:
         start_time: int = 0,
         system_names: list[str] | None = None,
     ) -> SystemConfig:
-        """Create `SystemConfig` object for a list of systems to analyze with KB analysis."""
-        
+        """
+        Construct a SystemConfig object from discovered systems.
+
+        Parameters
+        ----------
+        base_path : str or Path, optional
+            Path to base system directory.
+        pure_path : str or Path, optional
+            Path to pure component directory.
+        ensemble : str, optional
+            Ensemble name used for file resolution.
+        cations : list[str], optional
+            List of cation species.
+        anions : list[str], optional
+            List of anion species.
+        start_time : int, optional
+            Start time for time-averaged properties.
+        system_names : list[str], optional
+            Explicit list of system names to include.
+
+        Returns
+        -------
+        SystemConfig
+            Configuration object containing registry and metadata.
+        """
         # get paths to parent directories
         base_path = base_path or self._find_base_path()
         pure_path = pure_path or self._find_pure_path(base_path)
-        
+
         # get system paths and corresponding metatdata for base systems
         base_systems = system_names or self._find_systems(base_path)
         self.logger.debug(f"Discovered base systems: {base_systems}")
@@ -71,15 +109,39 @@ class SystemLoader:
             anions=anions or [],
             registry=SystemRegistry(sorted_metadata),
             logger=self.logger,
-            molecules=molecules
+            molecules=molecules,
         )
 
     def _find_base_path(self) -> Path:
-        """Default option for base path is current working directory."""
+        """
+        Return the default base path for system discovery.
+
+        Returns
+        -------
+        Path
+            Current working directory.
+        """
         return Path(os.getcwd())
 
     def _find_pure_path(self, root: str | Path) -> Path:
-        """Default option for pure path is directory containg pure and comp in parent directory."""
+        """
+        Discover pure component directory within the root path.
+
+        Parameters
+        ----------
+        root : str or Path
+            Root directory to search.
+
+        Returns
+        -------
+        Path
+            Path to pure component directory or fallback to root.
+
+        Notes
+        -----
+        - Searches for directories containing both "pure" and "comp" in their name.
+        - Logs warnings if multiple matches are found.
+        """
         root = validate_path(root)
         matches = []
         for path in root.rglob("*"):
@@ -87,27 +149,42 @@ class SystemLoader:
                 name = path.name.lower()
                 if "pure" in name and "comp" in name:
                     matches.append(path)
-        
+
         if not matches:
             self.logger.info("No pure component directories found! Assuming pure components are stored in base path.")
-            print(f"No pure component directories found! Assuming pure components are stored in base path.")
+            print("No pure component directories found! Assuming pure components are stored in base path.")
             return root
-        
+
         if len(matches) > 1:
             self.logger.warning(f"Multiple pure component paths found. Using: {matches[0]}")
             print(f"Multiple pure component path found. Using: {matches[0]}")
-        
+
         return matches[0]
-    
+
     def _get_metadata(self, path: Path, system: str, ensemble: str, start_time: int) -> SystemMetadata:
-        """Get SystemMetadata object."""
+        """
+        Extract SystemMetadata for a given system directory.
+
+        Parameters
+        ----------
+        path : Path
+            Parent directory containing the system.
+        system : str
+            Name of the system subdirectory.
+        ensemble : str
+            Ensemble name for file resolution.
+        start_time : int
+            Start time for time-averaged properties.
+
+        Returns
+        -------
+        SystemMetadata
+            Metadata object with structure, topology, and thermodynamics.
+        """
         path = validate_path(path)
 
         prop = SystemProperties(
-            system_path=path / system,
-            ensemble=ensemble,
-            start_time=start_time,
-            verbose=self.verbose
+            system_path=path / system, ensemble=ensemble, start_time=start_time, verbose=self.verbose
         )
 
         kind = "mixture" if len(prop.topology.molecules) > 1 else "pure"
@@ -121,25 +198,45 @@ class SystemLoader:
 
     def _find_systems(self, path: str | Path, pattern: str = "*") -> list[str]:
         """
-        Find systems in parent path following a pattern.
-        
-        Defaults to requiring a .top file.
+        Discover valid system directories within a parent path.
+
+        Parameters
+        ----------
+        path : str or Path
+            Directory to search.
+        pattern : str, optional
+            Glob pattern for matching subdirectories.
+
+        Returns
+        -------
+        list[str]
+            List of system names containing a .top file.
         """
         # validate path
         path = validate_path(path)
         # get subdirs according to pattern if .top found in any files
-        return sorted([
-            p.name for p in path.glob(pattern) 
-            if p.is_dir() and any(p.glob("*.top"))
-        ]) 
+        return sorted([p.name for p in path.glob(pattern) if p.is_dir() and any(p.glob("*.top"))])
 
     def _find_pure_systems(self, pure_path: Path, base_metadata: list[SystemMetadata]) -> list[str]:
-        """Discover valid pure systems from pure_path, excluding duplicates already represented in base systems."""
+        """
+        Discover valid pure systems, excluding duplicates and mismatched temperatures.
 
+        Parameters
+        ----------
+        pure_path : Path
+            Directory containing candidate pure systems.
+        base_metadata : list[SystemMetadata]
+            Metadata from base systems for filtering.
+
+        Returns
+        -------
+        list[str]
+            List of valid pure system names.
+        """
         pure_path = validate_path(pure_path)
         all_pure_names = self._find_systems(pure_path)
 
-        # Build molecule–temperature map from base systems
+        # Build molecule-temperature map from base systems
         base_mol_kind: set[tuple[str, str]] = set()
         for meta in base_metadata:
             for mol in meta.props.topology.molecules:
@@ -189,9 +286,20 @@ class SystemLoader:
 
         return sorted(pure_systems)
 
-
     def _build_temperature_map(self, systems: list[SystemMetadata]) -> dict[str, set[float]]:
-        """Build a temperature map that associates each molecule type with the set of simulation temperatures observed across all systems."""
+        """
+        Build a temperature map for each molecule across all systems.
+
+        Parameters
+        ----------
+        systems : list[SystemMetadata]
+            List of systems to analyze.
+
+        Returns
+        -------
+        dict[str, set[float]]
+            Mapping from molecule name to observed temperatures.
+        """
         if not systems:
             return {}
 
@@ -208,15 +316,27 @@ class SystemLoader:
             for mol in molecules:
                 temperature_map.setdefault(mol, set()).add(temp)
 
-        temp_map = {mol: set(sorted(temps)) for mol, temps in temperature_map.items()}
+        temp_map = {mol: set(temps) for mol, temps in temperature_map.items()}
         self.logger.debug(f"Temperature map: {temp_map}")
         return temp_map
 
     def _update_metadata_rdf(self, metadata: list[SystemMetadata]) -> list[SystemMetadata]:
-        """Find name for rdf directory in subsystems."""
+        """
+        Update metadata with RDF directory paths if available.
+
+        Parameters
+        ----------
+        metadata : list[SystemMetadata]
+            List of system metadata objects.
+
+        Returns
+        -------
+        list[SystemMetadata]
+            Updated metadata with RDF paths.
+        """
         updated_metadata = metadata.copy()
         for m, meta in enumerate(metadata):
-            new_meta = None # save initialize
+            new_meta = None  # save initialize
             for subdir in meta.path.iterdir():
                 if subdir.is_dir() and any("rdf" in p.name.lower() for p in subdir.iterdir()):
                     new_meta = replace(meta, rdf_path=subdir)
@@ -228,20 +348,46 @@ class SystemLoader:
                 self.logger.error(f"No RDF directory found in: {meta.path}")
                 raise FileNotFoundError(f"No RDF directory found in: {meta.path}")
         return updated_metadata
-    
+
     def _sort_systems(self, systems: list[SystemMetadata], molecules: list[str]) -> list[SystemMetadata]:
-        """Sort systems by their mol fraction vectors in ascending order."""
+        """
+        Sort systems by their mol fraction vectors in ascending order.
+
+        Parameters
+        ----------
+        systems : list[SystemMetadata]
+            List of systems to sort.
+        molecules : list[str]
+            Ordered list of molecule names.
+
+        Returns
+        -------
+        list[SystemMetadata]
+            Sorted list of systems.
+        """
+
         def mol_fr_vector(meta: SystemMetadata) -> tuple[float, ...]:
             counts = meta.props.topology.molecule_count
             total = meta.props.topology.total_molecules
             return tuple(counts.get(mol, 0) / total for mol in molecules)
 
         return sorted(systems, key=mol_fr_vector)
-    
+
     def _extract_top_molecules(self, systems: list[SystemMetadata]) -> list[str]:
-        """list: A list of unique molecules present in all systems."""
+        """
+        Extract a list of unique molecules present across all systems.
+
+        Parameters
+        ----------
+        systems : list[SystemMetadata]
+            List of systems to analyze.
+
+        Returns
+        -------
+        list[str]
+            Unique molecule names.
+        """
         mols_present = set()
         for meta in systems:
             mols_present.update(meta.props.topology.molecules)
         return list(mols_present)
-

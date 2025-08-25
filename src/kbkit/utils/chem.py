@@ -1,7 +1,9 @@
 """Contains general-purpose chemical utilities such as element lookup."""
 
-
 from rdkit.Chem import GetPeriodicTable
+
+MAX_SYMBOL_LENGTH = 2
+
 
 def is_valid_element(symbol: str) -> bool:
     """
@@ -21,7 +23,7 @@ def is_valid_element(symbol: str) -> bool:
         return False
 
     symbol = symbol.strip().capitalize()
-    if len(symbol) > 2:
+    if len(symbol) > MAX_SYMBOL_LENGTH:
         symbol = symbol[:2]
 
     ptable = GetPeriodicTable()
@@ -49,5 +51,3 @@ def get_atomic_number(symbol: str) -> int:
         return ptable.GetAtomicNumber(symbol)
     else:
         raise ValueError(f"Symbol '{symbol}' is not a valid element.")
-    
-

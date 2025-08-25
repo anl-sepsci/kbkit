@@ -7,7 +7,6 @@ Used by KBI and thermodynamic analysis modules.
 
 import os
 import re
-from pathlib import Path
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -16,7 +15,8 @@ from numpy.typing import NDArray
 
 from kbkit.config.mplstyle import load_mplstyle
 
-load_mplstyle() # load mpl figure configuration
+load_mplstyle()  # load mpl figure configuration
+
 
 class RDFParser:
     """
@@ -251,9 +251,9 @@ class RDFParser:
         if not isinstance(filename, str):
             try:
                 filename = str(filename)
-            except TypeError:
-                raise TypeError(f"Could not convert filename to type str.")
-            
+            except TypeError as e:
+                raise TypeError("Could not convert filename to type str.") from e
+
         # define pattern for mol in mol_list
         pattern = r"(" + "|".join(re.escape(mol) for mol in mol_list) + r")"
 

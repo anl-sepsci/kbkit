@@ -1,24 +1,36 @@
-"""Extract GROMACS energy properties."""
+"""
+Parser for GROMACS energy (.edr) files using `gmx energy`.
+
+Provides a structured interface for extracting thermodynamic properties,
+computing averages and fluctuations, and resolving semantic aliases for
+energy terms. Used in registry workflows, system analysis, and property caching.
+"""
 
 import re
 import subprocess
+from pathlib import Path
+
 import numpy as np
 from numpy.typing import NDArray
-from pathlib import Path
 
 from kbkit.data.property_resolver import ENERGY_ALIASES, resolve_attr_key
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
+
 class EdrFileParser:
     """
-    Compute energy properties via gmx energy from an .edr file.
+    Interface for extracting energy properties from GROMACS .edr files.
+
+    Wraps `gmx energy` to provide access to available properties, time series data,
+    and derived quantities such as heat capacity. Supports multiple input files and
+    semantic alias resolution.
 
     Parameters
     ----------
-    edr_path: str
-        Path to the .edr file.
-    verbose: bool, optional
+    edr_path : str or list[str]
+        Path(s) to one or more .edr files.
+    verbose : bool, optional
         If True, enables detailed logging output.
     """
 
@@ -30,15 +42,26 @@ class EdrFileParser:
         self.edr_path = [validate_path(f, suffix=".edr") for f in edr_files]
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.logger.info(f"Validated .edr file: {self.edr_path}")
-    
+
     def available_properties(self) -> list[str]:
-        """Returns available energy properties from the .edr file."""
+        """
+        Return a list of available energy properties in the .edr file(s).
+
+        Returns
+        -------
+        list[str]
+            Sorted list of property names extracted from `gmx energy` output.
+
+        Notes
+        -----
+        - Uses subprocess to invoke `gmx energy` and parse output.
+        - Aggregates properties across all provided .edr files.
+        """
         all_props = set()
         for edr in self.edr_path:
             try:
                 result = subprocess.run(
-                    ["gmx", "energy", "-f", str(edr)],
-                    input="\n", text=True, capture_output=True
+                    ["gmx", "energy", "-f", str(edr)], check=False, input="\n", text=True, capture_output=True
                 )
                 output = result.stdout + result.stderr
                 props = self._extract_properties(output)
@@ -46,9 +69,26 @@ class EdrFileParser:
             except Exception as e:
                 self.logger.warning(f"Failed to read properties from {edr}: {e}")
         return sorted(all_props)
-    
+
     def _extract_properties(self, output: str) -> list[str]:
-        """Extract property names from gmx energy output."""
+        """
+        Parse property names from raw `gmx energy` output.
+
+        Parameters
+        ----------
+        output : str
+            Combined stdout and stderr from `gmx energy`.
+
+        Returns
+        -------
+        list[str]
+            List of non-numeric tokens interpreted as property names.
+
+        Notes
+        -----
+        - Uses delimiter lines to identify property blocks.
+        - Filters out numeric indices and malformed lines.
+        """
         lines = output.splitlines()
         props_lines = []
         recording = False
@@ -70,12 +110,45 @@ class EdrFileParser:
         if not props:
             self.logger.warning(f"No properties found in '{self.edr_path}'. Output may have changed format.")
         return props
-    
+
     def has_property(self, name: str) -> bool:
+        """
+        Check if a given property is available in the .edr file(s).
+
+        Parameters
+        ----------
+        name : str
+            Property name to check (case-insensitive).
+
+        Returns
+        -------
+        bool
+            True if the property is available, False otherwise.
+        """
         return any(p.lower() == name.lower() for p in self.available_properties())
 
     def extract_timeseries(self, name: str, start_time: float = 0) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        """Extracts time series data for a given property."""
+        """
+        Extract time series data for a given property.
+
+        Parameters
+        ----------
+        name : str
+            Property name to extract (e.g., "potential", "temperature").
+        start_time : float, optional
+            Time (in ps) after which data should be included.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Time and value arrays concatenated across all .edr files.
+
+        Notes
+        -----
+        - Uses semantic alias resolution for property names.
+        - Automatically runs `gmx energy` if output file is missing.
+        - Filters data based on start_time for reproducibility.
+        """
         prop = resolve_attr_key(name, ENERGY_ALIASES)
         all_time = []
         all_values = []
@@ -98,7 +171,23 @@ class EdrFileParser:
     def average_property(
         self, name: str, start_time: float = 0, return_std: bool = False
     ) -> float | tuple[float, float]:
-        """Returns average (and optionally std) of a property."""
+        """
+        Compute the average (and optionally standard deviation) of a property.
+
+        Parameters
+        ----------
+        name : str
+            Property name to extract and average.
+        start_time : float, optional
+            Time (in ps) after which data should be included.
+        return_std : bool, optional
+            If True, also return the standard deviation.
+
+        Returns
+        -------
+        float or tuple[float, float]
+            Average value, or (average, std) if `return_std` is True.
+        """
         _, values = self.extract_timeseries(name, start_time)
         avg = values.mean()
         std = values.std()
@@ -111,12 +200,17 @@ class EdrFileParser:
         Parameters
         ----------
         nmol : int
-            Total number of molecules in system.
+            Total number of molecules in the system.
 
         Returns
         -------
         float
-            Average heat capacity in the requested units.
+            Average heat capacity in kJ/mol/K.
+
+        Notes
+        -----
+        - Uses enthalpy or total energy depending on availability.
+        - Applies drift correction and fluctuation analysis via `gmx energy`.
         """
         if self.has_property("enthalpy"):
             props = "Enthalpy\nTemperature\n"
@@ -148,9 +242,24 @@ class EdrFileParser:
 
         return float(np.mean(capacities))
 
-
     def _run_gmx_energy(self, prop: str, output_file: Path, edr_path: Path) -> None:
-        """Runs gmx energy to extract a property to .xvg file."""
+        """
+        Run `gmx energy` to extract a property and write to .xvg file.
+
+        Parameters
+        ----------
+        prop : str
+            Property name to extract.
+        output_file : Path
+            Destination .xvg file path.
+        edr_path : Path
+            Source .edr file path.
+
+        Notes
+        -----
+        - Suppresses stdout/stderr for clean execution.
+        - Logs extraction for traceability.
+        """
         subprocess.run(
             ["gmx", "energy", "-f", str(edr_path), "-o", str(output_file)],
             input=f"{prop}\n",
@@ -160,5 +269,3 @@ class EdrFileParser:
             check=True,
         )
         self.logger.info(f"Extracted '{prop}' from {edr_path} to {output_file}")
-
-

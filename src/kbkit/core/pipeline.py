@@ -4,9 +4,11 @@ High-level orchestration layer for running thermodynamic analysis workflows.
 This module coordinates system discovery, RDF/KBI parsing, and thermodynamic matrix construction.
 Intended for use in CLI tools, notebooks, or automated pipelines.
 """
-from numpy.typing import NDArray
-import numpy as np
+
 from pathlib import Path
+
+import numpy as np
+from numpy.typing import NDArray
 
 from kbkit.analysis.analyzer import SystemAnalyzer
 from kbkit.analysis.calculator import KBICalculator
@@ -48,9 +50,8 @@ class KBPipeline:
         start_time: int = 0,
         system_names: list[str] | None = None,
         verbose: bool = False,
-        gamma_integration_type: str = "numerical"
+        gamma_integration_type: str = "numerical",
     ):
-        
         # build configuration
         loader = SystemLoader(verbose=verbose)
         self.config = loader.build_config(
@@ -64,7 +65,7 @@ class KBPipeline:
         )
 
         # get composition analyzer
-        self.analyzer = SystemAnalyzer(self.config) 
+        self.analyzer = SystemAnalyzer(self.config)
 
         # create KBI calculator
         self.calculator = KBICalculator(self.config, self.analyzer)
@@ -76,37 +77,34 @@ class KBPipeline:
         # get property for activity coefficient integration
         self.gamma_integration_type = gamma_integration_type
 
-
     def run(self) -> None:
         r"""Run Kirkwood-Buff analysis via :class:`kbkit.analysis.thermo.KBThermo`."""
         lngammas = self.thermo.lngammas(self.gamma_integration_type)
-        gm = self.thermo.gm(lngammas)
-        se = self.thermo.se(lngammas)
-        i0 = self.thermo.i0()
-        deth = self.thermo.det_hessian()
-        iso_comp = self.thermo.isothermal_compressability()
+        self.thermo.gm(lngammas)
+        self.thermo.se(lngammas)
+        self.thermo.i0()
+        self.thermo.det_hessian()
+        self.thermo.isothermal_compressability()
 
     def convert_units(self, name: str, target_units: str) -> NDArray[np.float64]:
         """Get thermodynamic property in desired units."""
         if name.lower() not in self.thermo._cache:
             try:
                 self.run()
-            except:
-                raise KeyError(f"Property {name.lower()} not in cache. Check that property has been computed.")
-        
-        value = self.thermo._cache[name.lower()].value 
+            except KeyError as e:
+                raise KeyError(f"Property {name.lower()} not in cache. Check that property has been computed.") from e
+
+        value = self.thermo._cache[name.lower()].value
         units = self.thermo._cache[name.lower()].units
         try:
             converted = self.analyzer.Q_(value, units).to(target_units)
             return np.asarray(converted.magnitude)
         except Exception as e:
             raise ValueError(f"Could not convert units from {units} to {target_units}") from e
-        
+
     def to_dict(self) -> dict[str, NDArray[np.float64]]:
         """Create a dictionary of properties calculated from :class:`kbkit.kb.kb_thermo.KBThermo`."""
         value_dict: dict[str, NDArray[np.float64]] = {}
         value_dict["mol_fr"] = self.analyzer.mol_fr
         value_dict.update({name: meta.value for name, meta in self.thermo._cache.items()})
         return value_dict
-
-    

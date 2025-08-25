@@ -1,7 +1,7 @@
 """Alias maps for determining correct property names."""
 
 import difflib
-import json 
+import json
 from pathlib import Path
 
 # Default alias map (can be extended or replaced)
@@ -9,17 +9,15 @@ ENERGY_ALIASES: dict[str, set[str]] = {
     "enthalpy": {"enthalpy", "enth", "h", "H"},
     "temperature": {"temperature", "temp", "t"},
     "volume": {"volume", "vol", "v"},
-    "heat_capacity": {
-        "cv", "c_v", "C_v", "Cv", "cp", "c_p", "C_p", "Cp",
-        "heat_capacity", "heat_cap"
-    },
+    "heat_capacity": {"cv", "c_v", "C_v", "Cv", "cp", "c_p", "C_p", "Cp", "heat_capacity", "heat_cap"},
     "pressure": {"pressure", "pres", "p"},
     "density": {"density", "rho"},
     "potential": {"potential_energy", "potential", "pe", "U"},
     "kinetic-en": {"kinetic_energy", "kinetic", "ke"},
     "total-energy": {"total_energy", "etot", "total", "E"},
-    "time": {"time", "timestep", "dt"}
+    "time": {"time", "timestep", "dt"},
 }
+
 
 def load_gmx_unit_map() -> dict[str, str]:
     """
@@ -40,6 +38,7 @@ def load_gmx_unit_map() -> dict[str, str]:
         raise FileNotFoundError(f"Unit definition file not found: {unit_path}")
     with unit_path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
 
 def resolve_attr_key(key: str, alias_map: dict[str, set[str]], cutoff: float = 0.6) -> str:
     """
@@ -98,5 +97,5 @@ def get_gmx_unit(name: str, alias_map: dict[str, set[str]] = ENERGY_ALIASES) -> 
     unit_map = load_gmx_unit_map()
     try:
         return unit_map[canonical]
-    except KeyError:
-        raise KeyError(f"No unit defined for canonical property '{canonical}' in {unit_map}")
+    except KeyError as e:
+        raise KeyError(f"No unit defined for canonical property '{canonical}' in {unit_map}") from e

@@ -1,17 +1,40 @@
-"""Calculator for Kirkwood-Buff Integrals."""
+"""
+Calculator for Kirkwood-Buff Integrals (KBIs).
 
+Provides methods to compute raw and corrected KBI matrices from RDF data,
+populate metadata for structural analysis, and apply electrolyte corrections
+based on mole fractions and molecular composition.
+"""
 
-from numpy.typing import NDArray
 import numpy as np
+from numpy.typing import NDArray
 
 from kbkit.analysis.analyzer import SystemAnalyzer
 from kbkit.analysis.integrator import KBIntegrator
-from kbkit.parsers.rdf import RDFParser
+from kbkit.parsers.rdf_file import RDFParser
 from kbkit.schema.config import SystemConfig
 from kbkit.schema.kbi_metadata import KBIMetadata
 
 
 class KBICalculator:
+    """
+    Computes Kirkwood-Buff integrals for molecular systems using RDF data.
+
+    Interfaces with RDFParser and KBIntegrator to extract pairwise KBIs,
+    populate metadata, and apply corrections for electrolyte systems.
+
+    Parameters
+    ----------
+    config : SystemConfig
+        Configuration object containing system paths and registry.
+    analyzer : SystemAnalyzer
+        Analyzer object providing molecule indexing, salt pairs, and composition.
+
+    Attributes
+    ----------
+    kbi_metadata : dict[str, list[KBIMetadata]]
+        Dictionary mapping system names to lists of KBI metadata objects.
+    """
 
     def __init__(self, config: SystemConfig, analyzer: SystemAnalyzer) -> None:
         self.config = config
@@ -20,25 +43,34 @@ class KBICalculator:
 
     def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
         r"""
-        Get Kirkwood-Buff integral (KBI) matrix, **G**, for all systems and all pairs of molecules.
+        Compute the raw KBI matrix for all systems.
+
+        Each KBI value :math:`G_{ij}` is computed by integrating the radial distribution function (RDF)
+        between molecule types :math:`i` and :math:`j`:
+
+        .. math::
+            G_{ij} = 4\pi \int_0^\infty [g_{ij}(r) - 1] r^2 \, dr
 
         Returns
         -------
         np.ndarray
-            A 3D matrix of Kirkwood-Buff integrals with shape ``(n_sys, n_mols, n_mols)``,
-            where:
+            A 3D matrix of KBIs with shape ``(n_sys, n_mols, n_mols)``, where:
+            - ``n_sys`` is the number of systems
+            - ``n_mols`` is the number of unique molecules
 
-            - ``n_sys`` — number of systems
-            - ``n_mols`` — number of unique molecules
-
-        If an RDF directory is missing, the corresponding system's values remain NaN.
+        Notes
+        -----
+        - If an RDF directory is missing, the corresponding system's values remain NaN.
+        - Populates `kbi_metadata` with integration results for each RDF file.
 
         See Also
         --------
-        :class:`kbkit.parsers.rdf.RDFParser` : Parses RDF files.
-        :class:`kbkit.analysis.integrator.KBIntegrator` : Performs the RDF integration to compute KBIs and apply finite-size corrections.
-        """      
-        kbis = np.full((self.analyzer.n_sys, len(self.analyzer.top_molecules), len(self.analyzer.top_molecules)), fill_value=np.nan)
+        KBIntegrator : Performs RDF integration and finite-size corrections.
+        RDFParser : Extracts molecule pairs from RDF filenames.
+        """
+        kbis = np.full(
+            (self.analyzer.n_sys, len(self.analyzer.top_molecules), len(self.analyzer.top_molecules)), fill_value=np.nan
+        )
 
         # iterate through all systems
         for s, meta in enumerate(self.config.registry):
@@ -61,9 +93,29 @@ class KBICalculator:
                 self._populate_kbi_metadata(system=meta.name, rdf_mols=rdf_mols, integrator=integrator)
 
         return kbis
-    
+
     def _populate_kbi_metadata(self, system: str, rdf_mols: tuple[str, str], integrator: KBIntegrator) -> None:
-        """Add KBI integration results to MetaData dictionary."""
+        r"""
+        Populate KBI metadata dictionary with integration results for a given RDF file.
+
+        Stores both raw and corrected KBI values, including:
+
+        - :math:`r` — radial distances
+        - :math:`g(r)` — RDF values
+        - :math:`G(r)` — cumulative KBI curve
+        - :math:`\lambda(r)` — finite-size correction factor
+        - :math:`\lambda(r) \cdot G(r)` — corrected KBI curve
+        - :math:`G_{\infty}` — extrapolated KBI at infinite dilution
+
+        Parameters
+        ----------
+        system : str
+            Name of the system being processed.
+        rdf_mols : tuple[str, str]
+            Pair of molecules associated with the RDF file.
+        integrator : KBIntegrator
+            Integrator object containing RDF and KBI data.
+        """
         self.kbi_metadata.setdefault(system, []).append(
             KBIMetadata(
                 mols=tuple(rdf_mols),
@@ -74,22 +126,33 @@ class KBICalculator:
                 lam_rkbi=rkbi * lam,
                 lam_fit=(lam_fit := lam[integrator.rdf.r_mask]),
                 lam_rkbi_fit=np.polyval(integrator.fit_kbi_inf(), lam_fit),
-                kbi=integrator.integrate()
+                kbi=integrator.integrate(),
             )
         )
 
     def get_corrected_kbi_matrix(self) -> NDArray[np.float64]:
-        """Correct KBI matrix for electrolytes."""
+        """
+        Compute the electrolyte-corrected KBI matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Corrected KBI matrix with salt-salt and salt-other interactions included.
+
+        Notes
+        -----
+        - Delegates to `apply_electrolyte_correction`.
+        - Uses analyzer attributes for salt pairs and molecule indexing.
+        """
         return self.apply_electrolyte_correction(
             kbi_matrix=self.compute_raw_kbi_matrix(),
             salt_pairs=self.analyzer.salt_pairs,
             top_molecules=self.analyzer.top_molecules,
             unique_molecules=self.analyzer.unique_molecules,
             nosalt_molecules=self.analyzer.nosalt_molecules,
-            molecule_counts=self.analyzer.molecule_counts
+            molecule_counts=self.analyzer.molecule_counts,
         )
 
-    
     @staticmethod
     def apply_electrolyte_correction(
         kbi_matrix: NDArray[np.float64],
@@ -103,57 +166,55 @@ class KBICalculator:
         Apply electrolyte correction to the input KBI matrix.
 
         This method modifies the KBI matrix to account for salt-salt and salt-other interactions
-        by adding additional rows and columns for salt pairs. It calculates the KBI for salt-salt interactions
-        based on the mole fractions of the salt components and their interactions with other molecules.
+        using mole fraction-weighted combinations of cation and anion contributions.
 
         Parameters
         ----------
         kbi_matrix : np.ndarray
-            A 3D matrix representing the original KBI matrix with shape ``(n_sys, n_comp, n_comp)``,
-            where ``n_sys`` is the number of systems and ``n_comp`` is the number of unique components.
+            Raw KBI matrix with shape ``(n_sys, n_comp, n_comp)``.
+        salt_pairs : list[tuple[str, str]]
+            List of salt component pairs (cation, anion).
+        top_molecules : list[str]
+            Molecules defined in the topology.
+        unique_molecules : list[str]
+            Molecules including salt pairs.
+        nosalt_molecules : list[str]
+            Molecules excluding salt components.
+        molecule_counts : np.ndarray
+            Molecule counts per system.
 
         Returns
         -------
         np.ndarray
-            A 3D matrix representing the modified KBI matrix with additional rows and columns for salt pairs.
+            Corrected KBI matrix with additional rows/columns for salt interactions.
 
         Notes
         -----
-        - If no salt pairs are defined, it returns the original KBI matrix.
-        - The salt pairs are defined in ``KBThermo.salt_pairs``, which should be a list of tuples containing the names of the salt components.
-
-        This method calculates the KBI matrix (**G**) for systems with salts for salt-salt interactions (:math:`G_{ss}`) and salt-other interactions (:math:`G_{si}`) as follows:
+        Salt-salt interactions :math:`G_{ss}` are computed as:
 
         .. math::
             G_{ss} = x_c^2 G_{cc} + x_a^2 G_{aa} + x_c x_a (G_{ca} + G_{ac})
 
+        Salt-other interactions :math:`G_{si}` are computed as:
+
         .. math::
             G_{si} = x_c G_{ic} + x_a G_{ia}
 
-        .. math::
-            x_c = \frac{N_c}{N_c + N_a}
-
-        .. math::
-            x_a = \frac{N_a}{N_c + N_a}
-
         where:
-            - :math:`G_{ss}` is the KBI for salt-salt interactions.
-            - :math:`G_{si}` is the KBI for salt-other interactions.
-            - :math:`x_c` and :math:`x_a` are the mole fractions of the salt components.
-            - :math:`N_c` and :math:`N_a` are the counts of the salt components in the system.
-            - :math:`G_{cc}`, :math:`G_{aa}`, and :math:`G_{ca}` are the KBIs for the respective pairs of molecules.
+            - :math:`x_c = \frac{N_c}{N_c + N_a}` is the mole fraction of the cation
+            - :math:`x_a = \frac{N_a}{N_c + N_a}` is the mole fraction of the anion
+            - :math:`G_{ij}` are the raw KBIs between molecule types :math:`i` and :math:`j`
         """
-
         # if no salt pairs detected return original matrix
         if len(salt_pairs) == 0:
             return kbi_matrix
-        
+
         n_sys = kbi_matrix.shape[0]
         n_comp = len(unique_molecules)
-        
+
         # create new kbi-matrix
         adj = len(salt_pairs) - len(top_molecules)
-        kbi_el = np.full((n_sys, n_comp+adj, n_comp+adj), fill_value=np.nan)
+        kbi_el = np.full((n_sys, n_comp + adj, n_comp + adj), fill_value=np.nan)
 
         for cat, an in salt_pairs:
             # get index of anion and cation in topology molecules
@@ -167,12 +228,12 @@ class KBICalculator:
             # for salt-salt interactions add to kbi-matrix
             salt_idx = next(
                 (i for i, val in enumerate(unique_molecules) if val in {f"{cat}-{an}", f"{an}-{cat}"}),
-                -1 # default if not found
+                -1,  # default if not found
             )
 
             if salt_idx == -1:
                 raise ValueError(f"Neither f'{cat}-{an}' nor f'{an}-{cat}' found in unique_molecules.")
-            
+
             # calculate KBI for salt-salt pairs
             kbi_el[salt_idx, salt_idx] = (
                 x_cat**2 * kbi_matrix[cat_idx, cat_idx]
@@ -191,5 +252,3 @@ class KBICalculator:
                 kbi_el[salt_idx, m1] = x_cat * kbi_matrix[cat_idx, m1] + x_an * kbi_matrix[an_idx, m1]
 
         return kbi_el
-
-    

@@ -1,25 +1,30 @@
 """Create an iterable object over valid atom lines in GROMACS .gro file."""
 
 import re
+
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
+MIN_ATOM_PARTS = 2
+
+
 class GroAtomParser:
     """
-    Parses atom lines from a GROMACS .gro file and yields structured records.
+    Parse atom lines from a GROMACS .gro file and yields structured records.
 
     Parameters
     ----------
     gro_path : str or Path
         Path to the .gro file.
     """
+
     def __init__(self, gro_path: str, verbose: bool = False) -> None:
         self.gro_path = validate_path(gro_path, suffix=".gro")
         self.verbose = verbose
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
 
     def __iter__(self):
-        """Yields tuples of (mol_idx, res_name, atom_name) for each atom line."""
+        """Yield tuples of (mol_idx, res_name, atom_name) for each atom line."""
         lines = self.gro_path.read_text().splitlines()
         try:
             n_atoms = int(lines[1].strip())
@@ -31,7 +36,7 @@ class GroAtomParser:
         for i, line in enumerate(atom_lines, start=3):
             try:
                 parts = line.strip().split()
-                if len(parts) < 2:
+                if len(parts) < MIN_ATOM_PARTS:
                     self.logger.error("Line too short")
                     raise ValueError("Line too short")
 
