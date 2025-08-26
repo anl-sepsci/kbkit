@@ -1,4 +1,4 @@
-"""Extract properties from systems."""
+"""Extracts thermodynamic and compositional features from a batch of molecular simulation systems."""
 
 import itertools
 from collections import defaultdict
@@ -8,19 +8,16 @@ import numpy as np
 from numpy.typing import NDArray
 
 from kbkit.config.unit_registry import load_unit_registry
-from kbkit.schema.config import SystemConfig
+from kbkit.schema.system_config import SystemConfig
 
 
-class SystemAnalyzer:
+class SystemFeatures:
     """
     Performs analysis and validation on molecular simulation systems.
 
     The SystemAnalyzer consumes a SystemConfig object and provides
     tools for inspecting system composition, temperature distributions, molecule coverage,
     and semantic consistency across base and pure component systems.
-
-    This class is designed to support reproducible workflows, contributor onboarding,
-    and domain-aware filtering of simulation data.
 
     Parameters
     ----------

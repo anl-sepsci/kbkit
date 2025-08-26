@@ -13,7 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.core.properties import SystemProperties
+from kbkit.core.system_properties import SystemProperties
 from kbkit.parsers.rdf_file import RDFParser
 
 

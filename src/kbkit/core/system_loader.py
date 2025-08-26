@@ -13,9 +13,9 @@ from pathlib import Path
 
 import numpy as np
 
-from kbkit.core.properties import SystemProperties
-from kbkit.core.registry import SystemRegistry
-from kbkit.schema.config import SystemConfig
+from kbkit.core.system_properties import SystemProperties
+from kbkit.core.system_registry import SystemRegistry
+from kbkit.schema.system_config import SystemConfig
 from kbkit.schema.system_metadata import SystemMetadata
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path

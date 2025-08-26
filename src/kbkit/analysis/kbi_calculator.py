@@ -9,10 +9,10 @@ based on mole fractions and molecular composition.
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.analysis.analyzer import SystemAnalyzer
-from kbkit.analysis.integrator import KBIntegrator
+from kbkit.analysis.system_features import SystemFeatures
+from kbkit.analysis.kb_integrator import KBIntegrator
 from kbkit.parsers.rdf_file import RDFParser
-from kbkit.schema.config import SystemConfig
+from kbkit.schema.system_config import SystemConfig
 from kbkit.schema.kbi_metadata import KBIMetadata
 
 
@@ -36,7 +36,7 @@ class KBICalculator:
         Dictionary mapping system names to lists of KBI metadata objects.
     """
 
-    def __init__(self, config: SystemConfig, analyzer: SystemAnalyzer) -> None:
+    def __init__(self, config: SystemConfig, analyzer: SystemFeatures) -> None:
         self.config = config
         self.analyzer = analyzer
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}

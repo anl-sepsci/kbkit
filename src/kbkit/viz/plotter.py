@@ -10,7 +10,7 @@ from matplotlib.ticker import MultipleLocator
 from numpy.typing import NDArray
 
 from kbkit.config.mplstyle import load_mplstyle
-from kbkit.core.pipeline import KBPipeline
+from kbkit.core.kb_pipeline import KBPipeline
 from kbkit.utils.format import format_unit_str
 from kbkit.schema.plot_spec import PlotSpec
 

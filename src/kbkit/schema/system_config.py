@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from kbkit.core.registry import SystemRegistry
+from kbkit.core.system_registry import SystemRegistry
 
 
 @dataclass

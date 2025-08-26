@@ -10,10 +10,10 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.analysis.analyzer import SystemAnalyzer
-from kbkit.analysis.calculator import KBICalculator
-from kbkit.analysis.thermo import KBThermo
-from kbkit.core.loader import SystemLoader
+from kbkit.analysis.system_features import SystemFeatures
+from kbkit.analysis.kbi_calculator import KBICalculator
+from kbkit.analysis.kb_thermo import KBThermo
+from kbkit.core.system_loader import SystemLoader
 
 
 class KBPipeline:
@@ -65,7 +65,7 @@ class KBPipeline:
         )
 
         # get composition analyzer
-        self.analyzer = SystemAnalyzer(self.config)
+        self.analyzer = SystemFeatures(self.config)
 
         # create KBI calculator
         self.calculator = KBICalculator(self.config, self.analyzer)

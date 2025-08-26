@@ -9,7 +9,7 @@ registry, config, and analysis layers to support reproducible workflows.
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kbkit.core.properties import SystemProperties
+from kbkit.core.system_properties import SystemProperties
 
 
 @dataclass

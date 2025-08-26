@@ -14,8 +14,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.analysis.analyzer import SystemAnalyzer
-from kbkit.schema.cache import PropertyCache
+from kbkit.analysis.system_features import SystemFeatures
+from kbkit.schema.property_cache import PropertyCache
 
 # Suppress only the specific RuntimeWarning from numpy.linalg
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="numpy.linalg")
@@ -27,7 +27,7 @@ class KBThermo:
     This class inherits system properties from :class:`KBICalculator` and uses them for the calculation of thermodynamic properties.
     """
 
-    def __init__(self, analyzer: SystemAnalyzer, kbi_matrix: NDArray[np.float64]) -> None:
+    def __init__(self, analyzer: SystemFeatures, kbi_matrix: NDArray[np.float64]) -> None:
         # initialize SystemAnalyzer with config.
         self.analyzer = analyzer
 
