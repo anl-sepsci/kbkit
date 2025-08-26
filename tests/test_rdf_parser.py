@@ -40,6 +40,14 @@ def mock_rdf_file():
         yield f.name
 
 
+def test_rdf_parser_read_failure(tmp_path):
+    """Test that RDFParser raises an error for malformed RDF file."""
+    bad_file = tmp_path / "bad.xvg"
+    bad_file.write_text("not a number\n1.0 two\n")
+    with pytest.raises(ValueError, match=f"Failed to parse RDF data from '{bad_file}'"):
+        RDFParser(str(bad_file))
+
+
 def test_rdf_parser_reads_data(mock_rdf_file):
     """Test that RDFParser correctly reads RDF data and sets internal arrays."""
     parser = RDFParser(mock_rdf_file)
