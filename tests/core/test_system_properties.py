@@ -9,8 +9,6 @@ These tests validate:
 Mocked data includes:
 - Minimal .gro and .top content for a 2-molecule water system
 - Sample values for heat capacity, volume, enthalpy, and potential energy
-
-Tests focus on reproducibility, semantic clarity, and interface behavior.
 """
 
 from unittest.mock import MagicMock, patch
