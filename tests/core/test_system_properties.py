@@ -13,7 +13,7 @@ Mocked data includes:
 Tests focus on reproducibility, semantic clarity, and interface behavior.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -65,7 +65,7 @@ def system(tmp_path):
 
 def test_file_registry(system):
     """
-    Test that the file registry correctly detects required input files.
+    Validate that the file registry correctly detects required input files.
 
     Asserts presence of 'top', 'gro', and 'edr' keys in the registry.
     """
@@ -127,3 +127,73 @@ def test_get_with_std(mock_avg, system):
     assert val == SAMPLE_POTENTIAL_AVG
     assert std == SAMPLE_POTENTIAL_STD
     mock_avg.assert_called_once_with(name="potential", start_time=0.0, units="", return_std=True)
+
+
+@patch.object(SystemProperties, "_get_average_property", return_value=SAMPLE_VOLUME)
+def test_get_with_units_and_start_time(mock_avg, system):
+    """
+    Test `get()` with custom units and start_time.
+
+    Verifies correct delegation and argument forwarding.
+    """
+    val = system.get("volume", start_time=5.0, units="nm^3")
+    assert val == SAMPLE_VOLUME
+    mock_avg.assert_called_once_with(name="volume", start_time=5.0, units="nm^3", return_std=False)
+
+
+@patch.object(SystemProperties, "_get_average_property", return_value=(SAMPLE_POTENTIAL_AVG, SAMPLE_POTENTIAL_STD))
+def test_get_with_std_and_units(mock_avg, system):
+    """
+    Test `get()` with std=True and custom units.
+
+    Verifies correct delegation and unit handling.
+    """
+    val, std = system.get("potential", std=True, units="kJ/mol")
+    assert val == SAMPLE_POTENTIAL_AVG
+    assert std == SAMPLE_POTENTIAL_STD
+    mock_avg.assert_called_once_with(name="potential", start_time=0.0, units="kJ/mol", return_std=True)
+
+
+def test_get_unknown_property(system):
+    """
+    Test that requesting an unknown property raises a ValueError.
+
+    Validates error handling for unsupported property names.
+    """
+    with pytest.raises(KeyError):
+        system.get("nonexistent_property")
+
+
+def test_volume_fallback_from_gro(system):
+    """
+    Test fallback volume estimation from .gro file when .edr lacks volume data.
+
+    Verifies correct value and fallback logic.
+    """
+    system.energy.has_property = MagicMock(return_value=False)
+    system.structure.calculate_box_volume = MagicMock(return_value=1.0)
+    val = system.get("volume")
+    assert val == 1.0
+
+
+def test_volume_fallback_failure(system):
+    """
+    Test error raised when fallback volume estimation from .gro file fails.
+
+    Simulates ValueError from `calculate_box_volume`.
+    """
+    system.energy.has_property = MagicMock(return_value=False)
+    system.structure.calculate_box_volume = MagicMock(side_effect=ValueError("bad box"))
+    with pytest.raises(ValueError, match="Alternative volume calculation from .gro file failed"):
+        system.get("volume")
+
+
+def test_missing_edr_property(system):
+    """
+    Test error raised when requested property is missing from .edr file.
+
+    Validates error propagation from `_get_average_property`.
+    """
+    system.energy.has_property = MagicMock(return_value=False)
+    with pytest.raises(ValueError, match="does not contain property"):
+        system.get("pressure")
