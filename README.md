@@ -4,8 +4,7 @@
 [![Powered by: Pixi](https://img.shields.io/badge/Powered_by-Pixi-facc15)](https://pixi.sh)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/aperoutka/kbkit/build-and-test.yml?branch=main&logo=github-actions)](https://github.com/aperoutka/kbkit/actions/workflows/build-and-test.yml)
-[![Coverage Status](https://coveralls.io/repos/github/aperoutka/kbkit/badge.svg)](https://coveralls.io/github/aperoutka/kbkit)
-[![docs](http://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://kbkit.readthedocs.io/)
+[![Coverage Status](https://coveralls.io/repos/github/aperoutka/kbkit/badge.svg?branch=main)](https://coveralls.io/github/aperoutka/kbkit?branch=main)[![docs](http://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://kbkit.readthedocs.io/)
 ![python 3.12](https://img.shields.io/badge/Python-3.12%2B-blue)
 
 [![Example](https://img.shields.io/badge/Examples-Jupyter-orange?style=flat-square&logo=jupyter)](https://nbviewer.org/github/aperoutka/kbkit/blob/main/docs/examples/kbkit_example.ipynb)
