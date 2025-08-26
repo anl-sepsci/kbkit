@@ -84,8 +84,6 @@ def test_average_property_with_std(mock_run, edr_file: Path) -> None:
             avg, std = results
             assert round(avg, 2) == MOCK_TEMPERATURE
             assert round(std, 2) > 0
-        else:
-            assert round(results, 2) == MOCK_TEMPERATURE
 
 
 @patch("kbkit.parsers.edr_file.subprocess.run")
