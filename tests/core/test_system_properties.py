@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from kbkit.core import SystemProperties
+from kbkit.core.system_properties import SystemProperties
 
 # Sample minimal .gro content
 SAMPLE_GRO_CONTENT = """Test GRO file
