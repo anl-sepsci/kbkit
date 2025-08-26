@@ -10,7 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from kbkit.analysis.kb_integrator import KBIntegrator
-from kbkit.analysis.system_features import SystemFeatures
+from kbkit.analysis.system_state import SystemState
 from kbkit.parsers.rdf_file import RDFParser
 from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.schema.system_config import SystemConfig
@@ -36,7 +36,7 @@ class KBICalculator:
         Dictionary mapping system names to lists of KBI metadata objects.
     """
 
-    def __init__(self, config: SystemConfig, analyzer: SystemFeatures) -> None:
+    def __init__(self, config: SystemConfig, analyzer: SystemState) -> None:
         self.config = config
         self.analyzer = analyzer
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}

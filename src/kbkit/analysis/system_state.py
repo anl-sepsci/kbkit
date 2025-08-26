@@ -11,7 +11,7 @@ from kbkit.config.unit_registry import load_unit_registry
 from kbkit.schema.system_config import SystemConfig
 
 
-class SystemFeatures:
+class SystemState:
     """
     Performs analysis and validation on molecular simulation systems.
 

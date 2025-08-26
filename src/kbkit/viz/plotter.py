@@ -69,15 +69,15 @@ class Plotter:
     def molecule_map(self, mapped: dict[str, str]) -> None:
         # if not specified fall back on molecule name in topology file
         if not mapped:
-            mapped = {mol: mol for mol in self.pipe.analyzer.unique_molecules}
+            mapped = {mol: mol for mol in self.pipe.state.unique_molecules}
 
         # check that all molecules are defined in map
-        found_mask = np.array([mol not in self.pipe.analyzer.unique_molecules for mol in mapped])
+        found_mask = np.array([mol not in self.pipe.state.unique_molecules for mol in mapped])
         if any(found_mask):
             missing_mols = np.fromiter(mapped.keys(), dtype=str)[found_mask]
             raise ValueError(
                 f"Molecules missing from molecule_map: {', '.join(missing_mols)}. "
-                f"Available molecules: {', '.join(self.pipe.analyzer.unique_molecules)}"
+                f"Available molecules: {', '.join(self.pipe.state.unique_molecules)}"
             )
 
         self._molecule_map = mapped
@@ -93,12 +93,12 @@ class Plotter:
     def x_mol(self, mol: str) -> None:
         # if not specified default to first molecule in list
         if not mol:
-            self._x_mol = self.pipe.analyzer.unique_molecules[0]
+            self._x_mol = self.pipe.state.unique_molecules[0]
 
         # check if mol is in unique molecules
-        if mol not in self.pipe.analyzer.unique_molecules:
+        if mol not in self.pipe.state.unique_molecules:
             raise ValueError(
-                f"Molecule {mol} not in available molecules: {', '.join(self.pipe.analyzer.unique_molecules)}"
+                f"Molecule {mol} not in available molecules: {', '.join(self.pipe.state.unique_molecules)}"
             )
 
         self._x_mol = mol
@@ -106,12 +106,12 @@ class Plotter:
     @property
     def unique_names(self) -> list[str]:
         """list: Names of molecules to use in figure labels."""
-        return [self.molecule_map[mol] for mol in self.pipe.analyzer.unique_molecules]
+        return [self.molecule_map[mol] for mol in self.pipe.state.unique_molecules]
 
     @property
     def _x_idx(self) -> int:
         # get index of x_mol in kb.unique_molecules
-        return self.pipe.analyzer.unique_molecules.index(self.x_mol)
+        return self.pipe.state.unique_molecules.index(self.x_mol)
 
     def _get_rdf_colors(self, cmap: str = "jet") -> dict[str, dict[str, tuple[float, ...]]]:
         # create a colormap mapping pairs of molecules with a color
@@ -154,7 +154,7 @@ class Plotter:
 
     def _convert_kbi(self, value) -> NDArray[np.float64]:
         """Conver KBI metadata value to desired units."""
-        converted = self.pipe.analyzer.Q_(value, "nm^3/molecule").to("cm^3/mol")
+        converted = self.pipe.state.Q_(value, "nm^3/molecule").to("cm^3/mol")
         return np.asarray(converted.magnitude)
 
     def plot_system_kbi_analysis(
@@ -297,7 +297,7 @@ class Plotter:
                 kbi = self._convert_kbi(meta.kbi)
                 label = f"{self.molecule_map[mol_i]}-{self.molecule_map[mol_j]}"
                 line = ax.scatter(
-                    self.pipe.analyzer.mol_fr[s, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=label
+                    self.pipe.state.mol_fr[s, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=label
                 )
                 if meta.mols not in legend_info:
                     legend_info[label] = line
@@ -344,7 +344,7 @@ class Plotter:
                     self.pipe.thermo._lngamma_fn_dict if prop == "lngammas_fits" else self.pipe.thermo._dlngamma_fn_dict
                 )
             return PlotSpec(
-                x_data=self.pipe.analyzer.mol_fr,
+                x_data=self.pipe.state.mol_fr,
                 y_data=self.property_map["lngammas"] if "dln" not in prop else self.property_map["dlngammas_dxs"],
                 ylabel=r"$\ln \gamma_{i}$" if "dln" not in prop else r"$\partial \ln(\gamma_{i})$ / \partial x_{i}$",
                 filename=f"{prop}.png",
@@ -354,8 +354,8 @@ class Plotter:
 
         elif prop in ["mixing", "excess"]:
             y_series_list = [
-                (self.pipe.analyzer.h_mix(), "violet", "s", r"$\Delta H_{mix}$"),
-                (-self.pipe.analyzer.temperature() * self.property_map["se"], "limegreen", "o", r"$-TS^E$"),
+                (self.pipe.state.h_mix(), "violet", "s", r"$\Delta H_{mix}$"),
+                (-self.pipe.state.temperature() * self.property_map["se"], "limegreen", "o", r"$-TS^E$"),
             ]
             if prop == "mixing":
                 y_series_list += [
@@ -366,7 +366,7 @@ class Plotter:
                 y_series_list.append((self.property_map["ge"], "mediumblue", "^", r"$G^E$"))
 
             return PlotSpec(
-                x_data=self.pipe.analyzer.mol_fr[:, self._x_idx],
+                x_data=self.pipe.state.mol_fr[:, self._x_idx],
                 y_series=y_series_list,
                 ylabel=rf"Contributions to $\Delta G_{{mix}}$ / {format_unit_str('kJ/mol')}"
                 if prop == "mixing"
@@ -377,7 +377,7 @@ class Plotter:
 
         elif prop in ["i0", "det_h"]:
             return PlotSpec(
-                x_data=self.pipe.analyzer.mol_fr[:, self._x_idx],
+                x_data=self.pipe.state.mol_fr[:, self._x_idx],
                 y_data=self.property_map["i0"] if prop == "i0" else self.property_map["det_hessian"],
                 ylabel=f"I$_0$ / {format_unit_str('cm^{-1}')}"
                 if prop == "i0"
@@ -432,10 +432,10 @@ class Plotter:
             if spec.y_data.ndim == 1:
                 ax.scatter(spec.x_data, spec.y_data, c="mediumblue", marker=marker)
             else:
-                colors = plt.cm.get_cmap(cmap)(np.linspace(0, 1, self.pipe.analyzer.n_comp))
-                for i, mol in enumerate(self.pipe.analyzer.unique_molecules):
+                colors = plt.cm.get_cmap(cmap)(np.linspace(0, 1, self.pipe.state.n_comp))
+                for i, mol in enumerate(self.pipe.state.unique_molecules):
                     xi = (
-                        spec.x_data[:, self._x_idx] if self.pipe.analyzer.n_comp == BINARY_SYSTEM else spec.x_data[:, i]
+                        spec.x_data[:, self._x_idx] if self.pipe.state.n_comp == BINARY_SYSTEM else spec.x_data[:, i]
                     )
                     yi = spec.y_data[:, i]
                     ax.scatter(xi, yi, c=[colors[i]], marker=marker, label=self.molecule_map[mol])
@@ -454,7 +454,7 @@ class Plotter:
                 )
 
         ax.set_xlabel(
-            f"x$_{{{self.molecule_map[self.x_mol]}}}$" if self.pipe.analyzer.n_comp == BINARY_SYSTEM else "x$_i$"
+            f"x$_{{{self.molecule_map[self.x_mol]}}}$" if self.pipe.state.n_comp == BINARY_SYSTEM else "x$_i$"
         )
         ax.set_ylabel(spec.ylabel)
         ax.set_xlim(-0.05, 1.05)
@@ -483,9 +483,9 @@ class Plotter:
         arr = np.asarray(self.property_map[property_name])
         xtext, ytext, ztext = self.unique_names
         a, b, c = (
-            self.pipe.analyzer.mol_fr[:, 0],
-            self.pipe.analyzer.mol_fr[:, 1],
-            self.pipe.analyzer.mol_fr[:, 2],
+            self.pipe.state.mol_fr[:, 0],
+            self.pipe.state.mol_fr[:, 1],
+            self.pipe.state.mol_fr[:, 2],
         )
 
         valid_mask = (a >= 0) & (b >= 0) & (c >= 0) & ~np.isnan(arr) & ~np.isinf(arr)
@@ -596,7 +596,7 @@ class Plotter:
         elif prop_key == "kbi":
             self.plot_kbis(units="cm^3/mol", cmap=cmap, show=show)
 
-        elif self.pipe.analyzer.n_comp == BINARY_SYSTEM or prop_key in {
+        elif self.pipe.state.n_comp == BINARY_SYSTEM or prop_key in {
             "lngammas",
             "dlngammas",
             "lngammas_fits",
@@ -605,12 +605,12 @@ class Plotter:
             spec = self._get_plot_spec(prop_key)
             self._render_binary_plot(spec, marker=marker, ylim=ylim, cmap=cmap, show=show)
 
-        elif self.pipe.analyzer.n_comp == TERNARY_SYSTEM and prop_key in {"gm", "ge", "hmix", "se", "i0", "det_h"}:
+        elif self.pipe.state.n_comp == TERNARY_SYSTEM and prop_key in {"gm", "ge", "hmix", "se", "i0", "det_h"}:
             self._render_ternary_plot(property_name=prop_key, cmap=cmap, show=show)
 
-        elif self.pipe.analyzer.n_comp > TERNARY_SYSTEM:
+        elif self.pipe.state.n_comp > TERNARY_SYSTEM:
             print(
-                f"WARNING: plotter does not support {prop_key} for more than 3 components. ({self.pipe.analyzer.n_comp} components detected.)"
+                f"WARNING: plotter does not support {prop_key} for more than 3 components. ({self.pipe.state.n_comp} components detected.)"
             )
 
     def make_figures(self) -> None:
@@ -630,16 +630,16 @@ class Plotter:
                 self.plot(prop=thermo_prop, show=False)
 
         # for binary systems plot mixing and excess energy contributions
-        if self.pipe.analyzer.n_comp == BINARY_SYSTEM:
+        if self.pipe.state.n_comp == BINARY_SYSTEM:
             for thermo_prop in ["mixing", "excess"]:
                 self.plot(prop=thermo_prop, show=False)
 
         # for ternary system plot individual energy contributions on separate figure
-        elif self.pipe.analyzer.n_comp == TERNARY_SYSTEM:
+        elif self.pipe.state.n_comp == TERNARY_SYSTEM:
             for thermo_prop in ["ge", "gm", "hmix", "se"]:
                 self.plot(prop=thermo_prop, show=False)
 
         else:
             print(
-                f"WARNING: plotter does not support more than 3 components. ({self.pipe.analyzer.n_comp} components detected.)"
+                f"WARNING: plotter does not support more than 3 components. ({self.pipe.state.n_comp} components detected.)"
             )

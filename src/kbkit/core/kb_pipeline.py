@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 from kbkit.analysis.kb_thermo import KBThermo
 from kbkit.analysis.kbi_calculator import KBICalculator
-from kbkit.analysis.system_features import SystemFeatures
+from kbkit.analysis.system_state import SystemState
 from kbkit.core.system_loader import SystemLoader
 
 
@@ -65,7 +65,7 @@ class KBPipeline:
         )
 
         # get composition analyzer
-        self.analyzer = SystemFeatures(self.config)
+        self.state = SystemState(self.config)
 
         # create KBI calculator
         self.calculator = KBICalculator(self.config, self.analyzer)
