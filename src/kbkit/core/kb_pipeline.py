@@ -64,15 +64,15 @@ class KBPipeline:
             system_names=system_names,
         )
 
-        # get composition analyzer
+        # get composition state
         self.state = SystemState(self.config)
 
         # create KBI calculator
-        self.calculator = KBICalculator(self.config, self.analyzer)
+        self.calculator = KBICalculator(self.config, self.state)
         kbi_matrix = self.calculator.get_corrected_kbi_matrix()
 
         # create thermo object
-        self.thermo = KBThermo(self.analyzer, kbi_matrix)
+        self.thermo = KBThermo(self.state, kbi_matrix)
 
         # get property for activity coefficient integration
         self.gamma_integration_type = gamma_integration_type
@@ -97,7 +97,7 @@ class KBPipeline:
         value = self.thermo._cache[name.lower()].value
         units = self.thermo._cache[name.lower()].units
         try:
-            converted = self.analyzer.Q_(value, units).to(target_units)
+            converted = self.state.Q_(value, units).to(target_units)
             return np.asarray(converted.magnitude)
         except Exception as e:
             raise ValueError(f"Could not convert units from {units} to {target_units}") from e
@@ -105,6 +105,6 @@ class KBPipeline:
     def to_dict(self) -> dict[str, NDArray[np.float64]]:
         """Create a dictionary of properties calculated from :class:`kbkit.kb.kb_thermo.KBThermo`."""
         value_dict: dict[str, NDArray[np.float64]] = {}
-        value_dict["mol_fr"] = self.analyzer.mol_fr
+        value_dict["mol_fr"] = self.state.mol_fr
         value_dict.update({name: meta.value for name, meta in self.thermo._cache.items()})
         return value_dict
