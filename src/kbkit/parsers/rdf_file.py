@@ -229,7 +229,6 @@ class RDFParser:
         main_ax.set_ylabel("g(r)")
         if save_dir is not None:
             plt.savefig(os.path.join(save_dir, self.rdf_file[:-4] + ".png"))
-        plt.show()
 
     @staticmethod
     def extract_mols(filename: str, mol_list: list[str]) -> list[str]:
