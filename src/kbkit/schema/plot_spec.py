@@ -1,9 +1,11 @@
 """Structure that contains data for plotting thermodynamic properties."""
 
 from dataclasses import dataclass
-from numpy.typing import NDArray
-import numpy as np
 from typing import Optional
+
+import numpy as np
+from numpy.typing import NDArray
+
 
 @dataclass
 class PlotSpec:

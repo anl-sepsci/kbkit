@@ -11,14 +11,15 @@ from numpy.typing import NDArray
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.core.kb_pipeline import KBPipeline
-from kbkit.utils.format import format_unit_str
 from kbkit.schema.plot_spec import PlotSpec
+from kbkit.utils.format import format_unit_str
 
 load_mplstyle()
 warnings.filterwarnings("ignore")
 
 BINARY_SYSTEM = 2
 TERNARY_SYSTEM = 3
+
 
 class Plotter:
     r"""

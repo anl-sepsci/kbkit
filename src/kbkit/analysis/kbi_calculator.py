@@ -9,11 +9,11 @@ based on mole fractions and molecular composition.
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.analysis.system_features import SystemFeatures
 from kbkit.analysis.kb_integrator import KBIntegrator
+from kbkit.analysis.system_features import SystemFeatures
 from kbkit.parsers.rdf_file import RDFParser
-from kbkit.schema.system_config import SystemConfig
 from kbkit.schema.kbi_metadata import KBIMetadata
+from kbkit.schema.system_config import SystemConfig
 
 
 class KBICalculator:
