@@ -38,11 +38,11 @@ def _str_to_latex_math(text: str) -> str:
     # replace /unit^{exp} to unit^{-exp}
     text = re.sub(r"/\s*([a-zA-Z0-9_\^\{\}]+)", inverse_unit_repl, text)
 
-    # convert superscripts **exp to ^{exp}
-    text = re.sub(r"\*\*\s*(\(?[^\s\)]+(?:[^\s]*?)\)?)", r"^{\1}", text)
-
-    # convert subscripts to _{val}
+    # convert subscripts to _{val} FIRST
     text = re.sub(r"_(\(?[a-zA-Z0-9+\-*/=]+\)?)", r"_{\1}", text)
+
+    # THEN convert superscripts **exp to ^{exp}
+    text = re.sub(r"\*\*\s*([^\s_]+)", r"^{\1}", text)
 
     # wrap with $ if needed
     if not (text.startswith("$") and text.endswith("$")):
@@ -67,6 +67,12 @@ def format_unit_str(text: str) -> str:
     str
         A LaTeX math string representing the units.
     """
+    # check that object is string
+    try:
+        text = str(text)
+    except TypeError as e:
+        raise TypeError(f"Could not convert type {type(text)} to str.") from e
+
     # format text for plotting
     unit_str = _str_to_latex_math(text)
     return unit_str
