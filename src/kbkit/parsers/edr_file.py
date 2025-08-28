@@ -1,10 +1,4 @@
-"""
-Parser for GROMACS energy (.edr) files using `gmx energy`.
-
-Provides a structured interface for extracting thermodynamic properties,
-computing averages and fluctuations, and resolving semantic aliases for
-energy terms. Used in registry workflows, system analysis, and property caching.
-"""
+"""Parser for GROMACS energy (.edr) files using `gmx energy`."""
 
 import re
 import subprocess

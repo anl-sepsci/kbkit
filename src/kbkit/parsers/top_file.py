@@ -12,7 +12,7 @@ MAX_MOLECULE_PARTS = 2
 
 class TopFileParser:
     """
-    Initialize parser with the path to the topology file.
+    Parses GROMACS topology file to get molecules present and their counts.
 
     Parameters
     ----------

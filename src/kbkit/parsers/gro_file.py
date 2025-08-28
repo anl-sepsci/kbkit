@@ -42,12 +42,12 @@ class GroFileParser:
 
     def count_electrons(self) -> dict[str, int]:
         """
-        Compute total valence electrons per unique residue type.
+        Compute total electrons per unique residue type.
 
         Returns
         -------
         dict[str, int]
-            Mapping of residue names to total valence electrons.
+            Mapping of residue names to total electron count.
         """
         self.logger.debug("Starting electron count per residue.")
         parser = self.get_atom_parser()
@@ -69,7 +69,7 @@ class GroFileParser:
 
     @cached_property
     def electron_count(self) -> dict[str, int]:
-        """dict[str, int]: Dictionary of residue types and their total valence electrons."""
+        """dict[str, int]: Dictionary of residue types and their total electrons."""
         return self.count_electrons()
 
     def calculate_box_volume(self) -> float:
@@ -84,7 +84,7 @@ class GroFileParser:
         Returns
         -------
         float
-            Box volume in nanometers cubed (nm³).
+            Box volume in nanometers cubed (nm^3).
         """
         last_line = self.gro_path.read_text().splitlines()[-1].strip()
         parts = last_line.split()
