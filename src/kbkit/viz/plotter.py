@@ -23,7 +23,7 @@ TERNARY_SYSTEM = 3
 
 class Plotter:
     r"""
-    A class for plotting results from KB analysis (:class:`kbkit.kb.kb_thermo.KBThermo`).
+    A class for plotting results from Kirkwood-Buff analysis (:class:`kbkit.kb.kb_thermo.KBThermo`).
 
     Parameters
     ----------
@@ -41,6 +41,7 @@ class Plotter:
         molecule_map: dict[str, str],
         x_mol: str = "",
     ) -> None:
+        # data pipeline containing results from analysis
         self.pipe = pipeline
 
         # create a dict of properties to plot to eliminate nested structures
@@ -476,6 +477,18 @@ class Plotter:
         cmap: str = "jet",
         show: bool = False,
     ) -> None:
+        """
+        Render a ternary system plot based on the provided PlotSpec.
+
+        Parameters
+        ----------
+        property_name : str
+            Single property to plot on ternary figure.
+        cmap : str, optional
+            Colormap used for multi-component plots.
+        show : bool, optional
+            Whether to display the plot interactively.
+        """
         arr = np.asarray(self.property_map[property_name])
         xtext, ytext, ztext = self.unique_names
         a, b, c = (
