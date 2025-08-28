@@ -1,10 +1,4 @@
-"""
-Domain-level configuration object for system discovery and registry integration.
-
-Defines the SystemConfig dataclass, which encapsulates file paths, molecular components,
-ensemble metadata, and logging context for structured system analysis. Used to initialize
-and coordinate registry-based workflows across base and pure system directories.
-"""
+"""Domain-level configuration object for system discovery and registry integration."""
 
 import logging
 from dataclasses import dataclass

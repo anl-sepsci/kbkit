@@ -1,10 +1,4 @@
-"""
-Structured representation of Kirkwood-Buff integrals and related RDF data.
-
-Defines the KBIMetadata dataclass, which encapsulates radial distribution functions,
-KBI curves, lambda integrals, and fitted values for a given molecular pair.
-Used in structural analysis, mixture characterization, and thermodynamic inference.
-"""
+"""Structured representation of Kirkwood-Buff integrals and related RDF data."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -42,8 +36,6 @@ class KBIMetadata:
     Notes
     -----
     - All arrays are assumed to be aligned over the same radial grid `r`.
-    - Used in mixture analysis and thermodynamic property estimation.
-    - Can be serialized or visualized for structural diagnostics.
     """
 
     mols: tuple[str, ...]

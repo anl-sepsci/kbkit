@@ -1,10 +1,4 @@
-"""
-Structured representation of molecular simulation systems.
-
-Defines the SystemMetadata dataclass, which encapsulates key attributes and
-semantic annotations for both pure and mixture systems. Used throughout the
-registry, config, and analysis layers to support reproducible workflows.
-"""
+"""Structured representation of molecular simulation systems."""
 
 from dataclasses import dataclass, field
 from pathlib import Path

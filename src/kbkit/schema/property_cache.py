@@ -1,10 +1,4 @@
-"""
-Structured representation of scalar properties with units and semantic tags.
-
-Defines the PropertyCache dataclass, which encapsulates a value, its associated units,
-and optional tags for downstream filtering, annotation, or metadata mapping.
-Used in system registries, analysis pipelines, and config resolution.
-"""
+"""Structured representation of scalar properties with units and semantic tags."""
 
 from dataclasses import dataclass, field
 from typing import Any
