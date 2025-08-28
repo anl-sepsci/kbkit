@@ -99,7 +99,7 @@ def test_get_volume(mock_avg, system):
     mock_avg.assert_called_once_with(name="volume", start_time=0.0, units="", return_std=False)
 
 
-@patch.object(SystemProperties, "enthalpy", return_value=SAMPLE_ENTHALPY)
+@patch.object(SystemProperties, "_enthalpy", return_value=SAMPLE_ENTHALPY)
 def test_get_enthalpy(mock_enthalpy, system):
     """
     Test retrieval of enthalpy via the `get()` method.

@@ -34,6 +34,10 @@ class StaticStructureCalculator:
         self.ureg = load_unit_registry()
         self.Q_ = self.ureg.Quantity
 
+        # validate input shapes
+        if not (len(molar_volume) == len(n_electrons) == np.asarray(mol_fr).shape[1]):
+            raise ValueError("Input arrays: molar_volume, n_electrons, and mol_fr must have the same length.")
+
         # pure component properties; make sure values are arrays
         self.molar_volume = np.asarray(
             self.Q_(molar_volume, "cm^3/mol").to("cm^3/molecule").magnitude

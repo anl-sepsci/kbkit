@@ -9,8 +9,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.analysis.static_structure_calculator import StaticStructureCalculator
 from kbkit.analysis.system_state import SystemState
+from kbkit.calculators.static_structure_calculator import StaticStructureCalculator
 from kbkit.schema.property_cache import PropertyCache
 
 # Suppress only the specific RuntimeWarning from numpy.linalg

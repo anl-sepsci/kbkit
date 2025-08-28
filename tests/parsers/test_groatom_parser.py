@@ -10,7 +10,7 @@ This suite covers:
 
 import pytest
 
-from kbkit.parsers import GroAtomParser  # Adjust import path as needed
+from kbkit.parsers.gro_atom import GroAtomParser  # Adjust import path as needed
 
 
 def test_invalid_atom_count_line(tmp_path):

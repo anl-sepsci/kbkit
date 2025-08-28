@@ -6,8 +6,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from kbkit.parsers import EdrFileParser
-from kbkit.utils import get_logger
+from kbkit.parsers.edr_file import EdrFileParser
+from kbkit.utils.logging import get_logger
 
 # Constants for test data
 MOCK_POTENTIAL: float = 100.0

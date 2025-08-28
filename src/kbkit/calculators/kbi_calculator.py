@@ -7,7 +7,6 @@ from kbkit.analysis.kb_integrator import KBIntegrator
 from kbkit.analysis.system_state import SystemState
 from kbkit.parsers.rdf_file import RDFParser
 from kbkit.schema.kbi_metadata import KBIMetadata
-from kbkit.schema.system_config import SystemConfig
 
 
 class KBICalculator:
@@ -19,8 +18,6 @@ class KBICalculator:
 
     Parameters
     ----------
-    config : SystemConfig
-        Configuration object containing system paths and registry.
     state : SystemState
         SystemState object providing molecule indexing, salt pairs, and composition.
 
@@ -30,10 +27,25 @@ class KBICalculator:
         Dictionary mapping system names to lists of KBI metadata objects.
     """
 
-    def __init__(self, config: SystemConfig, state: SystemState) -> None:
-        self.config = config
+    def __init__(self, state: SystemState) -> None:
         self.state = state
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
+
+    def calculate(self, corrected: bool = True) -> NDArray[np.float64]:
+        """
+        Public entry point for computing KBIs.
+
+        Parameters
+        ----------
+        corrected: bool
+            Whether to apply electrolyte correction.
+
+        Returns
+        -------
+        np.ndarray
+            KBI matrix
+        """
+        return self.get_corrected_kbi_matrix() if corrected else self.compute_raw_kbi_matrix()
 
     def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
         r"""
@@ -67,7 +79,7 @@ class KBICalculator:
         )
 
         # iterate through all systems
-        for s, meta in enumerate(self.config.registry):
+        for s, meta in enumerate(self.state.config.registry):
             # if rdf dir not in system, skip
             if not meta.has_rdf():
                 continue
@@ -125,6 +137,27 @@ class KBICalculator:
                 kbi=integrator.integrate(),
             )
         )
+
+    def get_metadata(self, system: str, mol_pair: tuple[str, str]) -> KBIMetadata | None:
+        """
+        Retrieve metadata for a specific system and molecular pair.
+
+        Parameters
+        ----------
+        system: str
+            System name.
+        mol_pair: tuple[str, str]
+            Molecule pair.
+
+        Returns
+        -------
+        KBIMetadata or None
+            Metadata object if found.
+        """
+        for meta in self.kbi_metadata.get(system, []):
+            if set(meta.mols) == set(mol_pair):
+                return meta
+        return None
 
     def get_corrected_kbi_matrix(self) -> NDArray[np.float64]:
         """

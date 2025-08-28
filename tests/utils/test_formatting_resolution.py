@@ -14,7 +14,7 @@ from unittest.mock import patch
 import pytest
 
 from kbkit.utils.file_resolver import FileResolver
-from kbkit.utils.format import _str_to_latex_math, format_unit_str, resolve_units
+from kbkit.utils.format import format_unit_str, resolve_units
 
 # ---------- String Formatting Tests ----------
 
@@ -30,7 +30,7 @@ def test_resolve_units_falls_back_to_default():
 
 
 @pytest.mark.parametrize(
-    ("input_str", "expected"),
+    ("text", "expected"),
     [
         ("mol/nm**3", "$mol\\text{ }\\mathrm{nm^{-3}}$"),
         ("mol/nm3", "$mol\\text{ }\\mathrm{nm^{-3}}$"),
@@ -39,15 +39,10 @@ def test_resolve_units_falls_back_to_default():
         ("mol**2_nm", "$mol^{2}_{nm}$"),
     ],
 )
-def test_str_to_latex_math_formatting(input_str, expected):
-    """Converts unit strings to LaTeX math format."""
-    result = _str_to_latex_math(input_str)
+def test_format_unit_str_converts_to_latex(text, expected):
+    """Ensure format_unit_str converts unit strings to correct LaTeX math format."""
+    result = format_unit_str(text)
     assert result == expected
-
-
-def test_format_unit_str_converts_to_latex():
-    """Formats unit string into LaTeX math."""
-    result = format_unit_str("mol/nm**3")
     assert result.startswith("$")
     assert result.endswith("$")
 

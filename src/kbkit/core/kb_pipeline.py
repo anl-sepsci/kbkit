@@ -4,8 +4,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from kbkit.analysis.kb_thermo import KBThermo
-from kbkit.analysis.kbi_calculator import KBICalculator
 from kbkit.analysis.system_state import SystemState
+from kbkit.calculators.kbi_calculator import KBICalculator
 from kbkit.core.system_loader import SystemLoader
 
 
@@ -74,8 +74,8 @@ class KBPipeline:
         self.state = SystemState(self.config)
 
         # create KBI calculator
-        self.calculator = KBICalculator(self.config, self.state)
-        kbi_matrix = self.calculator.get_corrected_kbi_matrix()
+        self.calculator = KBICalculator(self.state)
+        kbi_matrix = self.calculator.calculate()
 
         # create thermo object
         self.thermo = KBThermo(self.state, kbi_matrix)
@@ -89,14 +89,14 @@ class KBPipeline:
 
     def convert_units(self, name: str, target_units: str) -> NDArray[np.float64]:
         """Get thermodynamic property in desired units.
-        
+
         Parameters
         ----------
         name: str
             Property to convert units for.
         target_units: str
             Desired units of the property.
-        
+
         Returns
         -------
         np.ndarray

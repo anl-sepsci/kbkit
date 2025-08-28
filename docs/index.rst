@@ -6,10 +6,10 @@ KBKit: Kirkwood-Buff Analysis Toolkit
     :caption: API Reference:
     :titlesonly:
 
-    kbkit.properties
-    kbkit.kb
-    kbkit.kb_pipeline
-    kbkit.plotter
+    kbkit.analysis
+    kbkit.core
+    kbkit.parsers
+    kbkit.viz
     examples
 
 

@@ -7,14 +7,14 @@ from re import Match
 def resolve_units(requested: str, default: str) -> str:
     """
     Return the requested unit if provided, otherwise fall back to the default.
-    
+
     Parameters
     ----------
     requested: str
         Desired units.
     default: str
         Units to fall back on.
-        
+
     Returns
     -------
     str
@@ -37,7 +37,6 @@ def format_unit_str(text: str) -> str:
     str
         A LaTeX math string representing the units.
     """
-
     # check that object is string
     try:
         text = str(text)
@@ -81,4 +80,3 @@ def format_unit_str(text: str) -> str:
         text = f"${text}$"
 
     return text
-

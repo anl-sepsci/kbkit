@@ -11,7 +11,7 @@ Uses a sample topology file with mixed valid and invalid entries.
 
 import pytest
 
-from kbkit.parsers import TopFileParser
+from kbkit.parsers.top_file import TopFileParser
 
 
 @pytest.fixture

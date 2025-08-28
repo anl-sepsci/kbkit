@@ -32,7 +32,7 @@ class SystemState:
         # set up unit registry
         self.ureg = load_unit_registry()
         self.Q_ = self.ureg.Quantity
-    
+
     @property
     def top_molecules(self) -> list[str]:
         """list: Unique molecules in topology files."""
