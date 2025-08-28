@@ -1,9 +1,4 @@
-"""
-Constructs thermodynamic property matrices from KBIs across multiple systems.
-
-Supports calculation of chemical potentials, partial molar volumes, and other derived quantities.
-Acts as the computational backbone for the kb_pipeline.
-"""
+"""Constructs thermodynamic property matrices from KBIs across multiple systems."""
 
 import warnings
 from functools import partial
@@ -26,6 +21,22 @@ class KBThermo:
     """Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties from KBI matrix.
 
     This class inherits system properties from :class:`KBICalculator` and uses them for the calculation of thermodynamic properties.
+
+    Parameters
+    ----------
+    state: SystemState
+        SystemState at a constant temperature.
+    kbi_matrix: np.ndarray
+        Matrix of KBI values for each pairwise interaction.
+
+    Attributes
+    ----------
+    structure_calculator: StaticStructureCalculator
+        Calculator for calculating static structure.
+    kbis: np.ndarray
+        Matrix of KBI values.
+    state: SystemState
+        Initialized SystemState object.
     """
 
     def __init__(self, state: SystemState, kbi_matrix: NDArray[np.float64]) -> None:
@@ -51,7 +62,7 @@ class KBThermo:
         self._cache[name] = PropertyCache(value=value, units=units, tags=tags if tags else [])
 
     def kd(self) -> NDArray[np.float64]:
-        """Get the Kronecker delta between pairs of unique molecules."""
+        """Kronecker delta between pairs of unique molecules."""
         return np.eye(self.state.n_comp)
 
     def b_matrix(self) -> NDArray[np.float64]:

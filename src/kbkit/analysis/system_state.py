@@ -28,11 +28,15 @@ class SystemState:
     def __init__(self, config: SystemConfig) -> None:
         # setup config
         self.config = config
-        self.top_molecules = self.config.molecules
 
         # set up unit registry
         self.ureg = load_unit_registry()
         self.Q_ = self.ureg.Quantity
+    
+    @property
+    def top_molecules(self) -> list[str]:
+        """list: Unique molecules in topology files."""
+        return self.config.molecules
 
     @property
     def n_sys(self) -> int:
@@ -54,20 +58,20 @@ class SystemState:
         return salt_pairs
 
     @cached_property
-    def nosalt_molecules(self) -> list[str]:
+    def _nosalt_molecules(self) -> list[str]:
         """list: Molecules not part of any salt pair."""
         paired = {mol for pair in self.salt_pairs for mol in pair}
         return [mol for mol in self.top_molecules if mol not in paired]
 
     @cached_property
-    def salt_molecules(self) -> list[str]:
+    def _salt_molecules(self) -> list[str]:
         """list: Combined molecule names for each salt pair."""
         return [".".join(pair) for pair in self.salt_pairs]
 
     @cached_property
     def unique_molecules(self) -> list[str]:
         """list: Molecules present after combining salt pairs as single entries."""
-        return self.nosalt_molecules + self.salt_molecules
+        return self._nosalt_molecules + self._salt_molecules
 
     def _get_mol_idx(self, mol: str, molecule_list: list[str]) -> int:
         """Get index of mol in molecule list."""
@@ -119,7 +123,7 @@ class SystemState:
 
     @cached_property
     def pure_molecules(self) -> list[str]:
-        """list[str]: Names of 'pure' molecules."""
+        """list[str]: Names of molecules considered as pure components."""
         molecules = [".".join(meta.props.topology.molecules) for meta in self.config.registry if meta.kind == "pure"]
         return sorted(molecules)
 
@@ -142,7 +146,7 @@ class SystemState:
 
     @cached_property
     def n_electrons(self) -> NDArray[np.float64]:
-        """np.ndarray: Number of electrons corresponding to unique molecules."""
+        """np.ndarray: Number of electrons corresponding to pure molecules."""
         elec_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
         for meta in self.config.registry:
             # only for pure systems

@@ -1,10 +1,4 @@
-"""
-Semantic wrapper around discovered systems.
-
-Provides a structured interface for accessing, filtering, and iterating over
-SystemMetadata objects. Used throughout config, analysis, and registry workflows
-to support reproducible system discovery and contributor-friendly diagnostics.
-"""
+"""Semantic wrapper around discovered systems."""
 
 from collections import defaultdict
 from typing import Iterator

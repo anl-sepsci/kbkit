@@ -1,10 +1,4 @@
-"""
-Discovers molecular systems based on directory structure and input parameters.
-
-SystemLoader identifies base and pure systems, extracts metadata, and constructs
-a registry for downstream analysis. It supports ensemble-aware discovery, temperature
-matching, and RDF validation for reproducible workflows.
-"""
+"""Discovers molecular systems based on directory structure and input parameters."""
 
 import logging
 import os
@@ -57,11 +51,11 @@ class SystemLoader:
 
         Parameters
         ----------
-        pure_path : str or Path, optional
+        pure_path : str or Path
             Path to pure component directory.
         pure_systems: list[str]
             List of pure systems to include.
-        base_path : str or Path, optional
+        base_path : str or Path
             Path to base system directory.
         base_systems : list[str], optional
             Explicit list of system names to include.

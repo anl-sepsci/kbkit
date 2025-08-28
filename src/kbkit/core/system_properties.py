@@ -1,10 +1,4 @@
-"""
-Unified interface for extracting molecular and system-level properties from GROMACS input files.
-
-Wraps gro/top/edr parsers and exposes structured access to quantities such as temperature,
-pressure, volume, enthalpy, and heat capacity. Serves as the foundation for downstream
-analysis, registry construction, and property caching.
-"""
+"""Unified interface for extracting molecular and system-level properties from GROMACS input files."""
 
 from pathlib import Path
 
@@ -125,7 +119,7 @@ class SystemProperties:
             avg_converted = self.Q_(result, gmx_units).to(units).magnitude
             return float(avg_converted)
 
-    def heat_capacity(self, units: str = "") -> float:
+    def _heat_capacity(self, units: str = "") -> float:
         """
         Compute the heat capacity of the system.
 
@@ -147,7 +141,7 @@ class SystemProperties:
         unit_corr = self.Q_(cap, gmx_units).to(units).magnitude
         return float(unit_corr)
 
-    def enthalpy(self, start_time: float = 0, units: str = "") -> float:
+    def _enthalpy(self, start_time: float = 0, units: str = "") -> float:
         r"""
         Compute the enthalpy of the system (:math:`H`) from potential energy (:math:`U`).
 
@@ -207,8 +201,8 @@ class SystemProperties:
         start_time = start_time if start_time > 0 else self.start_time
 
         if name == "heat_capacity":
-            return self.heat_capacity(units=units)
+            return self._heat_capacity(units=units)
         elif name == "enthalpy":
-            return self.enthalpy(start_time=start_time, units=units)
+            return self._enthalpy(start_time=start_time, units=units)
 
         return self._get_average_property(name=name, start_time=start_time, units=units, return_std=std)

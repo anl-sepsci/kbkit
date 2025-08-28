@@ -1,9 +1,4 @@
-"""
-Load custom matplotlib style for consistent scientific visualization.
-
-Provides a utility to apply a predefined `.mplstyle` file for presentation-ready plots.
-Used across analysis and reporting modules to ensure visual consistency.
-"""
+"""Load custom matplotlib style for consistent scientific visualization."""
 
 from pathlib import Path
 
@@ -18,11 +13,6 @@ def load_mplstyle() -> None:
     -------
     matplotlib.style
         The applied style object (side effect: sets global matplotlib style).
-
-    Notes
-    -----
-    - Style file is expected to reside in the same directory as this module.
-    - Used to standardize plot aesthetics across figures and notebooks.
     """
     style_path = Path(__file__).parent / "presentation.mplstyle"
     return plt.style.use(style_path)

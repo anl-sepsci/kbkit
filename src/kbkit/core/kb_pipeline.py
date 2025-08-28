@@ -1,9 +1,4 @@
-"""
-High-level orchestration layer for running thermodynamic analysis workflows.
-
-This module coordinates system discovery, RDF/KBI parsing, and thermodynamic matrix construction.
-Intended for use in CLI tools, notebooks, or automated pipelines.
-"""
+"""High-level orchestration layer for running thermodynamic analysis workflows."""
 
 import numpy as np
 from numpy.typing import NDArray
@@ -20,11 +15,13 @@ class KBPipeline:
 
     Parameters
     ----------
-    base_path : str, optional
-        The base path where the systems are located. Defaults to the current working directory.
-    pure_path : str, optional
-        The path where pure component systems are located. Defaults to a 'pure_components' directory next to the base path.
-    system_names : list, optional
+    pure_path : str
+        The path where pure component systems are located. Defaults to a 'pure_components' directory next to the base path if empty string.
+    pure_systems: list[str]
+        System names for pure component directories.
+    base_path : str
+        The base path where the systems are located. Defaults to the current working directory if empty string.
+    base_systems : list, optional
         A list of base systems to include. If not provided, it will automatically detect systems in the base path.
     start_time : int, optional
         The starting time for analysis, used in temperature and enthalpy calculations. Defaults to 0.
@@ -36,6 +33,15 @@ class KBPipeline:
         A list of anion names to consider for salt pairs. Defaults to an empty list.
     gamma_integration_type : str, optional
         The type of integration to use for gamma calculations. Defaults to 'numerical'.
+
+    Attributes
+    ----------
+    state: SystemState
+        Initialized SystemState object for systems as a function of composition at single temperature.
+    calculator: KBICalculator
+        Initialized KBICalculator object for performing KBI calculations.
+    thermo: KBThermo
+        Initialized KBThermo object for computing thermodynamic properties from KBIs.
     """
 
     def __init__(
@@ -82,7 +88,20 @@ class KBPipeline:
         self.thermo.build_cache(self.gamma_integration_type)
 
     def convert_units(self, name: str, target_units: str) -> NDArray[np.float64]:
-        """Get thermodynamic property in desired units."""
+        """Get thermodynamic property in desired units.
+        
+        Parameters
+        ----------
+        name: str
+            Property to convert units for.
+        target_units: str
+            Desired units of the property.
+        
+        Returns
+        -------
+        np.ndarray
+            Property in converted units.
+        """
         if name.lower() not in self.thermo._cache:
             try:
                 self.run()

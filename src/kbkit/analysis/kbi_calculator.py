@@ -1,10 +1,4 @@
-"""
-Calculator for Kirkwood-Buff Integrals (KBIs).
-
-Provides methods to compute raw and corrected KBI matrices from RDF data,
-populate metadata for structural analysis, and apply electrolyte corrections
-based on mole fractions and molecular composition.
-"""
+"""Calculator for Kirkwood-Buff Integrals (KBIs)."""
 
 import numpy as np
 from numpy.typing import NDArray
@@ -28,7 +22,7 @@ class KBICalculator:
     config : SystemConfig
         Configuration object containing system paths and registry.
     state : SystemState
-        Analyzer object providing molecule indexing, salt pairs, and composition.
+        SystemState object providing molecule indexing, salt pairs, and composition.
 
     Attributes
     ----------
@@ -65,8 +59,8 @@ class KBICalculator:
 
         See Also
         --------
-        KBIntegrator : Performs RDF integration and finite-size corrections.
-        RDFParser : Extracts molecule pairs from RDF filenames.
+        `KBIntegrator` : Performs RDF integration and finite-size corrections.
+        `RDFParser` : Extracts molecule pairs from RDF filenames.
         """
         kbis = np.full(
             (self.state.n_sys, len(self.state.top_molecules), len(self.state.top_molecules)), fill_value=np.nan
@@ -151,7 +145,7 @@ class KBICalculator:
             salt_pairs=self.state.salt_pairs,
             top_molecules=self.state.top_molecules,
             unique_molecules=self.state.unique_molecules,
-            nosalt_molecules=self.state.nosalt_molecules,
+            nosalt_molecules=self.state._nosalt_molecules,
             molecule_counts=self.state.molecule_counts,
         )
 
