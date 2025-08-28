@@ -14,6 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
+from kbkit.analysis.static_structure_calculator import StaticStructureCalculator
 from kbkit.analysis.system_state import SystemState
 from kbkit.schema.property_cache import PropertyCache
 
@@ -27,9 +28,16 @@ class KBThermo:
     This class inherits system properties from :class:`KBICalculator` and uses them for the calculation of thermodynamic properties.
     """
 
-    def __init__(self, analyzer: SystemState, kbi_matrix: NDArray[np.float64]) -> None:
+    def __init__(self, state: SystemState, kbi_matrix: NDArray[np.float64]) -> None:
         # initialize SystemAnalyzer with config.
-        self.analyzer = analyzer
+        self.state = state
+
+        # initialize static structure calculator
+        self.structure_calculator = StaticStructureCalculator(
+            molar_volume=self.state.molar_volume("cm^3/mol"),
+            n_electrons=self.state.n_electrons,
+            mol_fr=self.state.pure_mol_fr,
+        )
 
         # initialize cache to store units
         self._cache: dict[str, PropertyCache] = {}
@@ -44,7 +52,7 @@ class KBThermo:
 
     def kd(self) -> NDArray[np.float64]:
         """Get the Kronecker delta between pairs of unique molecules."""
-        return np.eye(self.analyzer.n_comp)
+        return np.eye(self.state.n_comp)
 
     def b_matrix(self) -> NDArray[np.float64]:
         r"""
@@ -71,8 +79,8 @@ class KBThermo:
         """
         if "_b_matrix" not in self.__dict__:
             self._b_matrix = (
-                self.analyzer.rho_ij(units="molecule/nm^3") * self.kbis
-                + self.analyzer.molecule_rho(units="molecule/nm^3")[:, :, np.newaxis] * self.kd()[np.newaxis, :, :]
+                self.state.rho_ij(units="molecule/nm^3") * self.kbis
+                + self.state.molecule_rho(units="molecule/nm^3")[:, :, np.newaxis] * self.kd()[np.newaxis, :, :]
             )
         return self._b_matrix
 
@@ -140,17 +148,17 @@ class KBThermo:
             - :math:`\delta_{i,j}` is the Kronecker delta for molecules :math:`i,j`.
         """
         if "_a_matrix" not in self.__dict__:
-            self._a_matrix = (1 / self.analyzer.volume_bar(units="nm^3/molecule"))[
+            self._a_matrix = (1 / self.state.volume_bar(units="nm^3/molecule"))[
                 :, np.newaxis, np.newaxis
-            ] * self.analyzer.mol_fr[:, :, np.newaxis] * self.analyzer.mol_fr[
+            ] * self.state.mol_fr[:, :, np.newaxis] * self.state.mol_fr[
                 :, np.newaxis, :
-            ] * self.kbis + self.analyzer.mol_fr[:, :, np.newaxis] * self.kd()[np.newaxis, :, :]
+            ] * self.kbis + self.state.mol_fr[:, :, np.newaxis] * self.kd()[np.newaxis, :, :]
         return self._a_matrix
 
     @property
     def gas_constant(self) -> float:
-        """Gas constant."""
-        return float(self.analyzer.ureg("R").to("kJ/mol/K").magnitude)
+        """float: Gas constant in kJ/mol/K."""
+        return float(self.state.ureg("R").to("kJ/mol/K").magnitude)
 
     def isothermal_compressability(self) -> NDArray[np.float64]:
         r"""
@@ -179,11 +187,11 @@ class KBThermo:
 
         """
         if "_isothermal_compressability" not in self.__dict__:
-            kT = (1 / (self.gas_constant * self.analyzer.temperature())) * (
-                self.analyzer.molar_volume()[np.newaxis, :] / self.a_matrix()[:, 0, :]
+            kT = (1 / (self.gas_constant * self.state.temperature())) * (
+                self.state.molar_volume()[np.newaxis, :] / self.a_matrix()[:, 0, :]
             ).sum(axis=1)
             # convert units
-            kT_converted = self.analyzer.Q_(kT, units="mol/kJ * nm^3/molecule").to("1/kPa").magnitude
+            kT_converted = self.state.Q_(kT, units="mol/kJ * nm^3/molecule").to("1/kPa").magnitude
             # check array
             self._isothermal_compressability = np.asarray(kT_converted)
             self._populate_cache("isothermal_compressability", kT_converted, "1/kPa")
@@ -220,7 +228,7 @@ class KBThermo:
         """
         if "_dmu_dn_mat" not in self.__dict__:
             # get cofactors x number density
-            cofactors_rho = self.b_cofactors() * self.analyzer.rho_ij(units="molecule/nm^3")
+            cofactors_rho = self.b_cofactors() * self.state.rho_ij(units="molecule/nm^3")
 
             # get denominator of matrix calculation
             b_lower = cofactors_rho.sum(axis=tuple(range(1, cofactors_rho.ndim)))  # sum over dimensions 1:end
@@ -228,15 +236,15 @@ class KBThermo:
             # get numerator of matrix calculation
             B_prod = np.empty(
                 (
-                    self.analyzer.n_sys,
-                    self.analyzer.n_comp,
-                    self.analyzer.n_comp,
-                    self.analyzer.n_comp,
-                    self.analyzer.n_comp,
+                    self.state.n_sys,
+                    self.state.n_comp,
+                    self.state.n_comp,
+                    self.state.n_comp,
+                    self.state.n_comp,
                 )
             )
-            for a, b, i, j in product(range(self.analyzer.n_comp), repeat=4):
-                B_prod[:, a, b, i, j] = self.analyzer.rho_ij(units="molecule/nm^3")[:, i, j] * (
+            for a, b, i, j in product(range(self.state.n_comp), repeat=4):
+                B_prod[:, a, b, i, j] = self.state.rho_ij(units="molecule/nm^3")[:, i, j] * (
                     self.b_cofactors()[:, a, b] * self.b_cofactors()[:, i, j]
                     - self.b_cofactors()[:, i, a] * self.b_cofactors()[:, j, b]
                 )
@@ -246,9 +254,9 @@ class KBThermo:
             b_frac = b_upper / b_lower[:, np.newaxis, np.newaxis]
             dmu_dn_mat = (
                 self.gas_constant
-                * self.analyzer.temperature()[:, np.newaxis, np.newaxis]
+                * self.state.temperature()[:, np.newaxis, np.newaxis]
                 * b_frac
-                / (self.analyzer.volume() * self._b_det)[:, np.newaxis, np.newaxis]
+                / (self.state.volume() * self._b_det)[:, np.newaxis, np.newaxis]
             )
             self._dmu_dn_mat = np.asarray(dmu_dn_mat)
             self._populate_cache("dmu_dn", self._dmu_dn_mat, "kJ/mol")
@@ -256,7 +264,7 @@ class KBThermo:
 
     def _matrix_setup(self, matrix: np.ndarray) -> NDArray[np.float64]:
         """Set up matrices for multicomponent analysis."""
-        n = self.analyzer.n_comp - 1
+        n = self.state.n_comp - 1
         mat_ij = matrix[:, :n, :n]
         mat_in = matrix[:, :n, n][:, :, np.newaxis]
         mat_jn = matrix[:, n, :n][:, np.newaxis, :]
@@ -300,15 +308,15 @@ class KBThermo:
         if "_H_ij" not in self.__dict__:
             # difference between ij interactions with each other and last component
             delta_G = self._matrix_setup(self.kbis)
-            mol_fraction = self.analyzer.mol_fr.copy()
+            mol_fraction = self.state.mol_fr.copy()
             mol_fraction[mol_fraction == 0] = np.nan
 
             # get Delta matrix for Hessian calc
             Delta_ij = (
                 self.kd()[np.newaxis, :]
-                * self.analyzer.volume_bar()[:, np.newaxis, np.newaxis]
+                * self.state.volume_bar()[:, np.newaxis, np.newaxis]
                 / mol_fraction[:, np.newaxis]
-                + (self.analyzer.volume_bar() / (mol_fraction[:, self.analyzer.n_comp - 1]))[:, np.newaxis, np.newaxis]
+                + (self.state.volume_bar() / (mol_fraction[:, self.state.n_comp - 1]))[:, np.newaxis, np.newaxis]
                 + delta_G
             )
 
@@ -322,8 +330,8 @@ class KBThermo:
             M_ij = (
                 Delta_ij_inv
                 * self.gas_constant
-                * self.analyzer.temperature()[:, np.newaxis, np.newaxis]
-                * self.analyzer.volume_bar()[:, np.newaxis, np.newaxis]
+                * self.state.temperature()[:, np.newaxis, np.newaxis]
+                * self.state.volume_bar()[:, np.newaxis, np.newaxis]
                 / (mol_fraction[:, :, np.newaxis] * mol_fraction[:, np.newaxis, :])
             )
 
@@ -349,129 +357,87 @@ class KBThermo:
         self._populate_cache("det_hessian", det_h, "kJ/mol")
         return det_h
 
-    def s0(self) -> NDArray[np.float64]:
-        r"""
-        Structure factor as q :math:`\rightarrow` 0 for composition-composition fluctuations.
-
-        Parameters
-        ----------
-        energy_units: str
-            Units of energy to report values in. Default is 'kJ/mol'.
-        vol_units: str
-            Units of volume for scattering intensity calculations. Default is nm^3/molecule.
-
-        Returns
-        -------
-        np.ndarray
-            A 3D matrix of shape ``(n_sys, n_comp-1, n_comp-1)``
-
-        Notes
-        -----
-        The structure factor, :math:`S_{ij}(0)`, is calculated as follows:
-
-        .. math::
-            S_{ij}(0)  = RT H_{ij}^{-1}
-
-        where:
-            - :math:`H_{ij}` is the Hessian of molecules :math:`i,j`
-        """
-        if "_s0" not in self.__dict__:
-            self._s0 = np.asarray(
-                self.gas_constant * self.analyzer.temperature()[:, np.newaxis, np.newaxis] / self.hessian()
-            )
-            self._populate_cache("s0", self._s0)
-        return self._s0
-
-    def drho_elec_dx(self, units: str = "cm^3/molecule") -> NDArray[np.float64]:
-        r"""
-        Electron density contrast for a mixture.
-
-        Parameters
-        ----------
-        units: str
-            Units of energy to report values in. Default is 'kJ/mol'.
-
-        Returns
-        -------
-        np.ndarray
-            A 2D array with shape ``(n_comp-1, n_comp-1)``
-
-        Notes
-        -----
-        The electron density contrast, :math:`\frac{\partial \rho^e}{\partial x_i}`, is calculated according to:
-
-        .. math::
-            \frac{\partial \rho^e}{\partial x_i} = \rho \left( Z_i - Z_n \right) - \overline{Z} \rho \left( \frac{V_i - V_n}{\overline{V}} \right)
-
-        where:
-            - :math:`Z_i` is the number of electrons in molecule :math:`i`
-            - :math:`V_i` is the molar volume of molecule :math:`i`
-            - :math:`\overline{V}` is the molar volume of each system
-        """
-        # molar volume difference
-        delta_V = self.analyzer.molar_volume(units)[:-1] - self.analyzer.molar_volume(units)[-1]
-        # electron number difference
-        delta_N = self.analyzer.n_electrons[:-1] - self.analyzer.n_electrons[-1]
-        # linear combination of electron number
-        N_bar = self.analyzer.top_mol_fr @ self.analyzer.n_electrons
-        # linear combination of molar volume
-        V_bar = self.analyzer.volume_bar(units)
-
-        # calculate electron density contrast
-        drho_elec_dx = (1 / V_bar)[:, np.newaxis] * (
-            delta_N[np.newaxis, :] - N_bar[:, np.newaxis] * delta_V[np.newaxis, :] / V_bar[:, np.newaxis]
-        )
-
-        return drho_elec_dx
-
     def i0(self) -> NDArray[np.float64]:
         r"""
-        Small angle x-ray scattering (SAXS) intensity as q :math:`\rightarrow` 0.
-
-        Parameters
-        ----------
-        units: str
-            Units of inverse length to report values in. Default is '1/cm'.
+        Compute the X-ray scattering intensity as q :math:`\rightarrow` 0.
 
         Returns
         -------
         np.ndarray
-            A 1D array with shape ``(n_sys)``
-
-        Notes
-        -----
-        SAXS intensity, :math:`I_0`, is calculated via:
-
-        .. math::
-            I_0 = \frac{r_e^2}{\rho} \sum_{i=1}^{n-1} \sum_{j=1}^{n-1} \left(\frac{\partial \rho^e}{\partial x_i}\right) \left(\frac{\partial \rho^e}{\partial x_j}\right) S_{ij}(0)
-
-        where:
-            - :math:`r_e` is the electron radius
-            - :math:`\rho` is density of system
-            - :math:`\frac{\partial \rho^e}{\partial x_i}` is electron density contrast for molecule :math:`i`
-            - :math:`S_{ij}(0)` is structure factor for molecules :math:`i,j`
-
-        See Also
-        --------
-        :meth:`s0`: Structure factor calculation
-        :meth:`drho_elec_dx`: Electron density constrast calculation
+            A 1D array of shape ``(n_sys)``
         """
-        if "_i0" not in self.__dict__:
-            re = self.analyzer.ureg("re").to("cm").magnitude  # electron radius
-            drho_dx = self.drho_elec_dx("cm^3/molecule")  # electron contrast
-            V_bar = self.analyzer.volume_bar("cm^3/molecule")  # avg molar vol
+        T_avg = float(self.state.temperature().mean())
+        i0_calc = self.structure_calculator.i0(
+            T=T_avg,
+            hessian=self.hessian(),
+            isothermal_compressability=self.isothermal_compressability(),
+        )
+        self._populate_cache("i0", i0_calc, "1/cm")
+        return i0_calc
 
-            # calculate squared of electron density constrast combinations
-            drho_dx2 = drho_dx[:, :, np.newaxis] * drho_dx[:, np.newaxis, :]
+    def s0_e(self) -> NDArray[np.float64]:
+        r"""
+        Compute the structure factor of electron density as q :math:`\rightarrow` 0.
 
-            # calculate saxs intensity
-            i0_mat = re**2 * V_bar[:, np.newaxis, np.newaxis] * drho_dx2 * self.s0()
+        Returns
+        -------
+        np.ndarray
+            A 1D array of shape ``(n_sys)``
+        """
+        T_avg = float(self.state.temperature().mean())
+        s0_calc = self.structure_calculator.s0_e(
+            T=T_avg,
+            hessian=self.hessian(),
+            isothermal_compressability=self.isothermal_compressability(),
+        )
+        self._populate_cache("s0_e", s0_calc, "")
+        return s0_calc
 
-            # sum over 1:last_dim
-            self._i0 = np.nansum(i0_mat, axis=tuple(range(1, i0_mat.ndim)))
-            self._populate_cache("i0", self._i0, "1/cm")
+    def s0_x_e(self) -> NDArray[np.float64]:
+        r"""
+        Compute the contribution from concentration-concentration fluctuations to structure factor of electron density as q :math:`\rightarrow` 0.
 
-        return self._i0
+        Returns
+        -------
+        np.ndarray
+            A 1D array of shape ``(n_sys)``
+        """
+        T_avg = float(self.state.temperature().mean())
+        s0_x_e_calc = self.structure_calculator.s0_x_e(T=T_avg, hessian=self.hessian())
+        self._populate_cache("s0_x_e", s0_x_e_calc, "")
+        return s0_x_e_calc
+
+    def s0_xp_e(self) -> NDArray[np.float64]:
+        r"""
+        Compute the contribution from concentration-density fluctuations to structure factor of electron density as q :math:`\rightarrow` 0.
+
+        Returns
+        -------
+        np.ndarray
+            A 1D array of shape ``(n_sys)``
+        """
+        T_avg = float(self.state.temperature().mean())
+        s0_xp_e_calc = self.structure_calculator.s0_xp_e(T=T_avg, hessian=self.hessian())
+        self._populate_cache("s0_xp_e", s0_xp_e_calc, "")
+        return s0_xp_e_calc
+
+    def s0_p_e(self) -> NDArray[np.float64]:
+        r"""
+        Compute the contribution from density-density fluctuations to structure factor of electron density as q :math:`\rightarrow` 0.
+
+        Returns
+        -------
+        np.ndarray
+            A 1D array of shape ``(n_sys)``
+        """
+        T_avg = float(self.state.temperature().mean())
+        s0_p_e_calc = self.structure_calculator.s0_p_e(
+            T=T_avg,
+            hessian=self.hessian(),
+            isothermal_compressability=self.isothermal_compressability(),
+        )
+        self._populate_cache("s0_p_e", s0_p_e_calc, "")
+        return s0_p_e_calc
 
     def dmu_dxs(self) -> NDArray[np.float64]:
         r"""
@@ -501,10 +467,10 @@ class KBThermo:
             - :math:`n_T`: total number of molecules in system
         """
         if "_dmu_dxs" not in self.__dict__:
-            n = self.analyzer.n_comp - 1
-            total_mol = self.analyzer.total_molecules[:, np.newaxis, np.newaxis]
+            n = self.state.n_comp - 1
+            total_mol = self.state.total_molecules[:, np.newaxis, np.newaxis]
             dmu_dn = self.dmu_dn()
-            mol_fraction = self.analyzer.mol_fr.copy()
+            mol_fraction = self.state.mol_fr.copy()
             mol_fraction[mol_fraction == 0] = np.nan
 
             dmu_dxs = total_mol * (dmu_dn[:, :n, :n] - dmu_dn[:, :n, -1][:, :, np.newaxis])
@@ -543,11 +509,11 @@ class KBThermo:
         """
         if "_dlngammas_dxs" not in self.__dict__:
             # Avoid ZeroDivisionError by replacing zeros with NaN
-            mol_fraction = self.analyzer.mol_fr.copy()
+            mol_fraction = self.state.mol_fr.copy()
             mol_fraction[mol_fraction == 0] = np.nan
 
             # Compute derivative of ln(gamma) with respect to composition
-            temperature = self.analyzer.temperature()
+            temperature = self.state.temperature()
             dmu_dxs = self.dmu_dxs()
             factor = 1 / (self.gas_constant * temperature)
             self._dlngammas_dxs = np.asarray(factor[:, np.newaxis] * dmu_dxs - 1 / mol_fraction)
@@ -558,11 +524,11 @@ class KBThermo:
     def _get_ref_state_dict(self, mol: str) -> dict[str, object]:
         """Get reference state parameters for each molecule."""
         # get max mol fr at each composition
-        z0 = self.analyzer.mol_fr.copy()
+        z0 = self.state.mol_fr.copy()
         z0[np.isnan(z0)] = 0
         comp_max = z0.max(axis=1)
         # get mol index
-        i = self.analyzer._get_mol_idx(mol, self.analyzer.unique_molecules)
+        i = self.state._get_mol_idx(mol, self.state.unique_molecules)
         # get mask for max mol frac at each composition
         is_max = z0[:, i] == comp_max
 
@@ -650,10 +616,10 @@ class KBThermo:
         integration_type = integration_type.lower()
         dlng_dxs = self.dlngammas_dxs()  # avoid repeated calls
 
-        ln_gammas = np.full_like(self.analyzer.mol_fr, fill_value=np.nan)
-        for i, mol in enumerate(self.analyzer.unique_molecules):
+        ln_gammas = np.full_like(self.state.mol_fr, fill_value=np.nan)
+        for i, mol in enumerate(self.state.unique_molecules):
             # get x & dlng for molecule
-            xi0 = self.analyzer.mol_fr[:, i]
+            xi0 = self.state.mol_fr[:, i]
             dlng0 = dlng_dxs[:, i]
             lng_i = np.full(len(xi0), fill_value=np.nan)
 
@@ -764,8 +730,8 @@ class KBThermo:
             - :math:`x_i` is mol fraction of molecule :math:`i`
             - :math:`\gamma_i` is activity coefficient of molecule :math:`i`
         """
-        temp = self.analyzer.temperature()
-        mol_fraction = self.analyzer.mol_fr
+        temp = self.state.temperature()
+        mol_fraction = self.state.mol_fr
 
         ge = self.gas_constant * temp * (mol_fraction * lngammas).sum(axis=1)
         self._populate_cache("ge", ge, "kJ/mol")
@@ -788,10 +754,10 @@ class KBThermo:
         """
         if "_gibbs_ideal" not in self.__dict__:
             # to prevent error thrown for np.log10(0)
-            mfr = self.analyzer.mol_fr.copy()
+            mfr = self.state.mol_fr.copy()
             mfr[mfr == 0] = np.nan
 
-            GID = self.gas_constant * self.analyzer.temperature(units="K") * (mfr * np.log(mfr)).sum(axis=1)
+            GID = self.gas_constant * self.state.temperature(units="K") * (mfr * np.log(mfr)).sum(axis=1)
 
             self._gibbs_ideal = np.asarray(GID)
             self._populate_cache("gid", self._gibbs_ideal, "kJ/mol")
@@ -824,8 +790,27 @@ class KBThermo:
         .. math::
             S^E = \frac{\Delta H_{mix} - G^E}{T}
         """
-        temp = self.analyzer.temperature()
+        temp = self.state.temperature()
 
-        self._se = (self.analyzer.h_mix() - self.ge(lngammas)) / temp
+        self._se = (self.state.h_mix() - self.ge(lngammas)) / temp
         self._populate_cache("se", self._se, "kJ/mol/K")
         return self._se
+
+    def build_cache(self, gamma_integration_type: str) -> None:
+        """
+        Build property cache with default units.
+
+        Parameters
+        ----------
+        gamma_integration_type: str
+            Integration type of activity coefficient derivatives. Options: numerical, polynomial.
+        """
+        lngammas = self.lngammas(gamma_integration_type)
+        self.gm(lngammas)
+        self.se(lngammas)
+        self.i0()
+        self.s0_e()
+        self.s0_x_e()
+        self.s0_xp_e()
+        self.s0_p_e()
+        self.det_hessian()

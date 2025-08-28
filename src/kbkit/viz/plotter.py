@@ -296,9 +296,7 @@ class Plotter:
                 color = color_dict.get(mol_i, {})[mol_j]
                 kbi = self._convert_kbi(meta.kbi)
                 label = f"{self.molecule_map[mol_i]}-{self.molecule_map[mol_j]}"
-                line = ax.scatter(
-                    self.pipe.state.mol_fr[s, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=label
-                )
+                line = ax.scatter(self.pipe.state.mol_fr[s, self._x_idx], kbi, c=color, marker="s", lw=1.8, label=label)
                 if meta.mols not in legend_info:
                     legend_info[label] = line
         lines = list(legend_info.values())
@@ -434,9 +432,7 @@ class Plotter:
             else:
                 colors = plt.cm.get_cmap(cmap)(np.linspace(0, 1, self.pipe.state.n_comp))
                 for i, mol in enumerate(self.pipe.state.unique_molecules):
-                    xi = (
-                        spec.x_data[:, self._x_idx] if self.pipe.state.n_comp == BINARY_SYSTEM else spec.x_data[:, i]
-                    )
+                    xi = spec.x_data[:, self._x_idx] if self.pipe.state.n_comp == BINARY_SYSTEM else spec.x_data[:, i]
                     yi = spec.y_data[:, i]
                     ax.scatter(xi, yi, c=[colors[i]], marker=marker, label=self.molecule_map[mol])
 
@@ -541,7 +537,6 @@ class Plotter:
         system: str = "",
         cmap: str = "jet",
         marker: str = "o",
-        xlim: tuple[float, float] = (0.0, 0.0),
         ylim: tuple[float, float] = (0.0, 0.0),
         show: bool = True,
     ) -> None:
@@ -574,8 +569,6 @@ class Plotter:
             Matplotlib colormap (default 'jet').
         marker: str, optional
             Marker shape for scatterplots (default 'o').
-        xlim: list, optional
-            For specific system, x-axis limits of zoomed in RDF.
         ylim: list, optional
             For specific system, y-axis limits of zoomed in RDF; otherwise: y-axis in binary and activity coefficient plots.
         show: bool, optional

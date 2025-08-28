@@ -7,7 +7,7 @@ readme = "README.md"
 keywords = []
 authors = [{name = "Allison Peroutka"}]
 requires-python = ">=3.12"
-dependencies = [ "sphinx>=7.0", "numpy>=2.3.2,<3", "natsort>=8.4.0,<9", "scipy>=1.16.1,<2", "pandas>=2.3.1,<3", "matplotlib>=3.10.5,<4", "seaborn>=0.13.2,<0.14", "gromacs>=0.0.0,<0.0.1", "pathlib>=1.0.1,<2", "mpltern>=1.0.4,<2", "plotly>=6.3.0,<7", "click>=8.2.1,<9", "pint>=0.25,<0.26", "uncertainties>=3.2.3,<4", "babel>=2.17.0,<3", "ipykernel>=6.30.1,<7", "tree-format>=0.1.2,<0.2", "furo>=2025.7.19,<2026", "sphinx-rtd-theme>=3.0.2,<4", "nbsphinx>=0.9.6,<0.10", "pandoc>=2.4,<3", "sphinx-copybutton>=0.5.2,<0.6", "sphinx-gallery>=0.19.0,<0.20", "rdkit>=2025.3.5,<2026", "sympy>=1.14.0,<2", "pytest>=8.4.1", "pytest-cov>=6.2.1", "stubs>=1.0.0", "mypy"]
+dependencies = [ "sphinx>=7.0", "numpy>=2.3.2,<3", "natsort>=8.4.0,<9", "scipy>=1.16.1,<2", "pandas>=2.3.1,<3", "matplotlib>=3.10.5,<4", "seaborn>=0.13.2,<0.14", "gromacs>=0.0.0,<0.0.1", "pathlib>=1.0.1,<2", "mpltern>=1.0.4,<2", "plotly>=6.3.0,<7", "click>=8.2.1,<9", "pint<0.25", "uncertainties>=3.2.3,<4", "babel>=2.17.0,<3", "ipykernel>=6.30.1,<7", "tree-format>=0.1.2,<0.2", "furo>=2025.7.19,<2026", "sphinx-rtd-theme>=3.0.2,<4", "nbsphinx>=0.9.6,<0.10", "pandoc>=2.4,<3", "sphinx-copybutton>=0.5.2,<0.6", "sphinx-gallery>=0.19.0,<0.20", "rdkit>=2025.3.5,<2026", "sympy>=1.14.0,<2", "pytest>=8.4.1", "pytest-cov>=6.2.1", "stubs>=1.0.0", "mypy"]
 
 [tool.pixi.project]
 channels = ["conda-forge"]
@@ -64,6 +64,7 @@ select = [
 ]
 ignore = [
     "N806", # Non-lowercase variable in function
+    "N803", # Argument name should be lowercase
     "PLR0911", # Too many returns
     "PLR0912", # Too many branches
     "PLR0913", # Too many arguments to function call

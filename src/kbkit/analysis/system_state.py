@@ -1,7 +1,6 @@
 """Extracts thermodynamic and compositional features from a batch of molecular simulation systems."""
 
 import itertools
-from collections import defaultdict
 from functools import cached_property
 
 import numpy as np
@@ -46,7 +45,7 @@ class SystemState:
         # get unique combination of anions/cations in configuration
         salt_pairs = [(cation, anion) for cation, anion in itertools.product(self.config.cations, self.config.anions)]
 
-        # now validate list; checks molecules in pairs are in top_molecules
+        # now validate list; checks molecules in pairs are in _top_molecules
         for pair in salt_pairs:
             if not all(mol in self.top_molecules for mol in pair):
                 raise ValueError(
@@ -63,59 +62,12 @@ class SystemState:
     @cached_property
     def salt_molecules(self) -> list[str]:
         """list: Combined molecule names for each salt pair."""
-        return ["-".join(pair) for pair in self.salt_pairs]
+        return [".".join(pair) for pair in self.salt_pairs]
 
     @cached_property
     def unique_molecules(self) -> list[str]:
         """list: Molecules present after combining salt pairs as single entries."""
         return self.nosalt_molecules + self.salt_molecules
-
-    @property
-    def n_comp(self) -> int:
-        """int: Number of unique components (molecules) in all systems."""
-        return len(self.unique_molecules)
-
-    @cached_property
-    def total_molecules(self) -> NDArray[np.float64]:
-        """np.ndarray: Total molecule count for each system."""
-        return np.array([meta.props.topology.total_molecules for meta in self.config.registry])
-
-    @cached_property
-    def molecule_counts(self) -> NDArray[np.float64]:
-        """np.ndarray: Molecule count per system."""
-        return np.array(
-            [
-                [meta.props.topology.molecule_count.get(mol, 0) for mol in self.top_molecules]
-                for meta in self.config.registry
-            ]
-        )
-
-    @cached_property
-    def n_electrons(self) -> NDArray[np.float64]:
-        """np.ndarray: Compute number of electrons in each molecule."""
-        # get unique electron count for residues
-        residue_electrons = defaultdict(int)
-        for meta in self.config.registry:
-            try:
-                for mol, elec in meta.props.structure.electron_count.items():
-                    residue_electrons[mol] = elec
-            except AttributeError:
-                continue  # skip systems without gro file
-
-        # get electron counts in same order as top molecules
-        n_elec = np.array([residue_electrons.get(mol, 0) for mol in self.top_molecules])
-
-        # check that all molecules are accounted for
-        if len(residue_electrons) != len(self.top_molecules):
-            raise ValueError(
-                f"Electron counts for unique molecules ({len(n_elec)}) is not equal to number of molecules ({len(self.top_molecules)})"
-            )
-        return n_elec
-
-    @cached_property
-    def top_mol_fr(self) -> NDArray[np.float64]:
-        """np.ndarray: Mol fraction for molecules in top molecules."""
-        return self.molecule_counts / self.molecule_counts.sum(axis=1)[:, np.newaxis]
 
     def _get_mol_idx(self, mol: str, molecule_list: list[str]) -> int:
         """Get index of mol in molecule list."""
@@ -130,24 +82,81 @@ class SystemState:
             raise ValueError(f"{mol} not in molecule list: {molecule_list}")
         return molecule_list.index(mol)
 
+    @property
+    def n_comp(self) -> int:
+        """int: Number of unique components (molecules) in all systems."""
+        return len(self.unique_molecules)
+
+    @cached_property
+    def total_molecules(self) -> NDArray[np.float64]:
+        """np.ndarray: Total molecule count for each system."""
+        return np.array([meta.props.topology.total_molecules for meta in self.config.registry])
+
+    @cached_property
+    def _top_molecule_counts(self) -> NDArray[np.float64]:
+        """np.ndarray: Molecule count per system."""
+        return np.array(
+            [
+                [meta.props.topology.molecule_count.get(mol, 0) for mol in self.top_molecules]
+                for meta in self.config.registry
+            ]
+        )
+
+    @cached_property
+    def molecule_counts(self) -> NDArray[np.float64]:
+        """np.ndarray: Molecule count per system."""
+        counts = np.zeros((self.n_sys, self.n_comp))
+        for i, mol in enumerate(self.unique_molecules):
+            mol_split = mol.split(".")
+            if len(mol_split) > 1 and tuple(mol_split) in self.salt_pairs:
+                for salt in mol_split:
+                    salt_idx = self._get_mol_idx(salt, self.top_molecules)
+                    counts[:, i] += self._top_molecule_counts[:, salt_idx]
+            else:
+                mol_idx = self._get_mol_idx(mol, self.top_molecules)
+                counts[:, i] += self._top_molecule_counts[:, mol_idx]
+        return counts
+
+    @cached_property
+    def pure_molecules(self) -> list[str]:
+        """list[str]: Names of 'pure' molecules."""
+        molecules = [".".join(meta.props.topology.molecules) for meta in self.config.registry if meta.kind == "pure"]
+        return sorted(molecules)
+
+    @cached_property
+    def pure_mol_fr(self) -> NDArray[np.float64]:
+        """np.ndarray: Mol fraction array in terms of pure components."""
+        arr = np.zeros((self.n_sys, len(self.pure_molecules)))
+        for i, mol in enumerate(self.pure_molecules):
+            mol_split = mol.split(".")
+            if len(mol_split) > 1:
+                for salt in mol_split:
+                    salt_idx = self._get_mol_idx(salt, self.top_molecules)
+                    arr[:, i] += self._top_molecule_counts[:, salt_idx]
+            else:
+                mol_idx = self._get_mol_idx(mol, self.top_molecules)
+                arr[:, i] += self._top_molecule_counts[:, mol_idx]
+        # get mol_fr
+        arr /= self.total_molecules[:, np.newaxis]
+        return arr
+
+    @cached_property
+    def n_electrons(self) -> NDArray[np.float64]:
+        """np.ndarray: Number of electrons corresponding to unique molecules."""
+        elec_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
+        for meta in self.config.registry:
+            # only for pure systems
+            if meta.kind == "pure":
+                mols = ".".join(meta.props.topology.molecules)
+                # get total electron count for molecules in "pure" system
+                elec_map[mols] = sum(meta.props.structure.electron_count.values())
+
+        return np.fromiter(elec_map.values(), dtype=np.float64)
+
     @cached_property
     def mol_fr(self) -> NDArray[np.float64]:
-        """np.ndarray: Mol fraction array including salt pair combinations."""
-        mfr = np.zeros((self.n_sys, self.n_comp))
-        # iterate through systems and molecules in topology to find and ajust for salt-pairs
-        for i in range(len(self.config.registry)):
-            for j, mol in enumerate(self.unique_molecules):
-                # check if molecule is salt-pair
-                mol_split = mol.split("-")
-                # handle salt-pairs
-                if len(mol_split) > 0 and tuple(mol_split) in self.salt_pairs:
-                    for salt in mol_split:
-                        salt_idx = self._get_mol_idx(salt, self.top_molecules)
-                        mfr[i, j] += self.top_mol_fr[i, salt_idx]
-                else:
-                    mol_idx = self._get_mol_idx(mol, self.top_molecules)
-                    mfr[i, j] += self.top_mol_fr[i, mol_idx]
-        return mfr
+        """np.ndarray: Mol fraction of molecules in registry."""
+        return self.molecule_counts / self.molecule_counts.sum(axis=1)[:, np.newaxis]
 
     def temperature(self, units: str = "K") -> NDArray[np.float64]:
         """Temperature of each simulation."""
@@ -162,13 +171,14 @@ class SystemState:
         vol_unit, N_unit = units.split("/")
         volumes = self.volume(vol_unit)
         # make dict in same order as top molecules
-        volumes_map: dict[str, float] = dict.fromkeys(self.top_molecules, 0)
+        volumes_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
         for i, meta in enumerate(self.config.registry):
             top = meta.props.topology
             # only for pure systems
             if meta.kind == "pure":
                 N = self.Q_(top.total_molecules, "molecule").to(N_unit).magnitude
-                volumes_map[top.molecules[0]] = volumes[i] / N
+                volumes_map[".".join(top.molecules)] = volumes[i] / N
+
         return np.fromiter(volumes_map.values(), dtype=np.float64)
 
     def enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
@@ -177,18 +187,20 @@ class SystemState:
 
     def pure_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Pure component enthalpies."""
-        enth: dict[str, float] = dict.fromkeys(self.top_molecules, 0)
+        enth: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
         for meta in self.config.registry:
             if meta.kind == "pure":
                 value = meta.props.get("enthalpy", units=units, std=False)
+                # make sure value is float
                 if isinstance(value, tuple):
-                    value = value[0]  # or whatever logic you want
-                enth[meta.props.topology.molecules[0]] = float(value)
+                    value = value[0]
+                mols = ".".join(meta.props.topology.molecules)
+                enth[mols] = float(value)
         return np.fromiter(enth.values(), dtype=np.float64)
 
     def ideal_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Linear combination of simulation enthalpy."""
-        return self.top_mol_fr @ self.pure_enthalpy(units)
+        return self.pure_mol_fr @ self.pure_enthalpy(units)
 
     def h_mix(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Enthalpy of mixing."""
@@ -203,7 +215,7 @@ class SystemState:
 
     def volume_bar(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
         """Linear combination of molar volumes."""
-        return self.top_mol_fr @ self.molar_volume(units)
+        return self.pure_mol_fr @ self.molar_volume(units)
 
     def rho_bar(self, units: str = "molecule/nm^3") -> NDArray[np.float64]:
         """Linear combination of number density."""

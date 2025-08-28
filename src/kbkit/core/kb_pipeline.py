@@ -5,8 +5,6 @@ This module coordinates system discovery, RDF/KBI parsing, and thermodynamic mat
 Intended for use in CLI tools, notebooks, or automated pipelines.
 """
 
-from pathlib import Path
-
 import numpy as np
 from numpy.typing import NDArray
 
@@ -42,26 +40,28 @@ class KBPipeline:
 
     def __init__(
         self,
-        base_path: str | Path | None = None,
-        pure_path: str | Path | None = None,
+        pure_path: str,
+        pure_systems: list[str],
+        base_path: str,
+        base_systems: list[str] | None = None,
         ensemble: str = "npt",
         cations: list[str] | None = None,
         anions: list[str] | None = None,
         start_time: int = 0,
-        system_names: list[str] | None = None,
         verbose: bool = False,
         gamma_integration_type: str = "numerical",
-    ):
+    ) -> None:
         # build configuration
         loader = SystemLoader(verbose=verbose)
         self.config = loader.build_config(
-            base_path=base_path,
             pure_path=pure_path,
+            pure_systems=pure_systems,
+            base_path=base_path,
+            base_systems=base_systems,
             ensemble=ensemble,
             cations=cations or [],
             anions=anions or [],
             start_time=start_time,
-            system_names=system_names,
         )
 
         # get composition state
@@ -79,12 +79,7 @@ class KBPipeline:
 
     def run(self) -> None:
         r"""Run Kirkwood-Buff analysis via :class:`kbkit.analysis.thermo.KBThermo`."""
-        lngammas = self.thermo.lngammas(self.gamma_integration_type)
-        self.thermo.gm(lngammas)
-        self.thermo.se(lngammas)
-        self.thermo.i0()
-        self.thermo.det_hessian()
-        self.thermo.isothermal_compressability()
+        self.thermo.build_cache(self.gamma_integration_type)
 
     def convert_units(self, name: str, target_units: str) -> NDArray[np.float64]:
         """Get thermodynamic property in desired units."""

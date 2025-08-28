@@ -27,7 +27,7 @@ class KBICalculator:
     ----------
     config : SystemConfig
         Configuration object containing system paths and registry.
-    analyzer : SystemAnalyzer
+    state : SystemState
         Analyzer object providing molecule indexing, salt pairs, and composition.
 
     Attributes
@@ -36,9 +36,9 @@ class KBICalculator:
         Dictionary mapping system names to lists of KBI metadata objects.
     """
 
-    def __init__(self, config: SystemConfig, analyzer: SystemState) -> None:
+    def __init__(self, config: SystemConfig, state: SystemState) -> None:
         self.config = config
-        self.analyzer = analyzer
+        self.state = state
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
 
     def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
@@ -69,7 +69,7 @@ class KBICalculator:
         RDFParser : Extracts molecule pairs from RDF filenames.
         """
         kbis = np.full(
-            (self.analyzer.n_sys, len(self.analyzer.top_molecules), len(self.analyzer.top_molecules)), fill_value=np.nan
+            (self.state.n_sys, len(self.state.top_molecules), len(self.state.top_molecules)), fill_value=np.nan
         )
 
         # iterate through all systems
@@ -80,8 +80,8 @@ class KBICalculator:
 
             # read all rdf_files
             for filepath in meta.rdf_path.iterdir():
-                rdf_mols = RDFParser.extract_mols(filepath.name, self.analyzer.top_molecules)
-                i, j = [self.analyzer._get_mol_idx(mol, self.analyzer.top_molecules) for mol in rdf_mols]
+                rdf_mols = RDFParser.extract_mols(filepath.name, self.state.top_molecules)
+                i, j = [self.state._get_mol_idx(mol, self.state.top_molecules) for mol in rdf_mols]
 
                 # integrate rdf --> kbi calc
                 integrator = KBIntegrator(filepath, meta.props)
@@ -144,15 +144,15 @@ class KBICalculator:
         Notes
         -----
         - Delegates to `apply_electrolyte_correction`.
-        - Uses analyzer attributes for salt pairs and molecule indexing.
+        - Uses state attributes for salt pairs and molecule indexing.
         """
         return self.apply_electrolyte_correction(
             kbi_matrix=self.compute_raw_kbi_matrix(),
-            salt_pairs=self.analyzer.salt_pairs,
-            top_molecules=self.analyzer.top_molecules,
-            unique_molecules=self.analyzer.unique_molecules,
-            nosalt_molecules=self.analyzer.nosalt_molecules,
-            molecule_counts=self.analyzer.molecule_counts,
+            salt_pairs=self.state.salt_pairs,
+            top_molecules=self.state.top_molecules,
+            unique_molecules=self.state.unique_molecules,
+            nosalt_molecules=self.state.nosalt_molecules,
+            molecule_counts=self.state.molecule_counts,
         )
 
     @staticmethod

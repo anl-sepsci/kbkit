@@ -43,23 +43,28 @@ class SystemLoader:
 
     def build_config(
         self,
-        base_path: str | Path | None = None,
-        pure_path: str | Path | None = None,
+        pure_path: str | Path,
+        pure_systems: list[str],
+        base_path: str | Path,
+        base_systems: list[str] | None = None,
         ensemble: str = "npt",
         cations: list[str] | None = None,
         anions: list[str] | None = None,
         start_time: int = 0,
-        system_names: list[str] | None = None,
     ) -> SystemConfig:
         """
         Construct a SystemConfig object from discovered systems.
 
         Parameters
         ----------
-        base_path : str or Path, optional
-            Path to base system directory.
         pure_path : str or Path, optional
             Path to pure component directory.
+        pure_systems: list[str]
+            List of pure systems to include.
+        base_path : str or Path, optional
+            Path to base system directory.
+        base_systems : list[str], optional
+            Explicit list of system names to include.
         ensemble : str, optional
             Ensemble name used for file resolution.
         cations : list[str], optional
@@ -68,8 +73,6 @@ class SystemLoader:
             List of anion species.
         start_time : int, optional
             Start time for time-averaged properties.
-        system_names : list[str], optional
-            Explicit list of system names to include.
 
         Returns
         -------
@@ -77,24 +80,29 @@ class SystemLoader:
             Configuration object containing registry and metadata.
         """
         # get paths to parent directories
-        base_path = base_path or self._find_base_path()
-        pure_path = pure_path or self._find_pure_path(base_path)
+        if not base_path:
+            base_path = self._find_base_path()
+        else:
+            base_path = validate_path(base_path)
 
-        # check that paths are valid
-        base_path = validate_path(base_path)
-        pure_path = validate_path(pure_path)
+        if not pure_path:
+            pure_path = self._find_pure_path(base_path)
+        else:
+            pure_path = validate_path(pure_path)
 
         # get system paths and corresponding metatdata for base systems
-        base_systems = system_names or self._find_systems(base_path)
+        base_systems = base_systems or self._find_systems(base_path)
         self.logger.debug(f"Discovered base systems: {base_systems}")
 
-        base_metadata = [self._get_metadata(base_path, system, ensemble, start_time) for system in base_systems]
+        base_metadata = [
+            self._get_metadata(base_path, system, ensemble, start_time, "mixture") for system in base_systems
+        ]
 
         # get system paths and corresponding metadata for pure systems
-        pure_systems = self._find_pure_systems(pure_path, base_metadata)
+        pure_systems = self._validate_pure_systems(pure_path, pure_systems, base_metadata)
         self.logger.debug(f"Discovered pure systems: {pure_systems}")
 
-        pure_metadata = [self._get_metadata(pure_path, system, ensemble, start_time) for system in pure_systems]
+        pure_metadata = [self._get_metadata(pure_path, system, ensemble, start_time, "pure") for system in pure_systems]
 
         # update metadata with rdf path
         metadata = self._update_metadata_rdf(base_metadata + pure_metadata)
@@ -165,7 +173,7 @@ class SystemLoader:
 
         return matches[0]
 
-    def _get_metadata(self, path: Path, system: str, ensemble: str, start_time: int) -> SystemMetadata:
+    def _get_metadata(self, path: Path, system: str, ensemble: str, start_time: int, kind: str) -> SystemMetadata:
         """
         Extract SystemMetadata for a given system directory.
 
@@ -185,17 +193,18 @@ class SystemLoader:
         SystemMetadata
             Metadata object with structure, topology, and thermodynamics.
         """
-        path = validate_path(path)
+        system_path = validate_path(path / system)
 
-        prop = SystemProperties(
-            system_path=path / system, ensemble=ensemble, start_time=start_time, verbose=self.verbose
-        )
+        prop = SystemProperties(system_path=system_path, ensemble=ensemble, start_time=start_time, verbose=self.verbose)
 
-        kind = "mixture" if len(prop.topology.molecules) > 1 else "pure"
+        # force systems with only 1 molecule to be "pure"
+        if len(prop.topology.molecules) == 1:
+            kind = "pure"
+        kind = "pure" if kind.lower() == "pure" else "mixture"
 
         return SystemMetadata(
             name=system,
-            path=path / system,
+            path=system_path,
             props=prop,
             kind=kind,
         )
@@ -221,110 +230,60 @@ class SystemLoader:
         # get subdirs according to pattern if .top found in any files
         return sorted([p.name for p in path.glob(pattern) if p.is_dir() and any(p.glob("*.top"))])
 
-    def _find_pure_systems(self, pure_path: Path, base_metadata: list[SystemMetadata]) -> list[str]:
+    def _validate_pure_systems(
+        self, pure_path: Path, pure_systems: list[str], base_metadata: list[SystemMetadata]
+    ) -> list[str]:
         """
-        Discover valid pure systems, excluding duplicates and mismatched temperatures.
+        Validate pure component systems.
+
+        Checks that temperature of pure systems is within tolerance of base systems.
 
         Parameters
         ----------
-        pure_path : Path
+        pure_path: Path
             Directory containing candidate pure systems.
-        base_metadata : list[SystemMetadata]
-            Metadata from base systems for filtering.
+        pure_systems: list[str]
+            System names for pure systems.
 
         Returns
         -------
         list[str]
-            List of valid pure system names.
+            List of validated pure systems.
         """
-        pure_path = validate_path(pure_path)
-        all_pure_names = self._find_systems(pure_path)
+        if len(pure_systems) == 0:
+            print("WARNING: No pure component systems provided.")
+            return pure_systems
 
-        # Build molecule-temperature map from base systems
-        base_mol_kind: set[tuple[str, str]] = set()
-        for meta in base_metadata:
-            for mol in meta.props.topology.molecules:
-                base_mol_kind.add((mol, meta.kind))
+        MAX_MOLECULES_PURE = 2
 
-        # construct temperature map for base_metadata
-        temps_by_mol = self._build_temperature_map(base_metadata)
-
-        # Track molecules already assigned a pure system
-        assigned_molecules: set[str] = set()
-        pure_systems: list[str] = []
-
-        for name in all_pure_names:
-            system_path = pure_path / name
-
-            try:
-                props = SystemProperties(system_path)
-            except Exception as e:
-                self.logger.debug(f"Skipping system '{name}' due to error: {e}")
+        validated_systems = []
+        temps = []
+        for system in pure_systems:
+            path = Path(pure_path) / system
+            if path.is_dir():  # check that path exists and is directory
+                validated_systems.append(system)
+            else:
+                raise FileNotFoundError(f"System '{system}' not found in pure_path: {pure_path}")
+            prop = SystemProperties(path)
+            if len(prop.topology.molecules) > MAX_MOLECULES_PURE:  # cannot be pure component
                 continue
+            temps.append(prop.get("temperature", units="K"))
 
-            molecules = props.topology.molecules
-            if len(molecules) != 1:
-                continue
+        # get temperature for all base systems // make sure pure component temp matches
+        temperature_map = {meta.name: meta.props.get("temperature", units="K") for meta in base_metadata}
 
-            mol = molecules[0]
-            temp = props.get("temperature", units="K")
-            known_temps = temps_by_mol.get(mol, set())
+        # check that base_meta temps are all close to avg.
+        T_avg = np.mean(list(temperature_map.values()))
+        if not all(np.isclose(T_avg, t, atol=0.5) for t in temperature_map.values()):
+            raise ValueError("Temperature variance in base systems exceeds 0.5 K. Check system temperatures.")
 
-            # Check temperature match
-            if not any(np.isclose(temp, t, atol=0.5) for t in known_temps):
-                continue
+        # check that temps of pure systems are within errors of base systems.
+        if not all(np.isclose(T_avg, t, atol=0.5) for t in temps):
+            raise ValueError(
+                "Pure component temperatures varied from temperature of base systems. Check provided pure_systems."
+            )
 
-            # Skip if pure molecule already represented in base systems
-            if (mol, "pure") in base_mol_kind:
-                continue
-
-            # Skip if molecule already assigned a pure system
-            if mol in assigned_molecules:
-                self.logger.warning(f"Multiple pure systems found for molecule '{mol}'; using first match only.")
-                print(f"WARNING: multiple pure systems found for molecule '{mol}'; using first match only.")
-                continue
-
-            # Assign system
-            pure_systems.append(name)
-            assigned_molecules.add(mol)
-
-        return sorted(pure_systems)
-
-    def _build_temperature_map(self, systems: list[SystemMetadata]) -> dict[str, set[float]]:
-        """
-        Build a temperature map for each molecule across all systems.
-
-        Parameters
-        ----------
-        systems : list[SystemMetadata]
-            List of systems to analyze.
-
-        Returns
-        -------
-        dict[str, set[float]]
-            Mapping from molecule name to observed temperatures.
-        """
-        if not systems:
-            return {}
-
-        temperature_map: dict[str, set[float]] = {}
-
-        for system in systems:
-            props = system.props
-            try:
-                molecules = props.topology.molecules
-                temp = props.get("temperature", units="K")
-                if isinstance(temp, tuple):
-                    temp = temp[0]
-            except Exception:
-                continue  # Skip systems with invalid topology or temperature
-
-            for mol in molecules:
-                temperature_map.setdefault(mol, set()).add(temp)
-
-        temp_map = {mol: set(temps) for mol, temps in temperature_map.items()}
-        self.logger.debug(f"Temperature map: {temp_map}")
-        return temp_map
+        return validated_systems
 
     def _update_metadata_rdf(self, metadata: list[SystemMetadata]) -> list[SystemMetadata]:
         """

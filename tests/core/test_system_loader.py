@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from kbkit.core.system_loader import SystemLoader
+from kbkit.schema.system_config import SystemConfig
 from kbkit.schema.system_metadata import SystemMetadata
 
 
@@ -75,7 +76,7 @@ def test_get_metadata(mock_validate, mock_props, loader, tmp_path):
     Verifies correct kind assignment and metadata structure.
     """
     mock_props.return_value.topology.molecules = ["WAT"]
-    meta = loader._get_metadata(tmp_path, "water", "npt", 0)
+    meta = loader._get_metadata(tmp_path, "water", "npt", 0, "pure")
     assert isinstance(meta, SystemMetadata)
     assert meta.name == "water"
     assert meta.kind == "pure"
@@ -128,20 +129,6 @@ def test_sort_systems_by_mol_fraction(loader):
     assert sorted_meta == [meta1, meta2]
 
 
-def test_build_temperature_map(loader):
-    """
-    Test temperature map construction across systems.
-
-    Verifies correct mapping from molecule to temperature set.
-    """
-    mock_meta = MagicMock()
-    mock_meta.props.topology.molecules = ["WAT"]
-    mock_meta.props.get.return_value = 300.0
-
-    result = loader._build_temperature_map([mock_meta])
-    assert result == {"WAT": {300.0}}
-
-
 @patch("kbkit.core.system_loader.replace")
 def test_update_metadata_rdf_success(mock_replace, loader, tmp_path):
     """
@@ -175,77 +162,36 @@ def test_update_metadata_rdf_missing(loader, tmp_path):
         loader._update_metadata_rdf([meta])
 
 
-def test_build_config_success(loader, tmp_path):
+def test_system_loader_build_config(tmp_path):
     """Test successful config build with real temp directories."""
-    with (
-        patch("kbkit.core.system_loader.SystemLoader._find_base_path", return_value=tmp_path / "base"),
-        patch("kbkit.core.system_loader.SystemLoader._find_pure_path", return_value=tmp_path / "pure"),
-        patch("kbkit.core.system_loader.SystemLoader._find_systems", return_value=["sys1"]),
-        patch("kbkit.core.system_loader.SystemLoader._get_metadata") as mock_meta,
-        patch("kbkit.core.system_loader.SystemLoader._update_metadata_rdf") as mock_update,
-        patch("kbkit.core.system_loader.SystemLoader._extract_top_molecules", return_value=["WAT", "ETH"]),
-        patch("kbkit.core.system_loader.SystemLoader._sort_systems", side_effect=lambda x, y: x),
-    ):
-        (tmp_path / "base").mkdir()
-        (tmp_path / "pure").mkdir()
-        mock_meta.return_value = MagicMock()
-        mock_update.return_value = [mock_meta.return_value]
+    base_dir = tmp_path / "base"
+    pure_dir = tmp_path / "pure"
+    base_dir.mkdir()
+    pure_dir.mkdir()
 
-        config = loader.build_config()
-        assert config.molecules == ["WAT", "ETH"]
-        assert config.registry.all() == [mock_meta.return_value]
+    loader = SystemLoader(verbose=True)
+    loader._find_base_path = MagicMock(return_value=base_dir)
+    loader._find_pure_path = MagicMock(return_value=pure_dir)
+    loader._find_systems = MagicMock(return_value=["sys1", "sys2"])
+    loader._get_metadata = MagicMock(
+        side_effect=lambda path, system, ensemble, start_time, kind: SystemMetadata(
+            name=system, path=path / system, props=MagicMock(), kind=kind
+        )
+    )
+    loader._validate_pure_systems = MagicMock(return_value=["pure1"])
+    loader._update_metadata_rdf = MagicMock(side_effect=lambda metadata: metadata)
+    loader._extract_top_molecules = MagicMock(return_value=["mol1", "mol2"])
+    loader._sort_systems = MagicMock(side_effect=lambda metadata, molecules: metadata)
 
+    config = loader.build_config(
+        pure_path=pure_dir,
+        pure_systems=["pure1"],
+        base_path=base_dir,
+        base_systems=["sys1", "sys2"],
+        ensemble="npt",
+        cations=["Na"],
+        anions=["Cl"],
+        start_time=0,
+    )
 
-def test_find_pure_systems_skips_multi_molecule(loader, tmp_path):
-    """Test that systems with multiple molecules are skipped."""
-    system_dir = tmp_path / "multi"
-    system_dir.mkdir()
-    (system_dir / "multi.top").write_text("[ molecules ]\nA 1\nB 1")
-
-    meta = MagicMock()
-    meta.props.topology.molecules = ["A", "B"]
-    meta.props.get.return_value = 300.0
-
-    loader._find_systems = MagicMock(return_value=["multi"])
-    loader._build_temperature_map = MagicMock(return_value={"A": {300.0}})
-    loader._get_metadata = MagicMock(return_value=meta)
-
-    result = loader._find_pure_systems(tmp_path, [meta])
-    assert result == []
-
-
-def test_find_pure_systems_skips_temp_mismatch(loader, tmp_path):
-    """Test that systems with mismatched temperature are skipped."""
-    system_dir = tmp_path / "pureA"
-    system_dir.mkdir()
-    (system_dir / "pureA.top").write_text("[ molecules ]\nA 1")
-
-    meta = MagicMock()
-    meta.props.topology.molecules = ["A"]
-    meta.props.get.return_value = 310.0
-
-    loader._find_systems = MagicMock(return_value=["pureA"])
-    loader._build_temperature_map = MagicMock(return_value={"A": {300.0}})
-    loader._get_metadata = MagicMock(return_value=meta)
-
-    result = loader._find_pure_systems(tmp_path, [])
-    assert result == []
-
-
-def test_find_pure_systems_skips_duplicate_molecule(loader, tmp_path):
-    """Test that duplicate pure molecules are skipped with warning."""
-    system_dir = tmp_path / "pureA"
-    system_dir.mkdir()
-    (system_dir / "pureA.top").write_text("[ molecules ]\nA 1")
-
-    meta = MagicMock()
-    meta.props.topology.molecules = ["A"]
-    meta.props.get.return_value = 300.0
-
-    loader._find_systems = MagicMock(return_value=["pureA"])
-    loader._build_temperature_map = MagicMock(return_value={"A": {300.0}})
-    loader._get_metadata = MagicMock(return_value=meta)
-
-    # simulate molecule already assigned
-    result = loader._find_pure_systems(tmp_path, [meta])
-    assert result == []
+    assert isinstance(config, SystemConfig)

@@ -111,7 +111,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/78/f9/690a8600b93c332de3ab4a344a4ac34f00c8f104917061f779db6a918ed6/pathlib-1.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9e/c3/059298687310d527a58bb01f3b1965787ee3b40dce76752eda8b44e9a2c5/pexpect-4.9.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d5/1c/a2a29649c0b1983d3ef57ee87a66487fdeb45132df66ab30dd37f7dbe162/pillow-11.3.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/76/cc/c528311d798e22ec884b816e8aa2989e0f1f28cdc8e5969e2be5f10bce85/pint-0.25-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/b7/16/bd2f5904557265882108dc2e04f18abc05ab0c2b7082ae9430091daf1d5c/Pint-0.24.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/95/a9/12e2dc726ba1ba775a2c6922d5d5b4488ad60bdab0888c337c194c8e6de8/plotly-6.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4f/9d/d03542c93bb3d448406731b80f39c3d5601282f778328c22c77d270f4ed4/plumbum-1.9.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a3/58/35da89ee790598a0700ea49b2a66594140f44dec458c07e8e3d4979137fc/ply-3.11-py2.py3-none-any.whl
@@ -258,7 +258,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/78/f9/690a8600b93c332de3ab4a344a4ac34f00c8f104917061f779db6a918ed6/pathlib-1.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9e/c3/059298687310d527a58bb01f3b1965787ee3b40dce76752eda8b44e9a2c5/pexpect-4.9.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f9/0e/37d7d3eca6c879fbd9dba21268427dffda1ab00d4eb05b32923d4fbe3b12/pillow-11.3.0-cp313-cp313-macosx_11_0_arm64.whl
-      - pypi: https://files.pythonhosted.org/packages/76/cc/c528311d798e22ec884b816e8aa2989e0f1f28cdc8e5969e2be5f10bce85/pint-0.25-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/b7/16/bd2f5904557265882108dc2e04f18abc05ab0c2b7082ae9430091daf1d5c/Pint-0.24.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/95/a9/12e2dc726ba1ba775a2c6922d5d5b4488ad60bdab0888c337c194c8e6de8/plotly-6.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4f/9d/d03542c93bb3d448406731b80f39c3d5601282f778328c22c77d270f4ed4/plumbum-1.9.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a3/58/35da89ee790598a0700ea49b2a66594140f44dec458c07e8e3d4979137fc/ply-3.11-py2.py3-none-any.whl
@@ -429,7 +429,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/78/f9/690a8600b93c332de3ab4a344a4ac34f00c8f104917061f779db6a918ed6/pathlib-1.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9e/c3/059298687310d527a58bb01f3b1965787ee3b40dce76752eda8b44e9a2c5/pexpect-4.9.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d5/1c/a2a29649c0b1983d3ef57ee87a66487fdeb45132df66ab30dd37f7dbe162/pillow-11.3.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/76/cc/c528311d798e22ec884b816e8aa2989e0f1f28cdc8e5969e2be5f10bce85/pint-0.25-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/b7/16/bd2f5904557265882108dc2e04f18abc05ab0c2b7082ae9430091daf1d5c/Pint-0.24.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/95/a9/12e2dc726ba1ba775a2c6922d5d5b4488ad60bdab0888c337c194c8e6de8/plotly-6.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4f/9d/d03542c93bb3d448406731b80f39c3d5601282f778328c22c77d270f4ed4/plumbum-1.9.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a3/58/35da89ee790598a0700ea49b2a66594140f44dec458c07e8e3d4979137fc/ply-3.11-py2.py3-none-any.whl
@@ -590,7 +590,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/78/f9/690a8600b93c332de3ab4a344a4ac34f00c8f104917061f779db6a918ed6/pathlib-1.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9e/c3/059298687310d527a58bb01f3b1965787ee3b40dce76752eda8b44e9a2c5/pexpect-4.9.0-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f9/0e/37d7d3eca6c879fbd9dba21268427dffda1ab00d4eb05b32923d4fbe3b12/pillow-11.3.0-cp313-cp313-macosx_11_0_arm64.whl
-      - pypi: https://files.pythonhosted.org/packages/76/cc/c528311d798e22ec884b816e8aa2989e0f1f28cdc8e5969e2be5f10bce85/pint-0.25-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/b7/16/bd2f5904557265882108dc2e04f18abc05ab0c2b7082ae9430091daf1d5c/Pint-0.24.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/95/a9/12e2dc726ba1ba775a2c6922d5d5b4488ad60bdab0888c337c194c8e6de8/plotly-6.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4f/9d/d03542c93bb3d448406731b80f39c3d5601282f778328c22c77d270f4ed4/plumbum-1.9.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a3/58/35da89ee790598a0700ea49b2a66594140f44dec458c07e8e3d4979137fc/ply-3.11-py2.py3-none-any.whl
@@ -1448,7 +1448,7 @@ packages:
 - pypi: ./
   name: kbkit
   version: 1.0.0
-  sha256: abff9b7d168af87e9622ae038a82bfe4e59e0ac6a10acf183c0046175788515c
+  sha256: 195f2df320cdbfbb96a9b5c3d68f2880969fead49d28fccf3662d57685569ee4
   requires_dist:
   - sphinx>=7.0
   - numpy>=2.3.2,<3
@@ -1462,7 +1462,7 @@ packages:
   - mpltern>=1.0.4,<2
   - plotly>=6.3.0,<7
   - click>=8.2.1,<9
-  - pint>=0.25,<0.26
+  - pint<0.25
   - uncertainties>=3.2.3,<4
   - babel>=2.17.0,<3
   - ipykernel>=6.30.1,<7
@@ -2564,67 +2564,34 @@ packages:
   - typing-extensions ; python_full_version < '3.10' and extra == 'typing'
   - defusedxml ; extra == 'xmp'
   requires_python: '>=3.9'
-- pypi: https://files.pythonhosted.org/packages/76/cc/c528311d798e22ec884b816e8aa2989e0f1f28cdc8e5969e2be5f10bce85/pint-0.25-py3-none-any.whl
+- pypi: https://files.pythonhosted.org/packages/b7/16/bd2f5904557265882108dc2e04f18abc05ab0c2b7082ae9430091daf1d5c/Pint-0.24.4-py3-none-any.whl
   name: pint
-  version: '0.25'
-  sha256: cc20ae3dff010b9bbea41fb80c2de008f683cc83512cea73633d55aead80aa1e
+  version: 0.24.4
+  sha256: aa54926c8772159fcf65f82cc0d34de6768c151b32ad1deb0331291c38fe7659
   requires_dist:
-  - flexcache>=0.3
-  - flexparser>=0.4
   - platformdirs>=2.1.0
   - typing-extensions>=4.0.0
-  - babel<=2.8 ; extra == 'all'
-  - dask<2025.3.0 ; extra == 'all'
-  - matplotlib ; extra == 'all'
-  - mip>=1.13 ; python_full_version < '3.13' and extra == 'all'
-  - numpy>=1.23 ; extra == 'all'
-  - pint-pandas>=0.3 ; extra == 'all'
-  - uncertainties>=3.1.6 ; extra == 'all'
-  - xarray ; extra == 'all'
+  - flexcache>=0.3
+  - flexparser>=0.4
   - babel<=2.8 ; extra == 'babel'
-  - pytest ; extra == 'codspeed'
-  - pytest-benchmark ; extra == 'codspeed'
-  - pytest-codspeed ; extra == 'codspeed'
-  - pytest-cov ; extra == 'codspeed'
-  - pytest-mpl ; extra == 'codspeed'
-  - pytest-subtests ; extra == 'codspeed'
-  - dask<2025.3.0 ; extra == 'dask'
-  - babel ; extra == 'docs'
-  - commonmark==0.8.1 ; extra == 'docs'
-  - docutils ; extra == 'docs'
-  - graphviz ; extra == 'docs'
-  - ipykernel ; extra == 'docs'
-  - ipython<=8.12 ; extra == 'docs'
-  - jupyter-client ; extra == 'docs'
-  - nbsphinx ; extra == 'docs'
-  - pooch ; extra == 'docs'
-  - pygments>=2.4 ; extra == 'docs'
-  - recommonmark==0.5.0 ; extra == 'docs'
-  - sciform ; extra == 'docs'
-  - scipy ; extra == 'docs'
-  - serialize ; extra == 'docs'
-  - sparse ; extra == 'docs'
-  - sphinx-book-theme>=1.1.0 ; extra == 'docs'
-  - sphinx-copybutton ; extra == 'docs'
-  - sphinx-design ; extra == 'docs'
-  - sphinx>=6,<8.2 ; extra == 'docs'
-  - matplotlib ; extra == 'matplotlib'
-  - mip>=1.13 ; python_full_version < '3.13' and extra == 'mip'
+  - pytest ; extra == 'bench'
+  - pytest-codspeed ; extra == 'bench'
+  - dask ; extra == 'dask'
+  - mip>=1.13 ; extra == 'mip'
   - numpy>=1.23 ; extra == 'numpy'
   - pint-pandas>=0.3 ; extra == 'pandas'
   - pytest ; extra == 'test'
-  - pytest-benchmark ; extra == 'test'
+  - pytest-mpl ; extra == 'test'
   - pytest-cov ; extra == 'test'
   - pytest-subtests ; extra == 'test'
-  - pytest ; extra == 'test-all'
-  - pytest-benchmark ; extra == 'test-all'
-  - pytest-cov ; extra == 'test-all'
-  - pytest-mpl ; extra == 'test-all'
-  - pytest-subtests ; extra == 'test-all'
-  - pytest-mpl ; extra == 'test-mpl'
+  - pytest-benchmark ; extra == 'test'
+  - pytest ; extra == 'testbase'
+  - pytest-cov ; extra == 'testbase'
+  - pytest-subtests ; extra == 'testbase'
+  - pytest-benchmark ; extra == 'testbase'
   - uncertainties>=3.1.6 ; extra == 'uncertainties'
   - xarray ; extra == 'xarray'
-  requires_python: '>=3.11'
+  requires_python: '>=3.9'
 - conda: https://conda.anaconda.org/conda-forge/noarch/platformdirs-4.3.8-pyhe01879c_0.conda
   sha256: 0f48999a28019c329cd3f6fd2f01f09fc32cc832f7d6bbe38087ddac858feaa3
   md5: 424844562f5d337077b445ec6b1398a7
