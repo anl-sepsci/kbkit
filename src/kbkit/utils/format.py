@@ -5,12 +5,44 @@ from re import Match
 
 
 def resolve_units(requested: str, default: str) -> str:
-    """Return the requested unit if provided, otherwise fall back to the default."""
+    """
+    Return the requested unit if provided, otherwise fall back to the default.
+    
+    Parameters
+    ----------
+    requested: str
+        Desired units.
+    default: str
+        Units to fall back on.
+        
+    Returns
+    -------
+    str
+        Units, either requested or default.
+    """
     return requested if requested else default
 
 
-def _str_to_latex_math(text: str) -> str:
-    """Convert a string representing mathematical expressions and units into LaTeX math format."""
+def format_unit_str(text: str) -> str:
+    """
+    Convert a string representing mathematical expressions and units into LaTeX math format.
+
+    Parameters
+    ----------
+    text : str
+        The unit string to format.
+
+    Returns
+    -------
+    str
+        A LaTeX math string representing the units.
+    """
+
+    # check that object is string
+    try:
+        text = str(text)
+    except TypeError as e:
+        raise TypeError(f"Could not convert type {type(text)} to str.") from e
 
     def inverse_fix(match: Match[str]) -> str:
         """Replace /unit ** exponent with /unit^{exponent}."""
@@ -50,29 +82,3 @@ def _str_to_latex_math(text: str) -> str:
 
     return text
 
-
-def format_unit_str(text: str) -> str:
-    """Format a unit string: convert unit words to symbols.
-
-    If given a Pint Quantity, extract its units and format them in short form.
-    The result is converted to LaTeX-friendly math for plotting.
-
-    Parameters
-    ----------
-    text : str
-        The unit string to format.
-
-    Returns
-    -------
-    str
-        A LaTeX math string representing the units.
-    """
-    # check that object is string
-    try:
-        text = str(text)
-    except TypeError as e:
-        raise TypeError(f"Could not convert type {type(text)} to str.") from e
-
-    # format text for plotting
-    unit_str = _str_to_latex_math(text)
-    return unit_str

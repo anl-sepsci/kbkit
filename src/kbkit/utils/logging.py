@@ -1,10 +1,4 @@
-"""
-Custom logging setup.
-
-Provides a lightweight, reusable logger configuration for CLI tools,
-parsers, and internal modules. Ensures consistent formatting and verbosity
-control across the codebase.
-"""
+"""Custom logging setup for reusability across kbkit."""
 
 import logging
 

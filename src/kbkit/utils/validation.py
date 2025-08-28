@@ -1,9 +1,4 @@
-"""
-Contains generic input validation utilities used across kbkit modules.
-
-These functions are stateless and reusable, designed to enforce type, value, and structural constraints
-without introducing domain-specific logic.
-"""
+"""Contains generic input validation utilities used across kbkit modules."""
 
 import os
 from pathlib import Path

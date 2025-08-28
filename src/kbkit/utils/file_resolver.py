@@ -1,10 +1,4 @@
-"""
-Semantic file resolution for scientific systems.
-
-Provides a role-based interface for locating files (e.g., structure, energy, trajectory)
-within a simulation directory. Uses suffix-based heuristics and ensemble filtering to
-identify relevant files for downstream analysis or configuration.
-"""
+"""Semantic file resolution for scientific systems."""
 
 import logging
 from pathlib import Path
@@ -62,7 +56,6 @@ class FileResolver:
         Notes
         -----
         - Uses suffix heuristics and ensemble filtering to identify the best match.
-        - Logs the resolved filename for traceability.
         """
         suffixes = self.ROLE_SUFFIXES.get(role)
         if not suffixes:
