@@ -45,7 +45,7 @@ class KBICalculator:
         np.ndarray
             KBI matrix
         """
-        return self.get_corrected_kbi_matrix() if corrected else self.compute_raw_kbi_matrix()
+        return self.compute_electrolyte_corrected_kbi_matrix() if corrected else self.compute_raw_kbi_matrix()
 
     def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
         r"""
@@ -71,8 +71,8 @@ class KBICalculator:
 
         See Also
         --------
-        `KBIntegrator` : Performs RDF integration and finite-size corrections.
-        `RDFParser` : Extracts molecule pairs from RDF filenames.
+        :class:`KBIntegrator` : Performs RDF integration and finite-size corrections.
+        :class:`RDFParser` : Extracts molecule pairs from RDF filenames.
         """
         kbis = np.full(
             (self.state.n_sys, len(self.state.top_molecules), len(self.state.top_molecules)), fill_value=np.nan
@@ -159,38 +159,7 @@ class KBICalculator:
                 return meta
         return None
 
-    def get_corrected_kbi_matrix(self) -> NDArray[np.float64]:
-        """
-        Compute the electrolyte-corrected KBI matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Corrected KBI matrix with salt-salt and salt-other interactions included.
-
-        Notes
-        -----
-        - Delegates to `apply_electrolyte_correction`.
-        - Uses state attributes for salt pairs and molecule indexing.
-        """
-        return self.apply_electrolyte_correction(
-            kbi_matrix=self.compute_raw_kbi_matrix(),
-            salt_pairs=self.state.salt_pairs,
-            top_molecules=self.state.top_molecules,
-            unique_molecules=self.state.unique_molecules,
-            nosalt_molecules=self.state._nosalt_molecules,
-            molecule_counts=self.state.molecule_counts,
-        )
-
-    @staticmethod
-    def apply_electrolyte_correction(
-        kbi_matrix: NDArray[np.float64],
-        salt_pairs: list[tuple[str, str]],
-        top_molecules: list[str],
-        unique_molecules: list[str],
-        nosalt_molecules: list[str],
-        molecule_counts: NDArray[np.float64],
-    ) -> NDArray[np.float64]:
+    def compute_electrolyte_corrected_kbi_matrix(self) -> NDArray[np.float64]:
         r"""
         Apply electrolyte correction to the input KBI matrix.
 
@@ -234,6 +203,14 @@ class KBICalculator:
             - :math:`x_a = \frac{N_a}{N_c + N_a}` is the mole fraction of the anion
             - :math:`G_{ij}` are the raw KBIs between molecule types :math:`i` and :math:`j`
         """
+        # initialize the variables
+        kbi_matrix = self.compute_raw_kbi_matrix()
+        salt_pairs = self.state.salt_pairs
+        top_molecules = self.state.top_molecules
+        unique_molecules = self.state.unique_molecules
+        nosalt_molecules = self.state._nosalt_molecules
+        molecule_counts = self.state.molecule_counts
+
         # if no salt pairs detected return original matrix
         if len(salt_pairs) == 0:
             return kbi_matrix

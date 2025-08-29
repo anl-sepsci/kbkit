@@ -22,6 +22,19 @@ class StaticStructureCalculator:
         Number of electrons in pure components.
     mol_fr: np.ndarray
         Mol fraction array.
+
+    Attributes
+    ----------
+    T: float
+        Temperature in Kelvin. Initialized to None.
+    hessian: np.ndarray
+        Hessian of Gibbs mixing free energy 3D array with shape ``(n_sys, n_comp, n_comp)``. Initialized to None.
+    isothermal_compressability: np.ndarray
+        Isothermal compressability 1D array with shape ``(n_sys)``. Initialzed to None.
+
+    .. note::
+        Run :func:`update_conditions` to set and update the T, hessian, and isothermal compressability attributes for structure calculations.
+    
     """
 
     def __init__(
@@ -57,15 +70,15 @@ class StaticStructureCalculator:
         isothermal_compressibility: NDArray[np.float64] | None = None
     ) -> None:
         """
-        Set thermodynamic conditions for the system.
+        Update thermodynamic conditions for the system.
 
         Parameters
         ----------
         T : float
             Temperature in Kelvin. Must be strictly positive.
-        hessian : ndarray of shape (n, m, p)
-            Third-order tensor representing the Hessian matrix. Must be a 3D array.
-        isothermal_compressibility : ndarray
+        hessian : np.ndarray
+            Third-order tensor representing the Hessian matrix. Must be a 3D array of shape ``(n_sys, n_comp, n_comp)``.
+        isothermal_compressibility : np.ndarray
             Array of isothermal compressibility values. All entries must be non-negative.
         """
         if T is not None:
@@ -129,12 +142,12 @@ class StaticStructureCalculator:
         return self.mol_fr @ self.n_electrons
 
     @property
-    def delta_volume(self) -> NDArray[np.float64]:
+    def _delta_volume(self) -> NDArray[np.float64]:
         """np.ndarray: Molar volume difference."""
         return self.molar_volume[:-1] - self.molar_volume[-1]
 
     @property
-    def delta_n_electrons(self) -> NDArray[np.float64]:
+    def _delta_n_electrons(self) -> NDArray[np.float64]:
         """np.ndarray: Electron number difference."""
         return self.n_electrons[:-1] - self.n_electrons[-1]
 
@@ -205,7 +218,7 @@ class StaticStructureCalculator:
             - :math:`V_j` is the molar volume of molecule :math:`j`
             - :math:`\bar{V}` is the molar volume of mixture
         """
-        v_ratio = self.delta_volume[np.newaxis, :] / self.volume_bar[:, np.newaxis]
+        v_ratio = self._delta_volume[np.newaxis, :] / self.volume_bar[:, np.newaxis]
         s0_xp_calc = self.s0_x() * v_ratio
         s0_xp_sum = np.nansum(s0_xp_calc, axis=2)
         return s0_xp_sum
@@ -242,7 +255,7 @@ class StaticStructureCalculator:
         """
         R_units = float(self.Q_(self.gas_constant, "kJ/mol/K").to("kPa*cm^3/molecule/K").magnitude)
         term1 = R_units * self.T * self.isothermal_compressability / self.volume_bar
-        v_ratio = self.delta_volume[np.newaxis, :] / self.volume_bar[:, np.newaxis]
+        v_ratio = self._delta_volume[np.newaxis, :] / self.volume_bar[:, np.newaxis]
         term2 = v_ratio[:, :, np.newaxis] * v_ratio[:, np.newaxis, :] * self.s0_x()
         term2_sum = np.nansum(term2, axis=tuple(range(1, term2.ndim)))
         return term1 + term2_sum
@@ -274,8 +287,8 @@ class StaticStructureCalculator:
             - :math:`Z_i` is the number of electrons in molecule :math:`i`
         """
         s0_x_calc = (
-            self.delta_n_electrons[np.newaxis, :, np.newaxis]
-            * self.delta_n_electrons[np.newaxis, np.newaxis, :]
+            self._delta_n_electrons[np.newaxis, :, np.newaxis]
+            * self._delta_n_electrons[np.newaxis, np.newaxis, :]
             * self.s0_x()
         )
         return np.nansum(s0_x_calc, axis=tuple(range(1, s0_x_calc.ndim)))
@@ -307,7 +320,7 @@ class StaticStructureCalculator:
             - :math:`Z_i` is the number of electrons in molecule :math:`i`
             - :math:`\bar{Z}` is the number of electrons in the mixture
         """
-        s0_xp_calc = self.delta_n_electrons[np.newaxis, :] * self.s0_xp()
+        s0_xp_calc = self._delta_n_electrons[np.newaxis, :] * self.s0_xp()
         return 2 * self.n_electrons_bar * np.nansum(s0_xp_calc, axis=1)
 
     def s0_p_e(self) -> NDArray[np.float64]:
@@ -349,7 +362,7 @@ class StaticStructureCalculator:
 
         Notes
         -----
-        The electron density structure factor (:math:`\hat{S}^e(0)`), is calculated from the sum of the structure factor contributions to electron density.
+        The electron density structure factor, :math:`\hat{S}^e(0)`, is calculated from the sum of the structure factor contributions to electron density.
 
         .. math::
             \hat{S}^e(0) = \hat{S}^{x,e}(0) + \hat{S}^{x\rho,e}(0) + \hat{S}^{\rho,e}(0)
@@ -367,7 +380,7 @@ class StaticStructureCalculator:
 
         Notes
         -----
-        The scattering intensity at as q :math:`\rightarrow` 0 (I(0)), is calculated from electron density structure factor (:math:`\hat{S}^e`):
+        The scattering intensity at as q :math:`\rightarrow` 0, I(0), is calculated from electron density structure factor (:math:`\hat{S}^e`):
 
         .. math::
             I(0) = r_e^2 \rho \hat{S}^e(0)
