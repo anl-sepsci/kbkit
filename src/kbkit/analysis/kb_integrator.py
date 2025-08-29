@@ -29,6 +29,13 @@ class KBIntegrator:
         Path to the system directory containing topology files. If not provided, it will be inferred from the RDF file path.
     ensemble : str, optional
         Ensemble type for the system properties. Default is 'npt'.
+
+    Attributes
+    ----------
+    rdf: RDFParser
+        RDFParser object for parsing RDF file.
+    system_properties: SystemProperties
+        SystemProperties object.
     """
 
     def __init__(self, rdf_file: str | Path, system_properties: SystemProperties) -> None:
@@ -188,7 +195,7 @@ class KBIntegrator:
 
     def lambda_ratio(self) -> NDArray[np.float64]:
         r"""
-        Calculate length ratio (:math::`\lambda`) of the system based on the radial distances and the box volume.
+        Calculate length ratio (:math:`\lambda`) of the system based on the radial distances and the box volume.
 
         Returns
         -------
