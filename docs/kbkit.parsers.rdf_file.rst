@@ -1,7 +1,7 @@
-Radial Distribution Function (RDF)
-===================================
+Radial Distribution Function (RDF) File Parser
+===============================================
 
-.. automodule:: kbkit.kb.rdf
+.. automodule:: kbkit.parsers.rdf_file
    :members:
    :undoc-members:
    :show-inheritance:

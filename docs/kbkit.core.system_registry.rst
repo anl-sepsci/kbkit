@@ -1,7 +1,7 @@
-Kirkwood-Buff Thermodynamics
+System Registry
 ====================================
 
-.. automodule:: kbkit.analysis.kb_thermo
+.. automodule:: kbkit.core.system_registry
    :members:
    :undoc-members:
    :show-inheritance:

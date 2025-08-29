@@ -1,11 +1,12 @@
-Properties
+Parsers
 ===========
 
-The `kbkit.properties` module contains the following submodules:
+The `kbkit.parsers` module contains the following submodules:
 
 .. toctree::
    :maxdepth: 1
 
-   kbkit.properties.topology
-   kbkit.properties.energy_reader
-   kbkit.properties.system_properties
+   kbkit.parsers.edr_file
+   kbkit.parsers.gro_file
+   kbkit.parsers.rdf_file
+   kbkit.parsers.top_file

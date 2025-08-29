@@ -1,7 +1,7 @@
-Kirkwood-Buff Thermodynamics
+System Loader
 ====================================
 
-.. automodule:: kbkit.analysis.kb_thermo
+.. automodule:: kbkit.core.system_loader
    :members:
    :undoc-members:
    :show-inheritance:

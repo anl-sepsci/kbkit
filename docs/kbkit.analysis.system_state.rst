@@ -1,7 +1,7 @@
-Setup Systems
+System State
 ==============
 
-.. automodule:: kbkit.kb.system_set
+.. automodule:: kbkit.analysis.system_state
    :members:
    :undoc-members:
    :show-inheritance:

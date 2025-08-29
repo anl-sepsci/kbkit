@@ -7,9 +7,10 @@ KBKit: Kirkwood-Buff Analysis Toolkit
     :titlesonly:
 
     kbkit.analysis
+    kbkit.calculators
     kbkit.core
     kbkit.parsers
-    kbkit.viz
+    kbkit.viz.plotter
     examples
 
 

@@ -1,7 +1,7 @@
-GROMACS Topology (.top) File Parser
+GROMACS Structure (.gro) File Parser
 =====================================
 
-.. automodule:: kbkit.parsers.top_file
+.. automodule:: kbkit.parsers.gro_file
    :members:
    :undoc-members:
    :show-inheritance:
