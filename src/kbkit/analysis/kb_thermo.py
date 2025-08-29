@@ -43,19 +43,24 @@ class KBThermo:
         # initialize SystemAnalyzer with config.
         self.state = state
 
-        # initialize static structure calculator
-        self.structure_calculator = StaticStructureCalculator(
-            molar_volume=self.state.molar_volume("cm^3/mol"),
-            n_electrons=self.state.n_electrons,
-            mol_fr=self.state.pure_mol_fr,
-        )
-
         # initialize cache to store units
         self._cache: dict[str, PropertyCache] = {}
 
         # add kbi matrix to cache
         self.kbis = kbi_matrix
         self._populate_cache("kbis", self.kbis, "nm^3/molecule")
+
+        # initialize static structure calculator & set conditions
+        self.structure_calculator = StaticStructureCalculator(
+            molar_volume=self.state.molar_volume("cm^3/mol"),
+            n_electrons=self.state.n_electrons,
+            mol_fr=self.state.pure_mol_fr,
+        )
+        self.structure_calculator.update_conditions(
+            T=float(self.state.temperature().mean()), 
+            hessian=self.hessian(), 
+            isothermal_compressibility=self.isothermal_compressability()
+        )
 
     def _populate_cache(self, name: str, value: Any, units: str = "", tags: list | None = None) -> None:
         """Update the value of property in cache."""
@@ -367,88 +372,6 @@ class KBThermo:
         det_h = np.asarray(np.linalg.det(self.hessian()))
         self._populate_cache("det_hessian", det_h, "kJ/mol")
         return det_h
-
-    def i0(self) -> NDArray[np.float64]:
-        r"""
-        Compute the X-ray scattering intensity as q :math:`\rightarrow` 0.
-
-        Returns
-        -------
-        np.ndarray
-            A 1D array of shape ``(n_sys)``
-        """
-        T_avg = float(self.state.temperature().mean())
-        i0_calc = self.structure_calculator.i0(
-            T=T_avg,
-            hessian=self.hessian(),
-            isothermal_compressability=self.isothermal_compressability(),
-        )
-        self._populate_cache("i0", i0_calc, "1/cm")
-        return i0_calc
-
-    def s0_e(self) -> NDArray[np.float64]:
-        r"""
-        Compute the structure factor of electron density as q :math:`\rightarrow` 0.
-
-        Returns
-        -------
-        np.ndarray
-            A 1D array of shape ``(n_sys)``
-        """
-        T_avg = float(self.state.temperature().mean())
-        s0_calc = self.structure_calculator.s0_e(
-            T=T_avg,
-            hessian=self.hessian(),
-            isothermal_compressability=self.isothermal_compressability(),
-        )
-        self._populate_cache("s0_e", s0_calc, "")
-        return s0_calc
-
-    def s0_x_e(self) -> NDArray[np.float64]:
-        r"""
-        Compute the contribution from concentration-concentration fluctuations to structure factor of electron density as q :math:`\rightarrow` 0.
-
-        Returns
-        -------
-        np.ndarray
-            A 1D array of shape ``(n_sys)``
-        """
-        T_avg = float(self.state.temperature().mean())
-        s0_x_e_calc = self.structure_calculator.s0_x_e(T=T_avg, hessian=self.hessian())
-        self._populate_cache("s0_x_e", s0_x_e_calc, "")
-        return s0_x_e_calc
-
-    def s0_xp_e(self) -> NDArray[np.float64]:
-        r"""
-        Compute the contribution from concentration-density fluctuations to structure factor of electron density as q :math:`\rightarrow` 0.
-
-        Returns
-        -------
-        np.ndarray
-            A 1D array of shape ``(n_sys)``
-        """
-        T_avg = float(self.state.temperature().mean())
-        s0_xp_e_calc = self.structure_calculator.s0_xp_e(T=T_avg, hessian=self.hessian())
-        self._populate_cache("s0_xp_e", s0_xp_e_calc, "")
-        return s0_xp_e_calc
-
-    def s0_p_e(self) -> NDArray[np.float64]:
-        r"""
-        Compute the contribution from density-density fluctuations to structure factor of electron density as q :math:`\rightarrow` 0.
-
-        Returns
-        -------
-        np.ndarray
-            A 1D array of shape ``(n_sys)``
-        """
-        T_avg = float(self.state.temperature().mean())
-        s0_p_e_calc = self.structure_calculator.s0_p_e(
-            T=T_avg,
-            hessian=self.hessian(),
-            isothermal_compressability=self.isothermal_compressability(),
-        )
-        self._populate_cache("s0_p_e", s0_p_e_calc, "")
-        return s0_p_e_calc
 
     def dmu_dxs(self) -> NDArray[np.float64]:
         r"""
@@ -819,9 +742,15 @@ class KBThermo:
         lngammas = self.lngammas(gamma_integration_type)
         self.gm(lngammas)
         self.se(lngammas)
-        self.i0()
-        self.s0_e()
-        self.s0_x_e()
-        self.s0_xp_e()
-        self.s0_p_e()
         self.det_hessian()
+        # add all scattering attributes to _cache
+        self._populate_cache("i0", self.structure_calculator.i0(), "1/cm")
+        self._populate_cache("s0_e", self.structure_calculator.s0_e(), "")
+        self._populate_cache("s0_x_e", self.structure_calculator.s0_x_e(), "")
+        self._populate_cache("s0_xp_e", self.structure_calculator.s0_xp_e(), "")
+        self._populate_cache("s0_p_e", self.structure_calculator.s0_p_e(), "")
+        self._populate_cache("s0_x", self.structure_calculator.s0_x(), "")
+        self._populate_cache("s0_xp", self.structure_calculator.s0_xp(), "")
+        self._populate_cache("s0_p", self.structure_calculator.s0_p(), "")
+
+
