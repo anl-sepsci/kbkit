@@ -50,7 +50,7 @@ def test_parse_valid_molecules(sample_top_file):
     are included in the result.
     """
     parser = TopFileParser(sample_top_file, verbose=False)
-    result = parser.parse()
+    result = parser.molecule_count
     assert result == {"Water": 100, "Ethanol": 50, "Acetone": 25}
 
 
