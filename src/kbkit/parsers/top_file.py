@@ -37,7 +37,7 @@ class TopFileParser:
         # check if string is valid number
         return count.isdigit()
 
-    def parse(self) -> dict[str, int]:
+    def parse(self) -> None:
         """Read the topology file and returns a dictionary of molecule names and counts.
 
         Returns
@@ -99,7 +99,7 @@ class TopFileParser:
             raise ValueError("No molecules found in topology file.")
 
         self.logger.info(f"Successfully parsed {len(molecules)} molecules.")
-        return molecules
+        self._molecule_count = molecules
 
     def report_skipped(self) -> None:
         """Print a summary of lines that were skipped during parsing, including the line content and the reason for skipping."""
@@ -111,7 +111,9 @@ class TopFileParser:
     @cached_property
     def molecule_count(self) -> dict[str, int]:
         """dict[str, int]: Dictionary of molecules present and their corresponding numbers."""
-        return self.parse()
+        if "_molecule_count" not in self.__dict__:
+            self.parse()
+        return self._molecule_count
 
     @property
     def molecules(self) -> list[str]:

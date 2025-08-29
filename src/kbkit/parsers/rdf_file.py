@@ -239,7 +239,7 @@ class RDFParser:
 
         Returns
         -------
-        list of str
+        list[str]
             List of molecule names found in the RDF file name.
         """
         if not isinstance(filename, str):

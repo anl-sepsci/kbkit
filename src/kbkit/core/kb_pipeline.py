@@ -84,7 +84,7 @@ class KBPipeline:
         self.gamma_integration_type = gamma_integration_type
 
     def run(self) -> None:
-        r"""Run Kirkwood-Buff analysis via :class:`kbkit.analysis.thermo.KBThermo`."""
+        r"""Calculate thermodynamic properties from Kirkwood-Buff theory :class:`KBThermo`."""
         self.thermo.build_cache(self.gamma_integration_type)
 
     def convert_units(self, name: str, target_units: str) -> NDArray[np.float64]:
@@ -117,7 +117,7 @@ class KBPipeline:
             raise ValueError(f"Could not convert units from {units} to {target_units}") from e
 
     def to_dict(self) -> dict[str, NDArray[np.float64]]:
-        """Create a dictionary of properties calculated from :class:`kbkit.kb.kb_thermo.KBThermo`."""
+        """Create a dictionary of properties calculated from :class:`KBThermo`."""
         value_dict: dict[str, NDArray[np.float64]] = {}
         value_dict["mol_fr"] = self.state.mol_fr
         value_dict.update({name: meta.value for name, meta in self.thermo._cache.items()})

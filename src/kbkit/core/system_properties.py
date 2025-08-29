@@ -30,6 +30,15 @@ class SystemProperties:
         Default start time (in ps) for time-averaged properties.
     verbose : bool, optional
         If True, enables detailed logging output.
+
+    Attributes
+    ----------
+    topology: TopFileParser
+        GROMACS topology (.top) file parser.
+    structure: GroFileParser
+        GROMACS structure (.gro) file parser.
+    energy: EdrFileParser
+        GROMACS energy (.edr) file parser.
     """
 
     def __init__(

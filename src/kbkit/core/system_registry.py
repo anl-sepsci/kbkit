@@ -99,11 +99,6 @@ class SystemRegistry:
         -------
         int
             Index of the system in the registry.
-
-        Raises
-        ------
-        ValueError
-            If the system name is not found.
         """
         systems_list = list(self._by_name.keys())
         return systems_list.index(name)

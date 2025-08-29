@@ -47,7 +47,7 @@ class SystemLoader:
         start_time: int = 0,
     ) -> SystemConfig:
         """
-        Construct a SystemConfig object from discovered systems.
+        Construct a :class:`SystemConfig` object from discovered systems.
 
         Parameters
         ----------

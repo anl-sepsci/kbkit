@@ -28,7 +28,7 @@ class GroFileParser:
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.logger.info(f"Validated .gro file: {self.gro_path}")
 
-    def get_atom_parser(self) -> GroAtomParser:
+    def _get_atom_parser(self) -> GroAtomParser:
         """
         Initialize and return a GroAtomParser for the current structure file.
 
@@ -40,17 +40,11 @@ class GroFileParser:
         self.logger.debug(f"Initializing GroAtomParser for file: {self.gro_path}")
         return GroAtomParser(self.gro_path)
 
-    def count_electrons(self) -> dict[str, int]:
-        """
-        Compute total electrons per unique residue type.
-
-        Returns
-        -------
-        dict[str, int]
-            Mapping of residue names to total electron count.
-        """
+    @cached_property
+    def electron_count(self) -> dict[str, int]:
+        """dict[str, int]: Dictionary of residue types and their total electron count."""
         self.logger.debug("Starting electron count per residue.")
-        parser = self.get_atom_parser()
+        parser = self._get_atom_parser()
         residue_electrons: dict[str, int] = defaultdict(int)
         seen_residues = {}
 
@@ -66,11 +60,6 @@ class GroFileParser:
 
         self.logger.info("Completed electron count.")
         return dict(residue_electrons)
-
-    @cached_property
-    def electron_count(self) -> dict[str, int]:
-        """dict[str, int]: Dictionary of residue types and their total electrons."""
-        return self.count_electrons()
 
     def calculate_box_volume(self) -> float:
         """
