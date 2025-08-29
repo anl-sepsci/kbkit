@@ -8,5 +8,5 @@ The `kbkit.parsers` module contains the following submodules:
 
    kbkit.parsers.edr_file
    kbkit.parsers.gro_file
-   kbkit.parsers.rdf_file
    kbkit.parsers.top_file
+   kbkit.parsers.rdf_file

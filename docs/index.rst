@@ -2,7 +2,7 @@ KBKit: Kirkwood-Buff Analysis Toolkit
 ======================================
 
 .. toctree::
-    :maxdepth: 4
+    :maxdepth: 1
     :caption: API Reference:
     :titlesonly:
 
@@ -16,12 +16,24 @@ KBKit: Kirkwood-Buff Analysis Toolkit
 
 Installation
 -------------
-.. image:: http://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat
-    :target: https://kbkit.readthedocs.io/
-    :alt: docs
 .. image:: http://img.shields.io/badge/License-MIT-blue.svg
     :target: https://tldrlegal.com/license/mit-license
     :alt: license
+.. image:: https://img.shields.io/badge/Powered_by-Pixi-facc15
+    :target: https://pixi.sh
+    :alt: Powered by: Pixi
+.. image:: https://img.shields.io/badge/code%20style-ruff-000000.svg
+    :target: https://github.com/astral-sh/ruff
+    :alt: Code style: ruff
+.. image:: https://img.shields.io/github/actions/workflow/status/aperoutka/kbkit/build-and-test.yml?branch=main&logo=github-actions
+    :target: https://github.com/aperoutka/kbkit/actions/workflows/build-and-test.yml
+    :alt: GitHub Workflow Status
+.. image:: https://coveralls.io/repos/github/aperoutka/kbkit/badge.svg?branch=main
+    :target: https://coveralls.io/github/aperoutka/kbkit?branch=main
+    :alt: Coverage Status
+.. image:: http://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat
+    :target: https://kbkit.readthedocs.io/
+    :alt: docs
 .. image:: https://img.shields.io/badge/Python-3.12%2B-blue
 
 ``kbkit`` can be installed from cloning github repository.
@@ -30,7 +42,7 @@ Installation
 
     git clone https://github.com/aperoutka/kbkit.git
 
-Creating an anaconda environment with ``kbkit`` dependencies and install ``kbkit``.
+Creating an anaconda environment with package dependencies and install ``kbkit``.
 
 .. code-block:: text
 
