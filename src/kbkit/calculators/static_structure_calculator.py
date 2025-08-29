@@ -32,6 +32,7 @@ class StaticStructureCalculator:
     isothermal_compressability: np.ndarray
         Isothermal compressability 1D array with shape ``(n_sys)``. Initialzed to None.
 
+        
     .. note::
         Run :func:`update_conditions` to set and update the T, hessian, and isothermal compressability attributes for structure calculations.
     
