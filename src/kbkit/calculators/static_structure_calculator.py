@@ -29,12 +29,12 @@ class StaticStructureCalculator:
         Temperature in Kelvin. Initialized to None.
     hessian: np.ndarray
         Hessian of Gibbs mixing free energy 3D array with shape ``(n_sys, n_comp, n_comp)``. Initialized to None.
-    isothermal_compressability: np.ndarray
-        Isothermal compressability 1D array with shape ``(n_sys)``. Initialzed to None.
+    isothermal_compressibility: np.ndarray
+        Isothermal compressibility 1D array with shape ``(n_sys)``. Initialzed to None.
 
 
     .. note::
-        Run :func:`update_conditions` to set and update the T, hessian, and isothermal compressability attributes for structure calculations.
+        Run :func:`update_conditions` to set and update the T, hessian, and isothermal compressibility attributes for structure calculations.
 
     """
 
@@ -60,9 +60,9 @@ class StaticStructureCalculator:
         self.mol_fr = np.asarray(mol_fr)
 
         # initialize thermodynamic conditions
-        self.T = None
-        self.hessian = None
-        self.isothermal_compressibility = None
+        self.T = 0.0
+        self.hessian = np.empty(0)
+        self.isothermal_compressibility = np.empty(0)
 
     def update_conditions(
         self,
@@ -91,10 +91,11 @@ class StaticStructureCalculator:
                     raise TypeError(f"T of type({type(T)}), expected type float.") from e
             if T <= 0:
                 raise ValueError("Temperature must be positive.")
-            self.T = T
+            self.T = float(T)
 
         if hessian is not None:
-            if hessian.ndim != 3:
+            MAGIC_THREE = 3
+            if hessian.ndim != MAGIC_THREE:
                 raise ValueError("Hessian must be a 3D array.")
             self.hessian = np.asarray(hessian)
 
@@ -109,7 +110,7 @@ class StaticStructureCalculator:
             for name, val in {
                 "T": self.T,
                 "hessian": self.hessian,
-                "isothermal_compressability": self.isothermal_compressibility,
+                "isothermal_compressibility": self.isothermal_compressibility,
             }.items()
             if val is None
         ]
@@ -237,8 +238,8 @@ class StaticStructureCalculator:
             Temperature (K) of system.
         hessian: np.ndarray
             Hessian of Gibbs mixing free energy (kJ/mol).
-        isothermal_compressability: np.ndarray
-            Isothermal compressability (1/kPa).
+        isothermal_compressibility: np.ndarray
+            Isothermal compressibility (1/kPa).
 
         Returns
         -------
@@ -255,10 +256,10 @@ class StaticStructureCalculator:
         where:
             - :math:`V_i` is the molar volume of molecule :math:`i`
             - :math:`\bar{V}` is the molar volume of mixture
-            - :math:`\kappa` is the isothermal compressability
+            - :math:`\kappa` is the isothermal compressibility
         """
         R_units = float(self.Q_(self.gas_constant, "kJ/mol/K").to("kPa*cm^3/molecule/K").magnitude)
-        term1 = R_units * self.T * self.isothermal_compressability / self.volume_bar
+        term1 = R_units * self.T * self.isothermal_compressibility / self.volume_bar
         v_ratio = self._delta_volume[np.newaxis, :] / self.volume_bar[:, np.newaxis]
         term2 = v_ratio[:, :, np.newaxis] * v_ratio[:, np.newaxis, :] * self.s0_x()
         term2_sum = np.nansum(term2, axis=tuple(range(1, term2.ndim)))

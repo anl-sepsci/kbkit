@@ -342,7 +342,7 @@ class SystemState:
         return self.pure_mol_fr @ self.molar_volume(units)
 
     def rho_bar(self, units: str = "molecule/nm^3") -> NDArray[np.float64]:
-        """Number of mixture.
+        """Mixture number density.
 
         Parameters
         ----------
