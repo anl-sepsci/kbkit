@@ -32,10 +32,10 @@ class StaticStructureCalculator:
     isothermal_compressability: np.ndarray
         Isothermal compressability 1D array with shape ``(n_sys)``. Initialzed to None.
 
-        
+
     .. note::
         Run :func:`update_conditions` to set and update the T, hessian, and isothermal compressability attributes for structure calculations.
-    
+
     """
 
     def __init__(
@@ -68,7 +68,7 @@ class StaticStructureCalculator:
         self,
         T: float | None = None,
         hessian: NDArray[np.float64] | None = None,
-        isothermal_compressibility: NDArray[np.float64] | None = None
+        isothermal_compressibility: NDArray[np.float64] | None = None,
     ) -> None:
         """
         Update thermodynamic conditions for the system.
@@ -89,30 +89,33 @@ class StaticStructureCalculator:
                         T = float(np.mean(T))
                 except Exception as e:
                     raise TypeError(f"T of type({type(T)}), expected type float.") from e
-            if T <= 0: 
-                raise ValueError("Temperature must be positive.") 
+            if T <= 0:
+                raise ValueError("Temperature must be positive.")
             self.T = T
-        
+
         if hessian is not None:
-            if hessian.ndim != 3: 
+            if hessian.ndim != 3:
                 raise ValueError("Hessian must be a 3D array.")
             self.hessian = np.asarray(hessian)
 
         if isothermal_compressibility is not None:
-            if np.any(isothermal_compressibility < 0): 
+            if np.any(isothermal_compressibility < 0):
                 raise ValueError("Isothermal compressibility must be non-negative.")
             self.isothermal_compressibility = np.asarray(isothermal_compressibility)
 
         # check that all variables are not None
-        missing = [name for name, val in {
-            "T": self.T,
-            "hessian": self.hessian,
-            "isothermal_compressability": self.isothermal_compressibility
-        }.items() if val is None]
+        missing = [
+            name
+            for name, val in {
+                "T": self.T,
+                "hessian": self.hessian,
+                "isothermal_compressability": self.isothermal_compressibility,
+            }.items()
+            if val is None
+        ]
 
         if missing:
             raise ValueError(f"Missing required condition(s): {', '.join(missing)}.")
-
 
     def summarize_conditions(self) -> str:
         """
@@ -284,7 +287,7 @@ class StaticStructureCalculator:
         .. math::
             \hat{S}^{x,e}(0) = \sum_{i=1}^{n-1} \sum_{j=1}^{n-1} \left(Z_i - Z_n\right) \left(Z_j - Z_n\right) \hat{S}_{ij}^{x}(0)
 
-        where: 
+        where:
             - :math:`Z_i` is the number of electrons in molecule :math:`i`
         """
         s0_x_calc = (
@@ -317,7 +320,7 @@ class StaticStructureCalculator:
         .. math::
             \hat{S}^{x\rho,e}(0) = 2 \bar{Z} \sum_{i=1}^{n-1} \left(Z_i - Z_n\right) \hat{S}_{i}^{x\rho}(0)
 
-        where: 
+        where:
             - :math:`Z_i` is the number of electrons in molecule :math:`i`
             - :math:`\bar{Z}` is the number of electrons in the mixture
         """
@@ -346,8 +349,8 @@ class StaticStructureCalculator:
 
         .. math::
             \hat{S}^{\rho,e}(0) = \bar{Z}^2 \hat{S}^{\rho}(0)
-        
-        where: 
+
+        where:
             - :math:`\bar{Z}` is the number of electrons in the mixture
         """
         return self.n_electrons_bar**2 * self.s0_p()

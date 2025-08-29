@@ -5,7 +5,6 @@ from functools import cached_property
 
 import numpy as np
 from numpy.typing import NDArray
-from pint import UnitRegistry
 
 from kbkit.config.unit_registry import load_unit_registry
 from kbkit.schema.system_config import SystemConfig
@@ -24,7 +23,7 @@ class SystemState:
     config: SystemConfig
         System configuration for a set of systems.
 
-        
+
     Attributes
     ----------
     ureg: UnitRegistry
@@ -172,12 +171,12 @@ class SystemState:
 
     def temperature(self, units: str = "K") -> NDArray[np.float64]:
         """Temperature of each simulation.
-        
+
         Parameters
         ----------
         units: str
             Temperature units (default: K)
-            
+
         Returns
         -------
         np.ndarray
@@ -187,12 +186,12 @@ class SystemState:
 
     def volume(self, units: str = "nm^3") -> NDArray[np.float64]:
         """Volume of each simulation.
-        
+
         Parameters
         ----------
         units: str
             Volume units (default: nm^3)
-            
+
         Returns
         -------
         np.ndarray
@@ -202,12 +201,12 @@ class SystemState:
 
     def molar_volume(self, units: str = "nm^3 / molecule") -> NDArray[np.float64]:
         """Molar volumes of pure components.
-        
+
         Parameters
         ----------
         units: str
             Molar volume units (default: nm^3/molecule)
-            
+
         Returns
         -------
         np.ndarray
@@ -228,12 +227,12 @@ class SystemState:
 
     def enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Enthalpy of each simulation.
-        
+
         Parameters
         ----------
         units: str
             Enthalpy units (default: kJ/mol/K)
-            
+
         Returns
         -------
         np.ndarray
@@ -243,12 +242,12 @@ class SystemState:
 
     def pure_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Pure component enthalpies.
-        
+
         Parameters
         ----------
         units: str
             Enthalpy units (default: kJ/mol/K)
-            
+
         Returns
         -------
         np.ndarray
@@ -266,13 +265,13 @@ class SystemState:
         return np.fromiter(enth.values(), dtype=np.float64)
 
     def ideal_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
-        """Ideal enthalpy as a function of composition.
-        
+        r"""Ideal enthalpy as a function of composition.
+
         Parameters
         ----------
         units: str
             Enthalpy units (default: kJ/mol/K)
-            
+
         Returns
         -------
         np.ndarray
@@ -280,8 +279,8 @@ class SystemState:
 
         .. math::
             H^{id} = \sum_{i=1}^n x_i H_i
-        
-        where: 
+
+        where:
             - :math:`x_i` is mol fraction of molecule :math:`i`
             - :math:`H_i` is the pure component simulation enthalpy of molecule :math:`i`
         """
@@ -289,12 +288,12 @@ class SystemState:
 
     def h_mix(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Enthalpy of mixing as a function of composition.
-        
+
         Parameters
         ----------
         units: str
             Enthalpy units (default: kJ/mol/K)
-            
+
         Returns
         -------
         np.ndarray
@@ -302,21 +301,21 @@ class SystemState:
 
         .. math::
             H_{mix} = H - H^{id}
-        
-        where: 
+
+        where:
             - :math:`H` is the simulation enthlapy for mixtures
-            - :math:`H^{id}` is ideal enthalpy 
+            - :math:`H^{id}` is ideal enthalpy
         """
         return self.enthalpy(units) - self.ideal_enthalpy(units)
 
     def molecule_rho(self, units: str = "molecule/nm^3") -> NDArray[np.float64]:
         """Compute the number density of each molecule for all compositions.
-        
+
         Parameters
         ----------
         units: str
             Number denisty units (default: molecule/nm^3)
-            
+
         Returns
         -------
         np.ndarray
@@ -334,7 +333,7 @@ class SystemState:
         ----------
         units: str
             Molar volume units (default: nm^3/molecule)
-            
+
         Returns
         -------
         np.ndarray
@@ -349,7 +348,7 @@ class SystemState:
         ----------
         units: str
             Number density units (default: molecule/nm^3)
-            
+
         Returns
         -------
         np.ndarray
@@ -365,7 +364,7 @@ class SystemState:
         ----------
         units: str
             Number density units (default: molecule/nm^3)
-            
+
         Returns
         -------
         np.ndarray

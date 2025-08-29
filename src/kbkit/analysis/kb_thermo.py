@@ -57,9 +57,9 @@ class KBThermo:
             mol_fr=self.state.pure_mol_fr,
         )
         self.structure_calculator.update_conditions(
-            T=float(self.state.temperature().mean()), 
-            hessian=self.hessian(), 
-            isothermal_compressibility=self.isothermal_compressability()
+            T=float(self.state.temperature().mean()),
+            hessian=self.hessian(),
+            isothermal_compressibility=self.isothermal_compressability(),
         )
 
     def _populate_cache(self, name: str, value: Any, units: str = "", tags: list | None = None) -> None:
@@ -752,5 +752,3 @@ class KBThermo:
         self._populate_cache("s0_x", self.structure_calculator.s0_x(), "")
         self._populate_cache("s0_xp", self.structure_calculator.s0_xp(), "")
         self._populate_cache("s0_p", self.structure_calculator.s0_p(), "")
-
-

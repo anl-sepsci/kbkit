@@ -1,5 +1,5 @@
-Kirkwood-Buff Analysis
-=======================
+Analysis
+=========
 
 The `kbkit.analysis` module contains the following submodules:
 
