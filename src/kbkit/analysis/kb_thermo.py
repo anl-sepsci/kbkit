@@ -90,7 +90,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_A_inv_matrix` for full derivation and formula.
+        :meth:`compute_A_inv_matrix` for full derivation and formula.
         """
         return self.compute_A_inv_matrix()
 
@@ -141,7 +141,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_l_stability` for full derivation.
+        :meth:`compute_l_stability` for full derivation.
         """
         return self.compute_l_stability()
 
@@ -160,7 +160,7 @@ class KBThermo:
         Array :math:`l` is computed using the formula:
 
         .. math::
-            l = \left(\sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}\right)
+            l = \sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}
 
         where:
             - :math:`\mathbf{A}_{mn}` is the Helmholtz stability matrix for molecules :math:`m,n`.
@@ -179,7 +179,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_dmui_dxj` for full derivation and formula.
+        :meth:`compute_dmui_dxj` for full derivation and formula.
         """
         return self.compute_dmui_dxj()
 
@@ -203,7 +203,7 @@ class KBThermo:
         where:
             - :math:`\mathbf{A}_{ij}` is the Helmholtz stability matrix for molecules :math:`i,j`.
             - :math:`x_k` is the mol fraction of molecule :math:`k`.
-            - :math:`l` is the stability array.
+            - :math:`l` is the stability array (see :meth:`l_stability`).
         """
         A_mat = self.A_matrix.value
         l_arr = self.l_stability.value
@@ -224,7 +224,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_isothermal_compressibility` for full derivation and formula.
+        :meth:`compute_isothermal_compressibility` for full derivation and formula.
         """
         return self.compute_isothermal_compressibility()
 
@@ -247,7 +247,7 @@ class KBThermo:
 
         where:
             - :math:`\bar{V}` is the mixing volume as a function of composition.
-            - :math:`l` is the stability array.
+            - :math:`l` is the stability array (see :meth:`l_stability`).
         """
         upper = self.state.volume_bar() / (self.gas_constant * self.state.temperature())
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -271,7 +271,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_hessian` for full derivation and formula.
+        :meth:`compute_hessian` for full derivation and formula.
         """
         return self.compute_hessian()
 
@@ -305,7 +305,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_det_hessian` for full derivation and formula.
+        :meth:`compute_det_hessian` for full derivation and formula.
         """
         return self.compute_det_hessian()
 
@@ -335,7 +335,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_dmui_dnj`
+        :meth:`compute_dmui_dnj`
         """
         return self.compute_dmui_dnj()
 
@@ -368,7 +368,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_dmui_dxi` for full derivation and formula.
+        :meth:`compute_dmui_dxi` for full derivation and formula.
         """
         return self.compute_dmui_dxi()
 
@@ -424,7 +424,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_dlngammas_dxs` for full derivation and formulas.
+        :meth:`compute_dlngammas_dxs` for full derivation and formulas.
         """
         return self.compute_dlngammas_dxs()
 
@@ -508,7 +508,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_lngammas` for full derivation and formulas.
+        :meth:`compute_lngammas` for full derivation and formulas.
         """
         return self.compute_lngammas(
             integration_type=self.gamma_integration_type, polynomial_degree=self.gamma_polynomial_degree
@@ -538,8 +538,8 @@ class KBThermo:
             \ln{\gamma_i}(x_i) = \int_{a_0}^{x_i} \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right) dx_i
 
         The integration method is chosen by the `integration_type` argument:
-        - "numerical": trapezoidal rule (see :func:`dlngammas_numerical_integration`)
-        - "polynomial": polynomial fit and integration (see :func:`dlngammas_polynomial_integration`)
+        - "numerical": trapezoidal rule (see :meth:`dlngammas_numerical_integration`)
+        - "polynomial": polynomial fit and integration (see :meth:`dlngammas_polynomial_integration`)
         """
         integration_type = integration_type.lower()
         dlng_dxs = self.dlngammas_dxs.value  # avoid repeated calls
@@ -666,7 +666,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_ge` for full formula.
+        :meth:`compute_ge` for full formula.
         """
         return self.compute_ge()
 
@@ -694,7 +694,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_gid` for full formula.
+        :meth:`compute_gid` for full formula.
         """
         return self.compute_gid()
 
@@ -727,7 +727,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_gm` for full formula.
+        :meth:`compute_gm` for full formula.
         """
         return self.compute_gm()
 
@@ -751,7 +751,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`compute_se` for full formula.
+        :meth:`compute_se` for full formula.
         """
         return self.compute_se()
 
@@ -775,7 +775,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`StaticStructureCalculator.i0()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.i0()` for full derivation and calculation.
         """
         return self.structure_calculator.i0()
 
@@ -786,7 +786,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`StaticStructureCalculator.s0_e()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_e()` for full derivation and calculation.
         """
         return self.structure_calculator.s0_e()
 
@@ -797,7 +797,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`StaticStructureCalculator.s0_x_e()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_x_e()` for full derivation and calculation.
         """
         return self.structure_calculator.s0_x_e()
 
@@ -808,7 +808,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`StaticStructureCalculator.s0_xp_e()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_xp_e()` for full derivation and calculation.
         """
         return self.structure_calculator.s0_xp_e()
 
@@ -819,7 +819,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`StaticStructureCalculator.s0_p_e()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_p_e()` for full derivation and calculation.
         """
         return self.structure_calculator.s0_p_e()
 
@@ -830,7 +830,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`StaticStructureCalculator.s0_x()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_x()` for full derivation and calculation.
         """
         return self.structure_calculator.s0_x()
 
@@ -841,7 +841,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`StaticStructureCalculator.s0_xp()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_xp()` for full derivation and calculation.
         """
         return self.structure_calculator.s0_xp()
 
@@ -852,7 +852,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`StaticStructureCalculator.s0_p()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_p()` for full derivation and calculation.
         """
         return self.structure_calculator.s0_p()
 
