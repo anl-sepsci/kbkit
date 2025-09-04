@@ -394,3 +394,29 @@ class StaticStructureCalculator:
             - :math:`r_e` is the radius of an electron in cm
         """
         return self.re**2 * (1 / self.volume_bar) * self.s0_e()
+    
+    def i0_calc(self, s0: NDArray[np.float64]) -> NDArray[np.float64]:
+        r"""
+        Small angle x-ray scattering (SAXS) intensity as q :math:`\rightarrow` 0, for any structure factor contribution to electron density.
+
+        Parameters
+        ----------
+        s0: np.ndarray
+            Electron density structure factor to use for i0 calculation.
+
+        Returns
+        -------
+        np.ndarray
+            A 1D array with shape ``(n_sys)``
+
+        Notes
+        -----
+        The scattering intensity at as q :math:`\rightarrow` 0, I(0), is calculated from electron density structure factor (:math:`\hat{S}^e`):
+
+        .. math::
+            I(0) = r_e^2 \rho \hat{S}^e(0)
+
+        where:
+            - :math:`r_e` is the radius of an electron in cm
+        """
+        return self.re**2 * (1 / self.volume_bar) * s0
