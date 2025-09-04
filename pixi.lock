@@ -1448,7 +1448,7 @@ packages:
 - pypi: ./
   name: kbkit
   version: 1.0.0
-  sha256: 195f2df320cdbfbb96a9b5c3d68f2880969fead49d28fccf3662d57685569ee4
+  sha256: e6fdcf5c0214e3fca588fbd1f74945275bd652f13fc6348f66152782678eea3d
   requires_dist:
   - sphinx>=7.0
   - numpy>=2.3.2,<3
@@ -1479,7 +1479,7 @@ packages:
   - pytest-cov>=6.2.1
   - stubs>=1.0.0
   - mypy
-  requires_python: '>=3.12'
+  requires_python: '>=3.10'
   editable: true
 - pypi: https://files.pythonhosted.org/packages/2d/7a/9d90a151f558e29c3936b8a47ac770235f436f2120aca41a6d5f3d62ae8d/kiwisolver-1.4.9-cp313-cp313-macosx_11_0_arm64.whl
   name: kiwisolver

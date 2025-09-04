@@ -154,13 +154,18 @@ class SystemState:
     @cached_property
     def n_electrons(self) -> NDArray[np.float64]:
         """np.ndarray: Number of electrons corresponding to pure molecules."""
-        elec_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
+        uniq_elec_map: dict[str, float] = dict.fromkeys(self.top_molecules, 0)
         for meta in self.config.registry:
-            # only for pure systems
-            if meta.kind == "pure":
-                mols = ".".join(meta.props.topology.molecules)
-                # get total electron count for molecules in "pure" system
-                elec_map[mols] = sum(meta.props.structure.electron_count.values())
+            mols = meta.props.topology.molecules
+            ecount = meta.props.structure.electron_count
+            for mol in mols:
+                if uniq_elec_map[mol] == 0 and ecount.get(mol) is not None:
+                    uniq_elec_map[mol] = ecount.get(mol, 0)
+
+        elec_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
+        for mol_ls in self.pure_molecules:
+            mols = mol_ls.split(".")
+            elec_map[mol_ls] = sum([uniq_elec_map.get(mol, 0) for mol in mols])
 
         return np.fromiter(elec_map.values(), dtype=np.float64)
 

@@ -62,11 +62,14 @@ class FileResolver:
             raise ValueError(f"Unknown file role: {role}")
 
         files = find_files(self.system_path, suffixes, self.ensemble)
-        if not files:
-            raise FileNotFoundError(f"No file found for role '{role}'.")
-
-        self.logger.debug(f"Resolved {role} => {Path(files[0]).name}")
-        return files[0]
+        if len(files) == 0:
+            if role == "structure":  # .gro only used for electron counting; don't throw error
+                return ""
+            else:
+                raise FileNotFoundError(f"No file found for role '{role}'.")
+        else:
+            self.logger.debug(f"Resolved {role} => {Path(files[0]).name}")
+            return files[0]
 
     def get_all(self, role: str) -> list[str]:
         """
@@ -89,9 +92,10 @@ class FileResolver:
         """
         suffixes = self.ROLE_SUFFIXES.get(role)
         if not suffixes:
-            raise ValueError(f"Unknown file role: {role}")
-
-        return find_files(self.system_path, suffixes, self.ensemble)
+            print(f"ValueError: Unknown role: '{role}'.")
+            return []
+        else:
+            return find_files(self.system_path, suffixes, self.ensemble)
 
     def has_file(self, role: str) -> bool:
         """

@@ -3,12 +3,28 @@
 from collections import defaultdict
 from functools import cached_property
 
+import numpy as np
+
 from kbkit.parsers.gro_atom import GroAtomParser
 from kbkit.utils.chem import get_atomic_number
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
 MIN_BOX_LINE_PARTS = 3
+
+
+class _NullGroFileParser:
+    # objective is to mimic the interface but returns empty values
+    @property
+    def gro_path(self):
+        return ""
+
+    @property
+    def electron_count(self):
+        return {}
+
+    def calculate_box_volume(self):
+        return np.nan
 
 
 class GroFileParser:

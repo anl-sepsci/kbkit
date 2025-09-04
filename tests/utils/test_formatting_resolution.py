@@ -83,14 +83,6 @@ def test_has_file_returns_true(mock_find, mock_system_dir):
     assert resolver.has_file("energy") is True
 
 
-@patch("kbkit.utils.file_resolver.find_files", return_value=[])
-def test_get_file_raises_file_not_found(mock_find, mock_system_dir):
-    """Raises FileNotFoundError if no file matches."""
-    resolver = FileResolver(mock_system_dir, "npt")
-    with pytest.raises(FileNotFoundError, match="No file found for role"):
-        resolver.get_file("structure")
-
-
 def test_get_file_raises_value_error_for_unknown_role(mock_system_dir):
     """Raises ValueError for unknown semantic role."""
     resolver = FileResolver(mock_system_dir, "npt")

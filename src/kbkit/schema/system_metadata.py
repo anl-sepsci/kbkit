@@ -46,4 +46,4 @@ class SystemMetadata:
 
     def has_rdf(self) -> bool:
         """Return True if an RDF path is defined and non-empty."""
-        return bool(self.rdf_path)
+        return any(self.rdf_path.glob("*.xvg"))

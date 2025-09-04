@@ -460,7 +460,8 @@ class Plotter:
         if any(ylim) != 0:
             ax.set_ylim(*ylim)
         elif spec.y_data is not None:
-            y_max, y_min = np.nanmax(spec.y_data), np.nanmin(spec.y_data)
+            y_finite = spec.y_data[np.isfinite(spec.y_data)]
+            y_max, y_min = np.nanmax(y_finite), np.nanmin(y_finite)
             pad = 0.1 * (y_max - y_min) if y_max != y_min else 0.05
             y_lb = 0 if spec.y_data.ndim == 1 else -0.05
             ax.set_ylim(min([y_lb, y_min - pad]), max([0.05, y_max + pad]))
@@ -631,7 +632,7 @@ class Plotter:
             self.plot(prop=thermo_prop, show=False)
 
         # plot polynomial fits to activity coefficient derivatives if polynomial integration is performed
-        if self.pipe.gamma_integration_type == "polynomial":
+        if self.pipe.thermo.gamma_integration_type == "polynomial":
             for thermo_prop in ["lngammas_fits", "dlngammas_fits"]:
                 self.plot(prop=thermo_prop, show=False)
 

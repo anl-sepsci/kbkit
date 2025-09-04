@@ -5,7 +5,7 @@ from pathlib import Path
 from kbkit.config.unit_registry import load_unit_registry
 from kbkit.data.property_resolver import ENERGY_ALIASES, get_gmx_unit, resolve_attr_key
 from kbkit.parsers.edr_file import EdrFileParser
-from kbkit.parsers.gro_file import GroFileParser
+from kbkit.parsers.gro_file import GroFileParser, _NullGroFileParser
 from kbkit.parsers.top_file import TopFileParser
 from kbkit.utils.file_resolver import FileResolver
 from kbkit.utils.format import resolve_units
@@ -51,13 +51,18 @@ class SystemProperties:
         self.ureg = load_unit_registry()  # Load the unit registry for unit conversions
         self.Q_ = self.ureg.Quantity
 
-        # set up file resolver
+        # Set up file resolver
         self.file_resolver = FileResolver(self.system_path, self.ensemble, self.logger)
 
-        # File discover and parser setup
-        self.topology = TopFileParser(self.file_resolver.get_file("topology"), verbose=verbose)
-        self.structure = GroFileParser(self.file_resolver.get_file("structure"), verbose=verbose)
-        self.energy = EdrFileParser(self.file_resolver.get_all("energy"), verbose=verbose)
+        # File discovery and parser setup
+        top_file = self.file_resolver.get_file("topology")
+        self.topology = TopFileParser(top_file, verbose=verbose)
+
+        structure_file = self.file_resolver.get_file("structure")
+        self.structure = GroFileParser(structure_file, verbose=verbose) if structure_file else _NullGroFileParser()
+
+        energy_files = self.file_resolver.get_all("energy")
+        self.energy = EdrFileParser(energy_files, verbose=verbose)
 
     @property
     def file_registry(self) -> dict[str, Path | list[Path]]:
