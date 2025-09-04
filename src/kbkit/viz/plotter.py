@@ -73,9 +73,9 @@ class Plotter:
             mapped = {mol: mol for mol in self.pipe.state.unique_molecules}
 
         # check that all molecules are defined in map
-        found_mask = np.array([mol not in self.pipe.state.unique_molecules for mol in mapped])
+        found_mask = np.array([mol not in mapped for mol in self.pipe.state.unique_molecules])
         if any(found_mask):
-            missing_mols = np.fromiter(mapped.keys(), dtype=str)[found_mask]
+            missing_mols = np.array(list(mapped.keys()))[found_mask]
             raise ValueError(
                 f"Molecules missing from molecule_map: {', '.join(missing_mols)}. "
                 f"Available molecules: {', '.join(self.pipe.state.unique_molecules)}"

@@ -58,7 +58,7 @@ class KBIntegrator:
             List of molecule IDs corresponding to the RDF file.
         """
         # extract molecules from file name and topology information
-        rdf_mols = RDFParser.extract_mols(self.rdf.rdf_file, self.system_properties.topology.molecules)
+        rdf_mols = RDFParser.extract_mols(Path(self.rdf.rdf_file).name, self.system_properties.topology.molecules)
         # check length of molecules found --- must be two for rdfs
         N_RDF_MOLS = 2
         if len(rdf_mols) != N_RDF_MOLS:
