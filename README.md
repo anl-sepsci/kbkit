@@ -24,7 +24,7 @@ Creating an anaconda environment with dependencies and install `kbkit`.
 
 ```python
 cd kbkit
-conda create --name kbkit python=3.12 --file requirements.txt
+conda create --name kbkit python=3.12
 conda activate kbkit
 pip install .
 ```
