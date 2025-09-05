@@ -55,6 +55,6 @@ def test_logs_warning_for_skipped_lines(tmp_path, caplog):
     gro_path.write_text("Header\n1\nXYZ O 1 0.0 0.0 0.0\n1.0 1.0 1.0")
 
     with caplog.at_level("WARNING"):
-        atoms = list(GroAtomParser(gro_path))
+        atoms = list(GroAtomParser(gro_path, verbose=True))
         assert atoms == []
         assert "Failed to parse atom line" in caplog.text
