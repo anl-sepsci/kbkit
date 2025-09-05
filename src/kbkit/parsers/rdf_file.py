@@ -27,12 +27,13 @@ class RDFParser:
         Tuple containing convergence thresholds for slope and standard deviation of g(r). Default is (5e-3, 5e-3).
     """
 
-    def __init__(self, rdf_file: str, rdf_convergence: tuple[float, float] = (5e-3, 5e-3)) -> None:
+    def __init__(self, rdf_file: str, check_convergence: bool = False) -> None:
         self.rdf_file = rdf_file
         # read rdf_file
         self._read()
         # make sure rdf is converged
-        self.convergence_check(*rdf_convergence)
+        if check_convergence:
+            self.convergence_check()
 
     def _read(self) -> None:
         """Read RDF file and extracts radial distances (r) and g(r) values.

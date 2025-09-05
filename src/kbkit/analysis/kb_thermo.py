@@ -777,7 +777,7 @@ class KBThermo:
         --------
         :meth:`StaticStructureCalculator.i0()` for full derivation and calculation.
         """
-        return self.structure_calculator.i0()
+        return self.structure_calculator.i0_x()
 
     @register_property("s0_e", "")
     def s0_e(self) -> NDArray[np.float64]:
