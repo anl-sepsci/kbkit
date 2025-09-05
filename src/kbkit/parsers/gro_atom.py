@@ -53,7 +53,7 @@ class GroAtomParser:
                 res_name = match.group(2)
                 self.logger.debug(f"[Line {i}] Parsed residue({res_idx}): {res_name} => {atom_name}")
                 yield res_idx, res_name, atom_name
-                
+
             except Exception as e:
                 if self.verbose:
                     self.logger.warning(f"Failed to parse atom line {i}: {line!r} — {e}")
