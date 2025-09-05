@@ -169,7 +169,7 @@ class SystemState:
 
         elec_mapped = np.fromiter(elec_map.values(), dtype=np.float64)
         if not all(elec_mapped > 0):
-            elec_mapped = np.full_like(self.pure_molecules, fill_value=np.nan)
+            elec_mapped = np.full_like(self.pure_molecules, fill_value=np.nan, dtype=float)
         return elec_mapped
 
     @cached_property
