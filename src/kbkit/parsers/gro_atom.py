@@ -45,13 +45,16 @@ class GroAtomParser:
                 atom_name = parts[1]
                 match = re.match(r"(\d+)([A-Za-z]+)", fused)
                 if not match:
-                    self.logger.error(f"Invalid fused field: {fused!r}")
+                    if self.verbose:
+                        self.logger.error(f"Invalid fused field: {fused!r}")
                     raise ValueError(f"Invalid fused field: {fused!r}")
 
                 res_idx = int(match.group(1))
                 res_name = match.group(2)
                 self.logger.debug(f"[Line {i}] Parsed residue({res_idx}): {res_name} => {atom_name}")
                 yield res_idx, res_name, atom_name
+                
             except Exception as e:
-                self.logger.warning(f"Failed to parse atom line {i}: {line!r} — {e}")
+                if self.verbose:
+                    self.logger.warning(f"Failed to parse atom line {i}: {line!r} — {e}")
                 continue
