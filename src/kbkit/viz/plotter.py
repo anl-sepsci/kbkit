@@ -345,7 +345,7 @@ class Plotter:
             return PlotSpec(
                 x_data=self.pipe.state.mol_fr,
                 y_data=self.property_map["lngammas"] if "dln" not in prop else self.property_map["dlngammas_dxs"],
-                ylabel=r"$\ln \gamma_{i}$" if "dln" not in prop else r"$\partial \ln(\gamma_{i})$ / \partial x_{i}$",
+                ylabel=r"$\ln \gamma_{i}$" if "dln" not in prop else r"$\partial \ln(\gamma_{i})$ / $\partial x_{i}$",
                 filename=f"{prop}.png",
                 fit_fns=fit_fns,
                 multi=False,
