@@ -461,10 +461,11 @@ class Plotter:
             ax.set_ylim(*ylim)
         elif spec.y_data is not None:
             y_finite = spec.y_data[np.isfinite(spec.y_data)]
-            y_max, y_min = np.nanmax(y_finite), np.nanmin(y_finite)
-            pad = 0.1 * (y_max - y_min) if y_max != y_min else 0.05
-            y_lb = 0 if spec.y_data.ndim == 1 else -0.05
-            ax.set_ylim(min([y_lb, y_min - pad]), max([0.05, y_max + pad]))
+            if len(y_finite) > 0:
+                y_max, y_min = np.nanmax(y_finite), np.nanmin(y_finite)
+                pad = 0.1 * (y_max - y_min) if y_max != y_min else 0.05
+                y_lb = 0 if spec.y_data.ndim == 1 else -0.05
+                ax.set_ylim(min([y_lb, y_min - pad]), max([0.05, y_max + pad]))
 
         plt.savefig(os.path.join(self.thermo_dir, spec.filename))
         if show:
