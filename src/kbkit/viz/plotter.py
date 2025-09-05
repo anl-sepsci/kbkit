@@ -231,7 +231,7 @@ class Plotter:
             ncol=1,
             fontsize="small",
             fancybox=True,
-            shadow=True,
+            shadow=False,
         )
         ax[1].legend(
             loc="lower center",
@@ -239,7 +239,7 @@ class Plotter:
             ncol=2,
             fontsize="small",
             fancybox=True,
-            shadow=True,
+            shadow=False,
         )
         ax[2].legend(
             loc="lower center",
@@ -247,7 +247,7 @@ class Plotter:
             ncol=2,
             fontsize="small",
             fancybox=True,
-            shadow=True,
+            shadow=False,
         )
         plt.savefig(os.path.join(self.sys_dir, f"{system}_rdfs_kbis.png"))
         if show:
@@ -310,7 +310,7 @@ class Plotter:
             ncol=2,
             fontsize="small",
             fancybox=True,
-            shadow=True,
+            shadow=False,
         )
         ax.set_xlim(-0.05, 1.05)
         ax.set_xticks(ticks=np.arange(0, 1.1, 0.1))
@@ -424,7 +424,7 @@ class Plotter:
                 ncol=2,
                 fontsize="small",
                 fancybox=True,
-                shadow=True,
+                shadow=False,
             )
 
         elif spec.y_data is not None:
@@ -447,7 +447,7 @@ class Plotter:
                     ncol=2,
                     fontsize="small",
                     fancybox=True,
-                    shadow=True,
+                    shadow=False,
                 )
 
         ax.set_xlabel(
