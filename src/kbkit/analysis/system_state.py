@@ -167,7 +167,10 @@ class SystemState:
             mols = mol_ls.split(".")
             elec_map[mol_ls] = sum([uniq_elec_map.get(mol, 0) for mol in mols])
 
-        return np.fromiter(elec_map.values(), dtype=np.float64)
+        elec_mapped = np.fromiter(elec_map.values(), dtype=np.float64)
+        if not all(elec_mapped > 0):
+            elec_mapped = np.full_like(self.pure_molecules, fill_value=np.nan)
+        return elec_mapped
 
     @cached_property
     def mol_fr(self) -> NDArray[np.float64]:
