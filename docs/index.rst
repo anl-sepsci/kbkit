@@ -36,7 +36,7 @@ Installation
     :alt: docs
 .. image:: https://img.shields.io/badge/Python-3.12%2B-blue
 
-``kbkit`` can be installed from cloning `github repository`<https://github.com/aperoutka/kbkit>_.
+``kbkit`` can be installed from cloning `github repository <https://github.com/aperoutka/kbkit>`_.
 
 .. code-block:: text
 
