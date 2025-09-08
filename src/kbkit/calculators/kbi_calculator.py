@@ -87,6 +87,11 @@ class KBICalculator:
 
             # read all rdf_files
             for filepath in meta.rdf_path.iterdir():
+                # if hidden file skip or not readable
+                if filepath.name.startswith('.') or not filepath.is_file():
+                    continue
+                
+                # extract molecule pair from filename
                 rdf_mols = RDFParser.extract_mols(filepath.name, self.state.top_molecules)
                 i, j = [self.state._get_mol_idx(mol, self.state.top_molecules) for mol in rdf_mols]
 
