@@ -59,6 +59,7 @@ class KBPipeline:
         anions: list[str] | None = None,
         start_time: int = 0,
         verbose: bool = False,
+        use_fixed_r: bool = True,
         gamma_integration_type: str = "numerical",
     ) -> None:
         # build configuration
@@ -78,11 +79,11 @@ class KBPipeline:
         self.state = SystemState(self.config)
 
         # create KBI calculator
-        self.calculator = KBICalculator(self.state)
+        self.calculator = KBICalculator(state=self.state, use_fixed_r=use_fixed_r)
         kbi_matrix = self.calculator.calculate()
 
         # create thermo object
-        self.thermo = KBThermo(self.state, kbi_matrix, gamma_integration_type)
+        self.thermo = KBThermo(state=self.state, kbi_matrix=kbi_matrix, gamma_integration_type=gamma_integration_type)
 
         # initialize property attribute
         self.properties: list[ThermoProperty] = []

@@ -38,8 +38,8 @@ class KBIntegrator:
         SystemProperties object.
     """
 
-    def __init__(self, rdf_file: str | Path, system_properties: SystemProperties) -> None:
-        self.rdf = RDFParser(str(rdf_file))
+    def __init__(self, rdf_file: str | Path, use_fixed_rmin: bool, system_properties: SystemProperties) -> None:
+        self.rdf = RDFParser(rdf_file=str(rdf_file), use_fixed_rmin=use_fixed_rmin)
         self.system_properties = system_properties
 
     def box_vol(self) -> float:
