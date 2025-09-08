@@ -36,7 +36,7 @@ Installation
     :alt: docs
 .. image:: https://img.shields.io/badge/Python-3.12%2B-blue
 
-``kbkit`` can be installed from cloning github repository.
+``kbkit`` can be installed from cloning `github repository <https://github.com/aperoutka/kbkit>`_.
 
 .. code-block:: text
 
@@ -47,7 +47,7 @@ Creating an anaconda environment with package dependencies and install ``kbkit``
 .. code-block:: text
 
     cd kbkit
-    conda create --name kbkit python=3.12 --file requirements.txt
+    conda create --name kbkit python=3.12
     conda activate kbkit
     pip install .
 
