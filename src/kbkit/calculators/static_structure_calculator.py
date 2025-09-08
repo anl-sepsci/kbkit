@@ -100,8 +100,6 @@ class StaticStructureCalculator:
             self.hessian = np.asarray(hessian)
 
         if isothermal_compressibility is not None:
-            if np.any(isothermal_compressibility < 0):
-                raise ValueError("Isothermal compressibility must be non-negative.")
             self.isothermal_compressibility = np.asarray(isothermal_compressibility)
 
         # check that all variables are not None
