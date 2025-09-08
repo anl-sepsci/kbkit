@@ -91,7 +91,9 @@ class KBICalculator:
                 i, j = [self.state._get_mol_idx(mol, self.state.top_molecules) for mol in rdf_mols]
 
                 # integrate rdf --> kbi calc
-                integrator = KBIntegrator(rdf_file=filepath, use_fixed_rmin=self.use_fixed_r, system_properties=meta.props)
+                integrator = KBIntegrator(
+                    rdf_file=filepath, use_fixed_rmin=self.use_fixed_r, system_properties=meta.props
+                )
                 kbi = integrator.integrate()
                 kbis[s, i, j] = kbi
                 kbis[s, j, i] = kbi
