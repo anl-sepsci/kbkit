@@ -61,7 +61,7 @@ class StaticStructureCalculator:
 
         # initialize thermodynamic conditions
         self.T = 0.0
-        self.hessian = np.zeros((mol_fr.shape[0], mol_fr.shape[1]-1, mol_fr.shape[1]-1))
+        self.hessian = np.zeros((mol_fr.shape[0], mol_fr.shape[1] - 1, mol_fr.shape[1] - 1))
         self.isothermal_compressibility = np.zeros(mol_fr.shape[0])
 
     def update_conditions(
@@ -223,7 +223,7 @@ class StaticStructureCalculator:
             - :math:`\bar{V}` is the molar volume of mixture
         """
         v_ratio = self._delta_volume[np.newaxis, :] / self.volume_bar[:, np.newaxis]
-        s0_xp_calc = -1 * self.s0_x() * v_ratio[:,:,np.newaxis]
+        s0_xp_calc = -1 * self.s0_x() * v_ratio[:, :, np.newaxis]
         s0_xp_sum = np.nansum(s0_xp_calc, axis=2)
         return s0_xp_sum
 
