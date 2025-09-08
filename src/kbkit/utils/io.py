@@ -46,4 +46,9 @@ def find_files(path: str | Path, suffixes: list[str], ensemble: str, exclude: tu
     ensemble_matches = [f for f in candidates if ensemble in f.name]
     final = ensemble_matches if ensemble_matches else candidates
 
-    return natsorted(str(f) for f in final)
+    # natural sort for reproducibility
+    sorted_files = natsorted(str(f) for f in final)
+
+    # check that files are readable and not hidden
+    readable_files = [f for f in sorted_files if Path(f).is_file() and not Path(f).name.startswith('.')]
+    return readable_files
