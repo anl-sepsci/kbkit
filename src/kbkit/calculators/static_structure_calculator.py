@@ -61,8 +61,8 @@ class StaticStructureCalculator:
 
         # initialize thermodynamic conditions
         self.T = 0.0
-        self.hessian = np.empty(0)
-        self.isothermal_compressibility = np.empty(0)
+        self.hessian = np.zeros((mol_fr.shape[0], mol_fr.shape[1]-1, mol_fr.shape[1]-1))
+        self.isothermal_compressibility = np.zeros(mol_fr.shape[0])
 
     def update_conditions(
         self,
@@ -157,28 +157,6 @@ class StaticStructureCalculator:
         return self.n_electrons[:-1] - self.n_electrons[-1]
 
     @property
-    def drho_dx(self) -> NDArray[np.float64]:
-        r"""np.ndarray: Electron density contrast.
-
-        Notes
-        -----
-        Electron density contrast for molecules 1 :math:`\rightarrow` n-1, is calculated as follows:
-
-        .. math::
-            \frac{\partial \rho^e}{\partial x} = \sum_{i=1}^{n-1} \left(Z_i - Z_n\right) - \bar{Z} \left(\frac{V_i - V_n}{\bar{V}}\right)
-
-        where:
-            - :math:`Z_i` is the electron number of molecule :math:`i`.
-            - :math:`V_i` is the molar volume of molecule :math:`i`.
-            - :math:`\bar{Z}` is the electron number of the mixture.
-            - :math:`\bar{V}` is the molar volume of the mixture.
-        """
-        return (
-            self._delta_n_electrons[np.newaxis, :]
-            - self._delta_volume[np.newaxis, :] * (self.n_electrons_bar / self.volume_bar)[:, np.newaxis]
-        )
-
-    @property
     def re(self) -> float:
         """float: Electron radius (cm)."""
         re_val = self.ureg("re").to("cm").magnitude
@@ -216,7 +194,8 @@ class StaticStructureCalculator:
         where:
             - :math:`H_{ij}` is the Hessian of molecules :math:`i,j`
         """
-        return self.gas_constant * self.T / self.hessian
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return self.gas_constant * self.T / self.hessian
 
     def s0_xp(self) -> NDArray[np.float64]:
         r"""
@@ -246,7 +225,7 @@ class StaticStructureCalculator:
             - :math:`\bar{V}` is the molar volume of mixture
         """
         v_ratio = self._delta_volume[np.newaxis, :] / self.volume_bar[:, np.newaxis]
-        s0_xp_calc = self.s0_x() * v_ratio
+        s0_xp_calc = -1 * self.s0_x() * v_ratio[:,:,np.newaxis]
         s0_xp_sum = np.nansum(s0_xp_calc, axis=2)
         return s0_xp_sum
 
@@ -416,34 +395,6 @@ class StaticStructureCalculator:
             - :math:`r_e` is the radius of an electron in cm
         """
         return self.re**2 * (1 / self.volume_bar) * self.s0_e()
-
-    def i0_x(self) -> NDArray[np.float64]:
-        r"""
-        Small angle x-ray scattering (SAXS) intensity as q :math:`\rightarrow` 0.
-
-        Returns
-        -------
-        np.ndarray
-            A 1D array with shape ``(n_sys)``
-
-        Notes
-        -----
-        The scattering intensity at as q :math:`\rightarrow` 0, I(0), is calculated from electron density structure factor (:math:`\hat{S}^e`):
-
-        .. math::
-            I(0) = r_e^2 \rho \sum_{i=1}^{n-1} \sum_{j=1}^{n-1} \left(\frac{\partial \rho^e}{\partial x_i}\right) \left(\frac{\partial \rho^e}{\partial x_j}\right) \hat{S}_{ij}^{x}(0)
-
-        where:
-            - :math:`r_e` is the radius of an electron in cm
-
-        See Also
-        --------
-        :meth:`s0_x` for the structure factor derivation and formula.
-        :meth:`drho_dx` for the electron density contrast formula.
-        """
-        s0_x_e = self.drho_dx[:, :, np.newaxis] * self.drho_dx[:, np.newaxis, :] * self.s0_x()
-        s0_x_e_1d = np.nansum(s0_x_e, axis=(1, 2))
-        return self.i0_calc(s0_x_e_1d)
 
     def i0_calc(self, s0: NDArray[np.float64]) -> NDArray[np.float64]:
         r"""

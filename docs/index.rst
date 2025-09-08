@@ -11,7 +11,6 @@ KBKit: Kirkwood-Buff Analysis Toolkit
     kbkit.core
     kbkit.parsers
     kbkit.viz.plotter
-    examples
 
 
 Installation
