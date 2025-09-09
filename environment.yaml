@@ -26,3 +26,4 @@ dependencies:
   - mdanalysis
   - pytest
   - pytest-cov
+  - twine
