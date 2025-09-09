@@ -28,7 +28,10 @@ PYPROJECT_FILE.write_text(new_content)
 
 # Update .conda/meta.yaml
 conda_content = CONDA_FILE.read_text()
+
+
 def replace_version_line(match):
+    """Helper function to replace the version line in meta.yaml while preserving quote styles."""
     prefix = match.group(1)
     quote1 = match.group(2)
     quote2 = match.group(3)
@@ -37,11 +40,10 @@ def replace_version_line(match):
         return f"{prefix}{quote1}{VERSION}{quote2}"
     else:
         return f"{prefix}{VERSION}"
+
+
 new_conda_content = re.sub(
-    r'^\s*(version\s*:\s*)(["\']?).*?([\'"]?)$',
-    replace_version_line,
-    conda_content,
-    flags=re.MULTILINE
+    r'^\s*(version\s*:\s*)(["\']?).*?([\'"]?)$', replace_version_line, conda_content, flags=re.MULTILINE
 )
 CONDA_FILE.write_text(new_conda_content)
 

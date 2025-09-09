@@ -104,14 +104,14 @@ class KBICalculator:
                 integrator = KBIntegrator(
                     rdf_file=filepath, use_fixed_rmin=self.use_fixed_r, system_properties=meta.props
                 )
-                
+
                 # if convergence is met, store kbi value
                 if integrator.rdf.is_converged:
                     kbi = integrator.integrate()
                     kbis[s, i, j] = kbi
                     kbis[s, j, i] = kbi
                 # override convergence check to skip system if not converged
-                else: # for not converged rdf
+                else:  # for not converged rdf
                     msg = f"RDF for system '{meta.name}' and pair {rdf_mols} did not converge."
                     if self.force:
                         print(f"WARNING: {msg} Skipping this system.")
@@ -120,7 +120,7 @@ class KBICalculator:
                         continue
                     else:
                         raise RuntimeError(msg)
-                
+
                 # add values to metadata
                 self._populate_kbi_metadata(system=meta.name, rdf_mols=rdf_mols, integrator=integrator)
 
