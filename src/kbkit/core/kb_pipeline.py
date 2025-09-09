@@ -27,16 +27,22 @@ class KBPipeline:
         The base path where the systems are located. Defaults to the current working directory if empty string.
     base_systems : list, optional
         A list of base systems to include. If not provided, it will automatically detect systems in the base path.
-    start_time : int, optional
-        The starting time for analysis, used in temperature and enthalpy calculations. Defaults to 0.
     ensemble : str, optional
         The ensemble type for the systems, e.g., 'npt', 'nvt'. Defaults to 'npt'.
     cations : list, optional
         A list of cation names to consider for salt pairs. Defaults to an empty list.
     anions : list, optional
         A list of anion names to consider for salt pairs. Defaults to an empty list.
+    start_time : int, optional
+        The starting time for analysis, used in temperature and enthalpy calculations. Defaults to 0.
+    verbose : bool, optional
+        If True, enables verbose output during processing. Defaults to False.
+    use_fixed_r : bool, optional
+        If True, uses a fixed cutoff radius for KBI calculations. Defaults to True.
     gamma_integration_type : str, optional
         The type of integration to use for gamma calculations. Defaults to 'numerical'.
+    gamma_polynomial_degree : int, optional
+        The degree of the polynomial to fit for gamma calculations if using polynomial integration. Defaults to 5.
 
     Attributes
     ----------
@@ -61,6 +67,7 @@ class KBPipeline:
         verbose: bool = False,
         use_fixed_r: bool = True,
         gamma_integration_type: str = "numerical",
+        gamma_polynomial_degree: int = 5,
     ) -> None:
         # build configuration
         loader = SystemLoader(verbose=verbose)
@@ -83,7 +90,12 @@ class KBPipeline:
         kbi_matrix = self.calculator.calculate()
 
         # create thermo object
-        self.thermo = KBThermo(state=self.state, kbi_matrix=kbi_matrix, gamma_integration_type=gamma_integration_type)
+        self.thermo = KBThermo(
+            state=self.state, 
+            kbi_matrix=kbi_matrix, 
+            gamma_integration_type=gamma_integration_type,
+            gamma_polynomial_degree=gamma_polynomial_degree
+        )
 
         # initialize property attribute
         self.properties: list[ThermoProperty] = []

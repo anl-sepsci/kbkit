@@ -25,11 +25,11 @@ class KBIntegrator:
     ----------
     rdf_file : str
         Path to the RDF file containing radial distances and corresponding g(r) values.
-    sys_path : str, optional
-        Path to the system directory containing topology files. If not provided, it will be inferred from the RDF file path.
-    ensemble : str, optional
-        Ensemble type for the system properties. Default is 'npt'.
-
+    use_fixed_rmin : bool
+        Whether to use a fixed minimum distance (rmin) for analysis.
+    system_properties : SystemProperties
+        SystemProperties object containing information about the system, including topology and box dimensions.
+        
     Attributes
     ----------
     rdf: RDFParser
