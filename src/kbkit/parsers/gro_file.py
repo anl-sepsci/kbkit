@@ -1,17 +1,12 @@
 """Parses a GROMACS .gro file to extract residue electron counts and box volume."""
 
-from collections import defaultdict
 from functools import cached_property
-
+import MDAnalysis as mda
 import numpy as np
 
-from kbkit.parsers.gro_atom import GroAtomParser
 from kbkit.utils.chem import get_atomic_number
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
-
-MIN_BOX_LINE_PARTS = 3
-
 
 class _NullGroFileParser:
     # objective is to mimic the interface but returns empty values
@@ -43,39 +38,32 @@ class GroFileParser:
         self.gro_path = validate_path(gro_path, suffix=".gro")
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.logger.info(f"Validated .gro file: {self.gro_path}")
+        self._universe = mda.Universe(self.gro_path)
 
-    def _get_atom_parser(self) -> GroAtomParser:
-        """
-        Initialize and return a GroAtomParser for the current structure file.
-
-        Returns
-        -------
-        GroAtomParser
-            Parser instance for extracting atom-level data from the .gro file.
-        """
-        self.logger.debug(f"Initializing GroAtomParser for file: {self.gro_path}")
-        return GroAtomParser(self.gro_path)
+    @property
+    def residues(self) -> mda.core.groups.ResidueGroup:
+        """mda.core.groups.ResidueGroup: Residues in the .gro file."""
+        return self._universe.residues
+    
+    @property
+    def atom_counts(self) -> dict[str, dict[str, int]]:
+        """dict[str, dict[str, int]]: Dictionary of residue names and their atom type counts."""
+        atoms_counts = {}
+        for res in self.residues:
+            if res.resname in atoms_counts:
+                continue
+            unique_atoms, counts = np.unique(res.atoms.types, return_counts=True)
+            atoms_counts[res.resname] = {atom: int(count) for atom, count in zip(unique_atoms, counts)}
+        return atoms_counts
 
     @cached_property
     def electron_count(self) -> dict[str, int]:
         """dict[str, int]: Dictionary of residue types and their total electron count."""
-        self.logger.debug("Starting electron count per residue.")
-        parser = self._get_atom_parser()
-        residue_electrons: dict[str, int] = defaultdict(int)
-        seen_residues = {}
-
-        for idx, res_name, atom_name in parser:
-            if res_name not in seen_residues:
-                seen_residues[res_name] = idx
-
-            if idx != seen_residues[res_name]:
-                continue
-
-            element = "".join(filter(str.isalpha, atom_name)).capitalize()
-            residue_electrons[res_name] += get_atomic_number(element)
-
-        self.logger.info("Completed electron count.")
-        return dict(residue_electrons)
+        residue_electrons = {}
+        for resname, atom_dict in self.atoms_counts.items():
+            total_electrons = sum(get_atomic_number(atom) * count for atom, count in atom_dict.items())
+            residue_electrons[resname] = total_electrons
+        return residue_electrons
 
     def calculate_box_volume(self) -> float:
         """
@@ -91,17 +79,8 @@ class GroFileParser:
         float
             Box volume in nanometers cubed (nm^3).
         """
-        last_line = self.gro_path.read_text().splitlines()[-1].strip()
-        parts = last_line.split()
-
-        if len(parts) < MIN_BOX_LINE_PARTS:
-            self.logger.error("Box dimensions missing or invalid")
-            raise ValueError("Box dimensions missing or invalid")
-
-        try:
-            x, y, z = map(float, parts[:3])
-            self.logger.info("Successfully parsed .gro file for box dimensions.")
-            return x * y * z
-        except ValueError as e:
-            self.logger.error("Box dimensions missing or invalid")
-            raise ValueError("Box dimensions missing or invalid") from e
+        box_A = np.asarray(self._universe.dimensions[:3])
+        box_nm = box_A / 10.0  # convert from Angstroms to nm
+        volume_nm3 = np.prod(box_nm)
+        self.logger.info("Successfully parsed .gro file for box dimensions.")
+        return volume_nm3
