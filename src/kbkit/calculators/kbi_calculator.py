@@ -91,10 +91,15 @@ class KBICalculator:
                 continue
 
             # read all rdf_files
-            for fpath in meta.rdf_path.iterdir():
+            for filepath in meta.rdf_path.iterdir():
                 # if hidden file skip or not readable
-                filepath = validate_path(fpath)
                 if filepath.name.startswith("."):
+                    continue
+                # if filepath not valid skip system
+                try:
+                    validate_path(filepath, suffix=".xvg")
+                except Exception:
+                    print(f"WARNING: filepath '{filepath}' not valid. Skipping this system.")
                     continue
 
                 # integrate rdf --> kbi calc
@@ -115,14 +120,16 @@ class KBICalculator:
                     msg = f"RDF for system '{meta.name}' and pair {integrator.rdf_molecules} did not converge."
                     if self.force:
                         print(f"WARNING: {msg} Skipping this system.")
-                        kbis[s, i, j] = np.nan
-                        kbis[s, j, i] = np.nan
                         continue
                     else:
                         raise RuntimeError(msg)
 
                 # add values to metadata
                 self._populate_kbi_metadata(system=meta.name, rdf_mols=integrator.rdf_molecules, integrator=integrator)
+
+            # if any are np.nan --> convergence issue previous detected; replace all with np.nan
+            if any(np.isnan(kbis[s])):
+                kbis[s, :, :] = np.nan
 
         return kbis
 

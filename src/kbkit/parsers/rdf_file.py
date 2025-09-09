@@ -198,11 +198,13 @@ class RDFParser:
             if line.strip().startswith("@ s0 legend"):
                 sel_str = line.split('"')[-2] if '"' in line else line.split()[-1]
             # Stop after header
-            if all(var is not None for var in [ref_str, sel_str]):
-                break
+            if not any(line.strip().startswith(prefix) for prefix in ["#", "@"]):
+                if all(var is not None for var in [ref_str, sel_str]):
+                    break
 
         ref_name = RDFParser.extract_mols(ref_str, top_molecules)
         sel_name = RDFParser.extract_mols(sel_str, top_molecules)
+
         if len(ref_name) == 0:
             raise ValueError(f"No match found for '{ref_str}' and {top_molecules}")
         if len(sel_name) == 0:
