@@ -127,10 +127,6 @@ class KBICalculator:
                 # add values to metadata
                 self._populate_kbi_metadata(system=meta.name, rdf_mols=integrator.rdf_molecules, integrator=integrator)
 
-            # if any are np.nan --> convergence issue previous detected; replace all with np.nan
-            if np.isnan(kbis[s]).any():
-                kbis[s, :, :] = np.nan
-
         return kbis
 
     def _populate_kbi_metadata(

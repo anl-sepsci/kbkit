@@ -305,7 +305,7 @@ class SystemLoader:
                 new_meta = replace(meta, rdf_path=rdf_path)
                 if new_meta:
                     updated_metadata[m] = new_meta
-                    break
+                    continue
             # find first dir with rdf in name
             else:
                 for subdir in meta.path.iterdir():
