@@ -51,9 +51,9 @@ class Plotter:
         self.property_map = self.pipe.to_dict()
 
         self.x_mol = x_mol
-        
+
         self.base_path = save_dir or self.pipe.config.base_path
-        self._setup_folders(self.base_path)
+        self._setup_folders(str(self.base_path))
 
         self.molecule_map = molecule_map
 
