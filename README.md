@@ -1,6 +1,7 @@
 # KBKit: Kirkwood-Buff Analysis Toolkit
 
 [![License](https://img.shields.io/github/license/aperoutka/kbkit)](https://github.com/aperoutka/kbkit/blob/master/LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/kbkit.svg)](https://pypi.org/project/kbkit/)
 [![Powered by: Pixi](https://img.shields.io/badge/Powered_by-Pixi-facc15)](https://pixi.sh)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/aperoutka/kbkit/build-and-test.yml?branch=main&logo=github-actions)](https://github.com/aperoutka/kbkit/actions/workflows/build-and-test.yml)
