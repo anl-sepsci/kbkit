@@ -12,7 +12,6 @@ import subprocess
 import sys as sys_arg
 from pathlib import Path
 
-
 parser = argparse.ArgumentParser(description="Bump version for kbkit package.")
 parser.add_argument("version", type=str, help="New version number (e.g., 1.0.1)")
 parser.add_argument("-p", "--publish", action="store_true", help="Update .conda/meta.yaml and publish to PyPI")
@@ -42,6 +41,7 @@ content = PYPROJECT_FILE.read_text()
 new_version = re.sub(r'^(version\s*=\s*)".*?"', rf'\1"{VERSION}"', content, flags=re.MULTILINE)
 PYPROJECT_FILE.write_text(new_version)
 
+
 # Update .conda/meta.yaml
 def replace_version_line(match):
     """Helper function to replace the version line in meta.yaml while preserving quote styles."""
@@ -53,6 +53,7 @@ def replace_version_line(match):
         return f"{prefix}{quote1}{VERSION}{quote2}"
     else:
         return f"{prefix}{VERSION}"
+
 
 if publish:
     conda_content = CONDA_FILE.read_text()
