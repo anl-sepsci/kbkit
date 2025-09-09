@@ -1,9 +1,10 @@
 package:
   name: kbkit
-version: "1.0.2"
+version: "1.0.1"
 
 source:
-  path: ../  # Assumes .conda is inside your kbkit repo
+  url: "https://files.pythonhosted.org/packages/source/k/kbkit/kbkit-1.0.1.tar.gz"
+  sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 build:
   noarch: python
