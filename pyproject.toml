@@ -2,7 +2,7 @@
 name = "kbkit"
 description = "KBKit: Kirkwood-Buff Analysis Toolkit"
 license = {file = "LICENSE"}
-version = "1.0.0"
+version = "1.0.1"
 readme = "README.md"
 keywords = []
 authors = [{name = "Allison Peroutka"}]
@@ -97,3 +97,14 @@ doctest_optionflags = "NORMALIZE_WHITESPACE"
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
+
+[tool.hatch.build]
+include = [
+  "src/kbkit",
+  "tests",
+  "README.md",
+  "LICENSE"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kbkit"]

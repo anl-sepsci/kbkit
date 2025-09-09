@@ -21,6 +21,18 @@
 
 ## Installation
 
+
+
+### Install via PyPI
+
+To install the latest stable release:
+
+```python
+pip install kbkit
+```
+
+### Install from source (development version)
+
 **KBKit** can be installed from cloning its github repository and creating an anaconda environment with dependencies.
 
 ```python
@@ -33,7 +45,7 @@ pip install .
 
 ## Examples
 
-Below are several examples on various ways to implement **KBKit**. 
+Below are several examples on various ways to implement **KBKit**.
 
 ### Calculating Kirkwood-Buff integrals on a single RDF
 
