@@ -408,8 +408,5 @@ class StaticStructureCalculator:
         np.ndarray
             A 1D array with shape ``(n_sys)``
 
-        See Also
-        --------
-        see :meth:`i0` for the derivation and formula.
         """
         return self.re**2 * (1 / self.volume_bar) * s0
