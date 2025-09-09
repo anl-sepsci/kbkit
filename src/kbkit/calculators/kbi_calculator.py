@@ -20,6 +20,10 @@ class KBICalculator:
     ----------
     state : SystemState
         SystemState object providing molecule indexing, salt pairs, and composition.
+    use_fixed_r : bool
+        If True, uses a fixed cutoff radius for KBI calculations.
+    force : bool, optional
+        If True, forces KBI calculations to skip entire systems with non-converged RDFs. Defaults to False.
 
     Attributes
     ----------
@@ -27,9 +31,10 @@ class KBICalculator:
         Dictionary mapping system names to lists of KBI metadata objects.
     """
 
-    def __init__(self, state: SystemState, use_fixed_r: bool) -> None:
+    def __init__(self, state: SystemState, use_fixed_r: bool, force: bool = False) -> None:
         self.state = state
         self.use_fixed_r = use_fixed_r
+        self.force = force
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
 
     def calculate(self, corrected: bool = True) -> NDArray[np.float64]:
@@ -99,10 +104,23 @@ class KBICalculator:
                 integrator = KBIntegrator(
                     rdf_file=filepath, use_fixed_rmin=self.use_fixed_r, system_properties=meta.props
                 )
-                kbi = integrator.integrate()
-                kbis[s, i, j] = kbi
-                kbis[s, j, i] = kbi
-
+                
+                # if convergence is met, store kbi value
+                if integrator.rdf.is_converged:
+                    kbi = integrator.integrate()
+                    kbis[s, i, j] = kbi
+                    kbis[s, j, i] = kbi
+                # override convergence check to skip system if not converged
+                else: # for not converged rdf
+                    msg = f"RDF for system '{meta.name}' and pair {rdf_mols} did not converge."
+                    if self.force:
+                        print(f"WARNING: {msg} Skipping this system.")
+                        kbis[s, i, j] = np.nan
+                        kbis[s, j, i] = np.nan
+                        continue
+                    else:
+                        raise RuntimeError(msg)
+                
                 # add values to metadata
                 self._populate_kbi_metadata(system=meta.name, rdf_mols=rdf_mols, integrator=integrator)
 

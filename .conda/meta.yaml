@@ -1,6 +1,6 @@
 package:
   name: kbkit
-version: "1.0.1"
+version: "1.0.2"
 
 source:
   path: ../  # Assumes .conda is inside your kbkit repo

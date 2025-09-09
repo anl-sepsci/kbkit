@@ -32,7 +32,7 @@ class RDFParser:
         # read rdf_file
         self._read()
         # make sure rdf is converged
-        self.convergence_check()
+        self.is_converged = self.convergence_check()
         # optionally fix rmin to max possible value
         if use_fixed_rmin:
             self._rmin = self.rmax - 0.5

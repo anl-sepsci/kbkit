@@ -66,6 +66,7 @@ class KBPipeline:
         start_time: int = 0,
         verbose: bool = False,
         use_fixed_r: bool = True,
+        force: bool = False,
         gamma_integration_type: str = "numerical",
         gamma_polynomial_degree: int = 5,
     ) -> None:
@@ -86,7 +87,7 @@ class KBPipeline:
         self.state = SystemState(self.config)
 
         # create KBI calculator
-        self.calculator = KBICalculator(state=self.state, use_fixed_r=use_fixed_r)
+        self.calculator = KBICalculator(state=self.state, use_fixed_r=use_fixed_r, force=force)
         kbi_matrix = self.calculator.calculate()
 
         # create thermo object

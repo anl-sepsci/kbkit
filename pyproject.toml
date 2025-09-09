@@ -2,7 +2,7 @@
 name = "kbkit"
 description = "KBKit: Kirkwood-Buff Analysis Toolkit"
 license = {file = "LICENSE"}
-version = "1.0.1"
+version = "1.0.2"
 readme = "README.md"
 keywords = []
 authors = [{name = "Allison Peroutka"}]
