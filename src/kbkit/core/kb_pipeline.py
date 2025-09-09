@@ -91,10 +91,10 @@ class KBPipeline:
 
         # create thermo object
         self.thermo = KBThermo(
-            state=self.state, 
-            kbi_matrix=kbi_matrix, 
+            state=self.state,
+            kbi_matrix=kbi_matrix,
             gamma_integration_type=gamma_integration_type,
-            gamma_polynomial_degree=gamma_polynomial_degree
+            gamma_polynomial_degree=gamma_polynomial_degree,
         )
 
         # initialize property attribute

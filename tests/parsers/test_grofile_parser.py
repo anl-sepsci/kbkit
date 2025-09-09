@@ -16,18 +16,23 @@ import pytest
 
 from kbkit.parsers.gro_file import GroFileParser  # Adjust import path as needed
 
-# Sample minimal .gro content
-SAMPLE_GRO_CONTENT = """Test GRO file
-   3
-    1WAT    O     1   0.000   0.000   0.000
-    1WAT    H     2   0.100   0.000   0.000
-    1WAT    H1    3   0.000   0.100   0.000
-    2WAT    O     4   1.000   1.000   1.000
-    2WAT    H     5   1.100   1.000   1.000
-    2WAT    H1    6   1.000   1.100   1.000
-   1.00000  1.00000  1.00000
-"""
+# Sample minimal .gro content (properly formatted for MDAnalysis)
+def gro_atom_line(resid, resname, atomname, atomnum, x, y, z):
+    return f"{resid:5d}{resname:<5}{atomname:>5}{atomnum:5d}{x:8.3f}{y:8.3f}{z:8.3f}"
 
+
+# Correctly formatted .gro content for MDAnalysis (each line ends with a single \n, not a literal '\\n')
+SAMPLE_GRO_CONTENT = (
+    "Test GRO file\n"
+    "6\n"
+    f"{gro_atom_line(1, 'WAT', 'O', 1, 0.000, 0.000, 0.000)}\n"
+    f"{gro_atom_line(1, 'WAT', 'H', 2, 0.100, 0.000, 0.000)}\n"
+    f"{gro_atom_line(1, 'WAT', 'H1', 3, 0.000, 0.100, 0.000)}\n"
+    f"{gro_atom_line(2, 'WAT', 'O', 4, 1.000, 1.000, 1.000)}\n"
+    f"{gro_atom_line(2, 'WAT', 'H', 5, 1.100, 1.000, 1.000)}\n"
+    f"{gro_atom_line(2, 'WAT', 'H1', 6, 1.000, 1.100, 1.000)}\n"
+    "   1.00000   1.00000   1.00000\n"
+)
 
 def create_temp_gro_file(content=SAMPLE_GRO_CONTENT, name="test.gro"):
     """
@@ -105,11 +110,9 @@ def test_invalid_box_line():
 
     Replaces valid box line with a non-numeric string to simulate failure.
     """
-    bad_content = SAMPLE_GRO_CONTENT.replace("1.00000  1.00000  1.00000", "invalid box")
+    bad_content = SAMPLE_GRO_CONTENT.replace("   1.00000   1.00000   1.00000\n", "invalid box")
     gro_path, temp_dir = create_temp_gro_file(content=bad_content)
 
-    parser = GroFileParser(str(gro_path))
-    with pytest.raises(ValueError, match="Box dimensions missing or invalid"):
-        parser.calculate_box_volume()
-
+    with pytest.raises(ValueError, match="GRO unitcell has neither 3 nor 9 entries"):
+        GroFileParser(str(gro_path))
     temp_dir.cleanup()

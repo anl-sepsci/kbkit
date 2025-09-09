@@ -29,7 +29,7 @@ class KBIntegrator:
         Whether to use a fixed minimum distance (rmin) for analysis.
     system_properties : SystemProperties
         SystemProperties object containing information about the system, including topology and box dimensions.
-        
+
     Attributes
     ----------
     rdf: RDFParser
