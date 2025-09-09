@@ -41,7 +41,7 @@ class KBIntegrator:
     def __init__(self, rdf_file: str | Path, use_fixed_rmin: bool, system_properties: SystemProperties) -> None:
         self.rdf = RDFParser(rdf_file=str(rdf_file), use_fixed_rmin=use_fixed_rmin)
         self.system_properties = system_properties
-        
+
         self._rdf_info = self.rdf.parse_gmx_rdf_header(top_molecules=self.system_properties.topology.molecules)
 
     def box_vol(self) -> float:
@@ -50,18 +50,18 @@ class KBIntegrator:
         if isinstance(vol, tuple):
             vol = vol[0]
         return float(vol)
-    
+
     @property
     def molecule_info(self) -> dict[str, str]:
         """Get the molecules present in RDF file and their corresponding type.
-        
+
         Returns
         -------
         dict[str,str]
             Dictionary of molecule type (ref, sel) and the molecule ID.
         """
         return self._rdf_info
-    
+
     @property
     def rdf_molecules(self) -> list[str]:
         """Get the molecules corresponding to the RDF file from the system topology.
@@ -71,7 +71,7 @@ class KBIntegrator:
         list
             List of molecule IDs used in RDF file.
         """
-        return list(self.molecule_info().values)
+        return list(self.molecule_info.values())
 
     def kd(self) -> int:
         """Return the Kronecker delta between molecules in RDF, i.e., determines if molecules :math:`i,j` are the same (returns True)."""
@@ -287,7 +287,7 @@ class KBIntegrator:
         ax[1].set_xlabel(r"$\lambda$")
         ax[1].set_ylabel(r"$\lambda$ G$_{ij}$ / nm$^3$")
         fig.suptitle(
-            f"KBI Analysis for system: {os.path.basename(self.system_properties.system_path)} {self.molecule_info["sel"]}-{self.molecule_info["ref"]}"
+            f"KBI Analysis for system: {os.path.basename(self.system_properties.system_path)} {self.molecule_info['sel']}-{self.molecule_info['ref']}"
         )
         if save_dir is not None:
             plt.savefig(os.path.join(save_dir, self.rdf.rdf_file[:-4] + ".png"))

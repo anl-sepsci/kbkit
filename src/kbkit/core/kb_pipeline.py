@@ -60,7 +60,7 @@ class KBPipeline:
         pure_systems: list[str],
         base_path: str,
         base_systems: list[str] | None = None,
-        rdf_dir: str | None = None,
+        rdf_dir: str = "",
         ensemble: str = "npt",
         cations: list[str] | None = None,
         anions: list[str] | None = None,

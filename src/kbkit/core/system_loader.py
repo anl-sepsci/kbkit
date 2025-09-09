@@ -41,7 +41,7 @@ class SystemLoader:
         pure_systems: list[str],
         base_path: str | Path,
         base_systems: list[str] | None = None,
-        rdf_dir: str | None = None,
+        rdf_dir: str = "",
         ensemble: str = "npt",
         cations: list[str] | None = None,
         anions: list[str] | None = None,
@@ -300,10 +300,11 @@ class SystemLoader:
         for m, meta in enumerate(metadata):
             new_meta = None  # save initialize
             # first if rdf_dir is not none and path exists
-            if rdf_dir is not None and (meta.path / rdf_dir).is_dir(): 
-                new_meta = replace(meta, rdf_path=rdf_dir)
+            rdf_path = meta.path / rdf_dir
+            if len(rdf_dir) > 0 and rdf_path.is_dir():
+                new_meta = replace(meta, rdf_path=rdf_path)
             # find first dir with rdf in name
-            else: 
+            else:
                 for subdir in meta.path.iterdir():
                     if subdir.is_dir() and any("rdf" in p.name.lower() for p in subdir.iterdir()):
                         new_meta = replace(meta, rdf_path=subdir)

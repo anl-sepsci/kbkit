@@ -8,6 +8,7 @@ from kbkit.analysis.system_state import SystemState
 from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.utils.validation import validate_path
 
+
 class KBICalculator:
     """
     Computes Kirkwood-Buff integrals for molecular systems using RDF data.
@@ -90,9 +91,9 @@ class KBICalculator:
                 continue
 
             # read all rdf_files
-            for filepath in meta.rdf_path.iterdir():
+            for fpath in meta.rdf_path.iterdir():
                 # if hidden file skip or not readable
-                filepath = validate_path(filepath)
+                filepath = validate_path(fpath)
                 if filepath.name.startswith("."):
                     continue
 
