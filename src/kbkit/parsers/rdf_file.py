@@ -181,6 +181,39 @@ class RDFParser:
         )
         self.rmin = self.rmax - 0.2  # reset rmin to max possible safe value
         return False
+    
+    def parse_gmx_rdf_header(self, top_molecules: list[str]) -> dict[str, str]:
+        """
+        Extract reference and selection molecule ID from rdf_file.
+        """
+        with open(self.rdf_file) as f:
+            lines = f.readlines()
+
+        ref_str = sel_str = None
+
+        # Extract from command line
+        for line in lines:
+            # Extract reference group name from subtitle
+            if line.strip().startswith('@ subtitle'):
+                ref_str = line.split('"')[-2] if '"' in line else line.split()[-1]
+            # Extract selection group name from legend
+            if line.strip().startswith('@ s0 legend'):
+                sel_str = line.split('"')[-2] if '"' in line else line.split()[-1]
+            # Stop after header
+            if all(var is not None for var in [ref_str, sel_str]):
+                break
+
+        ref_name = RDFParser.extract_mols(ref_str, top_molecules)
+        sel_name = RDFParser.extract_mols(sel_str, top_molecules)
+        if len(ref_name) == 0:
+            raise ValueError(f"No match found for '{ref_str}' and {top_molecules}")
+        if len(sel_name) == 0:
+            raise ValueError(f"No match found for '{sel_str}' and {top_molecules}")
+        
+        return {
+            'ref': ref_name[0],
+            'sel': sel_name[0]
+        }
 
     def plot(
         self,
@@ -229,7 +262,7 @@ class RDFParser:
             plt.savefig(os.path.join(save_dir, self.rdf_file[:-4] + ".png"))
 
     @staticmethod
-    def extract_mols(filename: str, mol_list: list[str]) -> list[str]:
+    def extract_mols(text: str, mol_list: list[str]) -> list[str]:
         """
         Extract molecule names used in RDF from the RDF file name.
 
@@ -245,9 +278,9 @@ class RDFParser:
         list[str]
             List of molecule names found in the RDF file name.
         """
-        if not isinstance(filename, str):
+        if not isinstance(text, str):
             try:
-                filename = str(filename)
+                text = str(text)
             except TypeError as e:
                 raise TypeError("Could not convert filename to type str.") from e
 
@@ -255,5 +288,5 @@ class RDFParser:
         pattern = r"(" + "|".join(re.escape(mol) for mol in mol_list) + r")"
 
         # find matches of pattern in filename
-        matches = re.findall(pattern, filename)
+        matches = re.findall(pattern, text)
         return matches

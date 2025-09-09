@@ -29,6 +29,8 @@ class Plotter:
     ----------
     pipeline: KBPipeline
         Instance of KBThermo.
+    save_dir: str
+        Location for saving figures.
     x_mol: str, optional
         Molecule to use for labeling x-axis in figures for binary systems. Defaults to first element in molecule list.
     molecule_map: dict[str, str], optional.
@@ -40,6 +42,7 @@ class Plotter:
         pipeline: KBPipeline,
         molecule_map: dict[str, str],
         x_mol: str = "",
+        save_dir: str | None = None,
     ) -> None:
         # data pipeline containing results from analysis
         self.pipe = pipeline
@@ -48,12 +51,15 @@ class Plotter:
         self.property_map = self.pipe.to_dict()
 
         self.x_mol = x_mol
-        self._setup_folders()
+        
+        self.base_path = save_dir or self.pipe.config.base_path
+        self._setup_folders(self.base_path)
+
         self.molecule_map = molecule_map
 
-    def _setup_folders(self) -> None:
+    def _setup_folders(self, base_path: str) -> None:
         # create folders for figures if they don't exist
-        self.thermo_dir = os.path.join(self.pipe.config.base_path, "kb_analysis")
+        self.thermo_dir = os.path.join(base_path, "kb_analysis")
         self.sys_dir = os.path.join(self.thermo_dir, "system_figures")
         for path in (self.thermo_dir, self.sys_dir):
             if not os.path.exists(path):

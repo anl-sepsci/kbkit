@@ -41,6 +41,7 @@ class SystemLoader:
         pure_systems: list[str],
         base_path: str | Path,
         base_systems: list[str] | None = None,
+        rdf_dir: str | None = None,
         ensemble: str = "npt",
         cations: list[str] | None = None,
         anions: list[str] | None = None,
@@ -59,6 +60,8 @@ class SystemLoader:
             Path to base system directory.
         base_systems : list[str], optional
             Explicit list of system names to include.
+        rdf_dir: str, optional
+            Explicit directory name that contains rdf files.
         ensemble : str, optional
             Ensemble name used for file resolution.
         cations : list[str], optional
@@ -99,7 +102,7 @@ class SystemLoader:
         pure_metadata = [self._get_metadata(pure_path, system, ensemble, start_time, "pure") for system in pure_systems]
 
         # update metadata with rdf path
-        metadata = self._update_metadata_rdf(base_metadata + pure_metadata)
+        metadata = self._update_metadata_rdf(rdf_dir, base_metadata + pure_metadata)
 
         # get molecules in system
         molecules = self._extract_top_molecules(metadata)
@@ -279,7 +282,7 @@ class SystemLoader:
 
         return validated_systems
 
-    def _update_metadata_rdf(self, metadata: list[SystemMetadata]) -> list[SystemMetadata]:
+    def _update_metadata_rdf(self, rdf_dir: str, metadata: list[SystemMetadata]) -> list[SystemMetadata]:
         """
         Update metadata with RDF directory paths if available.
 
@@ -296,12 +299,17 @@ class SystemLoader:
         updated_metadata = metadata.copy()
         for m, meta in enumerate(metadata):
             new_meta = None  # save initialize
-            for subdir in meta.path.iterdir():
-                if subdir.is_dir() and any("rdf" in p.name.lower() for p in subdir.iterdir()):
-                    new_meta = replace(meta, rdf_path=subdir)
-                    if new_meta:
-                        updated_metadata[m] = new_meta
-                        break
+            # first if rdf_dir is not none and path exists
+            if rdf_dir is not None and (meta.path / rdf_dir).is_dir(): 
+                new_meta = replace(meta, rdf_path=rdf_dir)
+            # find first dir with rdf in name
+            else: 
+                for subdir in meta.path.iterdir():
+                    if subdir.is_dir() and any("rdf" in p.name.lower() for p in subdir.iterdir()):
+                        new_meta = replace(meta, rdf_path=subdir)
+                        if new_meta:
+                            updated_metadata[m] = new_meta
+                            break
             # raise error if system is mixture and no rdf directory is found
             if not new_meta and meta.kind == "mixture":
                 self.logger.error(f"No RDF directory found in: {meta.path}")

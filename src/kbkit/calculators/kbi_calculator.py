@@ -5,9 +5,8 @@ from numpy.typing import NDArray
 
 from kbkit.analysis.kb_integrator import KBIntegrator
 from kbkit.analysis.system_state import SystemState
-from kbkit.parsers.rdf_file import RDFParser
 from kbkit.schema.kbi_metadata import KBIMetadata
-
+from kbkit.utils.validation import validate_path
 
 class KBICalculator:
     """
@@ -93,17 +92,17 @@ class KBICalculator:
             # read all rdf_files
             for filepath in meta.rdf_path.iterdir():
                 # if hidden file skip or not readable
-                if filepath.name.startswith(".") or not filepath.is_file():
+                filepath = validate_path(filepath)
+                if filepath.name.startswith("."):
                     continue
-
-                # extract molecule pair from filename
-                rdf_mols = RDFParser.extract_mols(filepath.name, self.state.top_molecules)
-                i, j = [self.state._get_mol_idx(mol, self.state.top_molecules) for mol in rdf_mols]
 
                 # integrate rdf --> kbi calc
                 integrator = KBIntegrator(
                     rdf_file=filepath, use_fixed_rmin=self.use_fixed_r, system_properties=meta.props
                 )
+
+                # extract molecule pair from rdf_file
+                i, j = [self.state._get_mol_idx(mol, self.state.top_molecules) for mol in integrator.rdf_molecules]
 
                 # if convergence is met, store kbi value
                 if integrator.rdf.is_converged:
@@ -112,7 +111,7 @@ class KBICalculator:
                     kbis[s, j, i] = kbi
                 # override convergence check to skip system if not converged
                 else:  # for not converged rdf
-                    msg = f"RDF for system '{meta.name}' and pair {rdf_mols} did not converge."
+                    msg = f"RDF for system '{meta.name}' and pair {integrator.rdf_molecules} did not converge."
                     if self.force:
                         print(f"WARNING: {msg} Skipping this system.")
                         kbis[s, i, j] = np.nan
@@ -122,7 +121,7 @@ class KBICalculator:
                         raise RuntimeError(msg)
 
                 # add values to metadata
-                self._populate_kbi_metadata(system=meta.name, rdf_mols=rdf_mols, integrator=integrator)
+                self._populate_kbi_metadata(system=meta.name, rdf_mols=integrator.rdf_molecules, integrator=integrator)
 
         return kbis
 
