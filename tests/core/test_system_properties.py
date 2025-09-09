@@ -17,17 +17,25 @@ import pytest
 
 from kbkit.core.system_properties import SystemProperties
 
-# Sample minimal .gro content
-SAMPLE_GRO_CONTENT = """Test GRO file
-   3
-    1WAT    O     1   0.000   0.000   0.000
-    1WAT    H     2   0.100   0.000   0.000
-    1WAT    H1    3   0.000   0.100   0.000
-    2WAT    O     4   1.000   1.000   1.000
-    2WAT    H     5   1.100   1.000   1.000
-    2WAT    H1    6   1.000   1.100   1.000
-   1.00000  1.00000  1.00000
-"""
+
+# Sample minimal .gro content (properly formatted for MDAnalysis)
+def gro_atom_line(resid, resname, atomname, atomnum, x, y, z):
+    """Helper to format a single atom line in .gro file."""
+    return f"{resid:5d}{resname:<5}{atomname:>5}{atomnum:5d}{x:8.3f}{y:8.3f}{z:8.3f}"
+
+
+# Correctly formatted .gro content for MDAnalysis (each line ends with a single \n, not a literal '\\n')
+SAMPLE_GRO_CONTENT = (
+    "Test GRO file\n"
+    "6\n"
+    f"{gro_atom_line(1, 'WAT', 'O', 1, 0.000, 0.000, 0.000)}\n"
+    f"{gro_atom_line(1, 'WAT', 'H', 2, 0.100, 0.000, 0.000)}\n"
+    f"{gro_atom_line(1, 'WAT', 'H1', 3, 0.000, 0.100, 0.000)}\n"
+    f"{gro_atom_line(2, 'WAT', 'O', 4, 1.000, 1.000, 1.000)}\n"
+    f"{gro_atom_line(2, 'WAT', 'H', 5, 1.100, 1.000, 1.000)}\n"
+    f"{gro_atom_line(2, 'WAT', 'H1', 6, 1.000, 1.100, 1.000)}\n"
+    "   1.00000   1.00000   1.00000\n"
+)
 
 SAMPLE_TOP_CONTENT = """
 [ system ]

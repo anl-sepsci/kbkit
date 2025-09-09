@@ -16,8 +16,10 @@ import pytest
 
 from kbkit.parsers.gro_file import GroFileParser  # Adjust import path as needed
 
+
 # Sample minimal .gro content (properly formatted for MDAnalysis)
 def gro_atom_line(resid, resname, atomname, atomnum, x, y, z):
+    """Helper to format a single atom line in .gro file."""
     return f"{resid:5d}{resname:<5}{atomname:>5}{atomnum:5d}{x:8.3f}{y:8.3f}{z:8.3f}"
 
 
@@ -33,6 +35,7 @@ SAMPLE_GRO_CONTENT = (
     f"{gro_atom_line(2, 'WAT', 'H1', 6, 1.000, 1.100, 1.000)}\n"
     "   1.00000   1.00000   1.00000\n"
 )
+
 
 def create_temp_gro_file(content=SAMPLE_GRO_CONTENT, name="test.gro"):
     """
