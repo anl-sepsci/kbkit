@@ -181,23 +181,21 @@ class RDFParser:
         )
         self.rmin = self.rmax - 0.2  # reset rmin to max possible safe value
         return False
-    
+
     def parse_gmx_rdf_header(self, top_molecules: list[str]) -> dict[str, str]:
-        """
-        Extract reference and selection molecule ID from rdf_file.
-        """
+        """Extract reference and selection molecule ID from rdf_file."""
         with open(self.rdf_file) as f:
             lines = f.readlines()
 
-        ref_str = sel_str = None
+        ref_str = sel_str = ""
 
         # Extract from command line
         for line in lines:
             # Extract reference group name from subtitle
-            if line.strip().startswith('@ subtitle'):
+            if line.strip().startswith("@ subtitle"):
                 ref_str = line.split('"')[-2] if '"' in line else line.split()[-1]
             # Extract selection group name from legend
-            if line.strip().startswith('@ s0 legend'):
+            if line.strip().startswith("@ s0 legend"):
                 sel_str = line.split('"')[-2] if '"' in line else line.split()[-1]
             # Stop after header
             if all(var is not None for var in [ref_str, sel_str]):
@@ -209,11 +207,8 @@ class RDFParser:
             raise ValueError(f"No match found for '{ref_str}' and {top_molecules}")
         if len(sel_name) == 0:
             raise ValueError(f"No match found for '{sel_str}' and {top_molecules}")
-        
-        return {
-            'ref': ref_name[0],
-            'sel': sel_name[0]
-        }
+
+        return {"ref": ref_name[0], "sel": sel_name[0]}
 
     def plot(
         self,
