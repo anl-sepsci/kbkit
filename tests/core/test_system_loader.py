@@ -144,7 +144,7 @@ def test_update_metadata_rdf_success(mock_replace, loader, tmp_path):
     meta = SystemMetadata(name="water", path=system_dir, props=MagicMock(), kind="mixture")
     mock_replace.return_value = meta
 
-    updated = loader._update_metadata_rdf([meta])
+    updated = loader._update_metadata_rdf(str(rdf_dir.name), [meta])
     assert updated[0].path == system_dir
 
 
@@ -159,7 +159,7 @@ def test_update_metadata_rdf_missing(loader, tmp_path):
     meta = SystemMetadata(name="water", path=system_dir, props=MagicMock(), kind="mixture")
 
     with pytest.raises(FileNotFoundError, match="No RDF directory found"):
-        loader._update_metadata_rdf([meta])
+        loader._update_metadata_rdf("", [meta])
 
 
 def test_system_loader_build_config(tmp_path):
@@ -179,7 +179,7 @@ def test_system_loader_build_config(tmp_path):
         )
     )
     loader._validate_pure_systems = MagicMock(return_value=["pure1"])
-    loader._update_metadata_rdf = MagicMock(side_effect=lambda metadata: metadata)
+    loader._update_metadata_rdf = MagicMock(side_effect=lambda rdf_dir, metadata: metadata)
     loader._extract_top_molecules = MagicMock(return_value=["mol1", "mol2"])
     loader._sort_systems = MagicMock(side_effect=lambda metadata, molecules: metadata)
 
