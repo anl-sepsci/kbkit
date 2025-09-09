@@ -22,8 +22,6 @@
 
 ## Installation
 
-
-
 ### Install via PyPI
 
 To install the latest stable release:
@@ -32,16 +30,25 @@ To install the latest stable release:
 pip install kbkit
 ```
 
-### Install from source (development version)
+### Install from source
 
 **KBKit** can be installed from cloning its github repository and creating an anaconda environment with dependencies.
 
 ```python
 git clone https://github.com/aperoutka/kbkit.git
 cd kbkit
-conda create --name kbkit python=3.12
-conda activate kbkit
-pip install .
+```
+
+Create an anaconda environment (`kbkit`) for users, from latest stable release:
+
+```python
+make setup-user
+```
+
+Create an anaconda environment (`kbkit-dev`) for contributers, from current source:
+
+```python
+make setup-dev
 ```
 
 ## Examples
