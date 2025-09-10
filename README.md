@@ -64,6 +64,24 @@ For running `kbkit.core.KBPipeline` or its dependencies, the following file stru
 
 * NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
 
+An example of file structure:
+```python
+kbi_dir/
+├── project/
+│   └── system/
+│       ├── rdf_dir/
+│       │   ├── mol1_mol1.xvg
+│       │   ├── mol1_mol2.xvg
+│       │   └── mol1_mol2.xvg
+│       ├── system_npt.edr
+│       ├── system_npt.gro
+│       └── system.top
+└── pure_components/
+    └── molecule1/
+        ├── molecule1_npt.edr
+        └── molecule1.top
+```
+
 **Requirements:**
 
 * Each system to be analyzed must include:
