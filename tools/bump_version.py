@@ -6,12 +6,12 @@ that the version number is consistent across all relevant files.
 """
 
 import argparse
-import os
+import hashlib
 import re
 import subprocess
 import sys
 from pathlib import Path
-import hashlib
+
 import requests
 
 # --- CLI Arguments ---
@@ -41,14 +41,10 @@ print(f"Updated _version.py => {VERSION}")
 
 # --- Update pyproject.toml ---
 pyproject_content = PYPROJECT_FILE.read_text()
-pyproject_content = re.sub(
-    r'^(version\s*=\s*)".*?"',
-    rf'\1"{VERSION}"',
-    pyproject_content,
-    flags=re.MULTILINE
-)
+pyproject_content = re.sub(r'^(version\s*=\s*)".*?"', rf'\1"{VERSION}"', pyproject_content, flags=re.MULTILINE)
 PYPROJECT_FILE.write_text(pyproject_content)
 print(f"Updated pyproject.toml => {VERSION}")
+
 
 # --- Helper: Replace version line in meta.yaml ---
 def replace_version_line(match):
@@ -57,10 +53,11 @@ def replace_version_line(match):
     quote = quote1 or quote2 or ""
     return f"{prefix}{quote}{VERSION}{quote}"
 
+
 # --- Helper: Check if conda env exists ---
 def conda_env_exists(env_name):
     """Check if a conda environment with the given name exists."""
-    result = subprocess.run(["conda", "env", "list"], capture_output=True, text=True)
+    result = subprocess.run(["conda", "env", "list"], check=False, capture_output=True, text=True)
     return any(env_name in line.split() for line in result.stdout.splitlines())
 
 
@@ -73,37 +70,29 @@ if PUBLISH:
     # Update meta.yaml version
     conda_content = CONDA_META.read_text()
     conda_content = re.sub(
-        r'^\s*(version\s*:\s*)(["\']?).*?([\'"]?)$',
-        replace_version_line,
-        conda_content,
-        flags=re.MULTILINE
+        r'^\s*(version\s*:\s*)(["\']?).*?([\'"]?)$', replace_version_line, conda_content, flags=re.MULTILINE
     )
 
     # Build if .tar.gz doesn't exist
     dist_file = DIST_DIR / f"kbkit-{VERSION}.tar.gz"
     if not dist_file.exists():
         print("Building source distribution...")
-        subprocess.run([
-            "conda", "run", "-n", "kbkit-dev", "python3", "-m", "build", "--sdist", "--outdir", str(DIST_DIR)
-        ], check=True)
-
+        subprocess.run(
+            ["conda", "run", "-n", "kbkit-dev", "python3", "-m", "build", "--sdist", "--outdir", str(DIST_DIR)],
+            check=True,
+        )
 
     if not dist_file.exists():
         print(f"Distribution file not found: {dist_file}", file=sys.stderr)
         sys.exit(1)
 
     print(f"Uploading {dist_file.name} to PyPI...")
-    subprocess.run([
-        "conda", "run", "-n", "kbkit-dev", "python", "-m", "twine", "upload", str(dist_file)
-    ], check=True)
+    subprocess.run(["conda", "run", "-n", "kbkit-dev", "python", "-m", "twine", "upload", str(dist_file)], check=True)
 
     # Update URL and SHA256 in meta.yaml
     new_url = f"https://files.pythonhosted.org/packages/source/k/kbkit/kbkit-{VERSION}.tar.gz"
     conda_content = re.sub(
-        r'^\s*(  url\s*:\s*)(["\']?).*?([\'\"]?)$',
-        rf'\1"{new_url}"',
-        conda_content,
-        flags=re.MULTILINE
+        r'^\s*(  url\s*:\s*)(["\']?).*?([\'\"]?)$', rf'\1"{new_url}"', conda_content, flags=re.MULTILINE
     )
 
     print("🔍 Fetching tarball from PyPI to compute SHA256...")
@@ -112,10 +101,7 @@ if PUBLISH:
 
     digest = hashlib.sha256(response.content).hexdigest()
     conda_content = re.sub(
-        r'^\s*(  sha256\s*:\s*)(["\']?).*?([\'\"]?)$',
-        rf'\1"{digest}"',
-        conda_content,
-        flags=re.MULTILINE
+        r'^\s*(  sha256\s*:\s*)(["\']?).*?([\'\"]?)$', rf'\1"{digest}"', conda_content, flags=re.MULTILINE
     )
 
     CONDA_META.write_text(conda_content)

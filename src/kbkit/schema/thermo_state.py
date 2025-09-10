@@ -119,3 +119,25 @@ class ThermoState:
     volume_bar: ThermoProperty
     molecule_rho: ThermoProperty
     molecule_counts: ThermoProperty
+
+    def to_dict(self) -> dict:
+        """Convert the ThermoState dataclass to a dictionary."""
+        return {field.name: getattr(self, field.name) for field in self.__dataclass_fields__.values()}
+
+    def get(self, property_name: str) -> ThermoProperty:
+        """
+        Retrieve a specific ThermoProperty by name.
+
+        Parameters
+        ----------
+        property_name : str
+            The name of the property to retrieve.
+
+        Returns
+        -------
+        ThermoProperty
+            The requested ThermoProperty instance.
+        """
+        if not hasattr(self, property_name):
+            raise AttributeError(f"ThermoState has no attribute '{property_name}'")
+        return getattr(self, property_name)

@@ -48,7 +48,7 @@ class Plotter:
         self.pipe = pipeline
 
         # create a dict of properties to plot to eliminate nested structures
-        self.property_map = self.pipe.to_dict()
+        self.property_map = self.pipe.results.to_dict()
 
         self.x_mol = x_mol
 

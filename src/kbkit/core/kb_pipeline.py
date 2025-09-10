@@ -111,7 +111,15 @@ class KBPipeline:
         self.properties = self._compute_properties()
 
         # 2. Map them into a ThermoState
-        return self._build_state(self.properties)
+        self._results = self._build_state(self.properties)
+        return self._results
+
+    @property
+    def results(self) -> ThermoState:
+        """ThermoState object containing all computed thermodynamic properties."""
+        if not hasattr(self, "_results"):
+            self.run()  # no attribute detected, run the pipeline
+        return self._results
 
     def _compute_properties(self) -> list[ThermoProperty]:
         """Compute ThermoProperties for all attributes of interest."""
@@ -163,7 +171,7 @@ class KBPipeline:
         np.ndarray
             Property in converted units.
         """
-        meta = self._extract_property_object(name)
+        meta = self.results.get(name)
 
         value = meta.value
         units = meta.units
@@ -176,26 +184,6 @@ class KBPipeline:
         except Exception as e:
             raise ValueError(f"Could not convert units from {units} to {target_units}") from e
 
-    def _extract_property_object(self, name: str) -> ThermoProperty:
-        """Get ThermoProperty object corresponding to `name` of property."""
-        if len(self.properties) == 0:
-            self.properties = self._compute_properties()
-        for meta in self.properties:
-            if meta.name.lower() == name.lower():
-                return meta
-        raise ValueError(
-            f"No property exists with name: {name}.\nAvailable thermodynamic properties: {self.available_properties()}"
-        )
-
     def available_properties(self) -> list[str]:
-        """Get list of available thermodynamic properties from `KBThermo`."""
-        if len(self.properties) == 0:
-            self.properties = self._compute_properties()
-        return [p.name.lower() for p in self.properties]
-
-    def to_dict(self) -> dict[str, NDArray[np.float64]]:
-        """Create a dictionary of properties calculated from :class:`KBThermo`."""
-        value_dict: dict[str, NDArray[np.float64]] = {}
-        value_dict["mol_fr"] = self.state.mol_fr
-        value_dict.update({meta.name: meta.value for meta in self.thermo.computed_properties()})
-        return value_dict
+        """Get list of available thermodynamic properties from `KBThermo` and `SystemState`."""
+        return list(self.results.to_dict().keys())

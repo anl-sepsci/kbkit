@@ -184,12 +184,12 @@ class RDFParser:
 
     def parse_gmx_rdf_header(self, top_molecules: list[str]) -> dict[str, str]:
         r"""Extract reference and selection molecule ID from rdf_file.
-        
+
         Parameters
         ----------
         top_molecules : list[str]
             List of molecule names from the topology to match against RDF file header.
-            
+
         Returns
         -------
         dict[str, str]
