@@ -63,10 +63,7 @@ class FileResolver:
 
         files = find_files(self.system_path, suffixes, self.ensemble)
         if len(files) == 0:
-            if role == "structure":  # .gro only used for electron counting; don't throw error
-                return ""
-            else:
-                raise FileNotFoundError(f"No file found for role '{role}'.")
+            raise FileNotFoundError(f"No file found for role '{role}'.")
         else:
             self.logger.debug(f"Resolved {role} => {Path(files[0]).name}")
             return files[0]

@@ -67,13 +67,13 @@ class SystemProperties:
             top_file = self.file_resolver.get_file("topology")
             discovered_files["topology"] = True
         except FileNotFoundError:
-            self.logger.warning("Topology file not found.")
+            self.logger.warning(f"Topology file not found in '{self.system_path}'.")
 
         try:
-            structure_file = self.file_resolver.get_file("structure")
+            structure_files = self.file_resolver.get_all("structure")
             discovered_files["structure"] = True
         except FileNotFoundError:
-            self.logger.warning("Structure file not found.")
+            self.logger.warning(f"Structure file not found in '{self.system_path}'.")
 
         try:
             energy_files = self.file_resolver.get_all("energy")
@@ -89,7 +89,10 @@ class SystemProperties:
         self.topology: Union[GroFileParser, TopFileParser]
 
         if discovered_files["structure"]:
-            self.topology = GroFileParser(structure_file, verbose=self.verbose)
+            for file in structure_files:
+                self.topology = GroFileParser(file, verbose=self.verbose)
+                if any(len(mol)>1 for mol in self.topology.molecules):
+                    break
         elif discovered_files["topology"]:
             self.topology = TopFileParser(top_file, verbose=self.verbose)
         else:
