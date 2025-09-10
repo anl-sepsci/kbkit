@@ -343,17 +343,33 @@ class Plotter:
             A fully populated PlotSpec object containing data and metadata for rendering.
         """
         if prop in ["lngammas", "dlngammas", "lngammas_fits", "dlngammas_fits"]:
-            fit_fns = None
+            fits = None
+            xfit = None
             if prop.endswith("fits"):
-                fit_fns = (
-                    self.pipe.thermo._lngamma_fn_dict if prop == "lngammas_fits" else self.pipe.thermo._dlngamma_fn_dict
-                )
+                if self.pipe.thermo.gamma_integration_type == "polynomial":
+                    xfit = np.arange(0, 1.01, 0.01, dtype=np.float64)
+                    fit_fns = (
+                        self.pipe.thermo._lngamma_fn_dict
+                        if prop == "lngammas_fits"
+                        else self.pipe.thermo._dlngamma_fn_dict
+                    )
+                    fits = {mol: fn(xfit) for mol, fn in fit_fns.items()}
+                elif self.pipe.thermo.gamma_integration_type == "numerical":
+                    dlng = self.pipe.thermo.dlngammas_dxs.value
+                    xfit = np.array(self.pipe.state.mol_fr[:, self._x_idx], dtype=np.float64)
+                    fits = {}
+                    for j, molj in enumerate(self.pipe.state.unique_molecules):
+                        xj = self.pipe.state.mol_fr[:, j]
+                        dlng[np.where(xj == 1)[0][0], j] = 0
+                        fits[molj] = dlng[:, j]
+
             return PlotSpec(
                 x_data=self.pipe.state.mol_fr,
                 y_data=self.property_map["lngammas"] if "dln" not in prop else self.property_map["dlngammas_dxs"],
                 ylabel=r"$\ln \gamma_{i}$" if "dln" not in prop else r"$\partial \ln(\gamma_{i})$ / $\partial x_{i}$",
                 filename=f"{prop}.png",
-                fit_fns=fit_fns,
+                xfit=xfit,
+                fits=fits,
                 multi=False,
             )
 
@@ -401,7 +417,7 @@ class Plotter:
         show: bool = True,
         cmap: str = "jet",
         marker: str = "o",
-    ) -> None:
+    ):
         """
         Render a binary system plot based on the provided PlotSpec.
 
@@ -443,9 +459,8 @@ class Plotter:
                     yi = spec.y_data[:, i]
                     ax.scatter(xi, yi, c=[colors[i]], marker=marker, label=self.molecule_map[mol])
 
-                    if spec.fit_fns:
-                        xfit = np.arange(0, 1.01, 0.01)
-                        ax.plot(xfit, spec.fit_fns[mol](xfit), c=colors[i], lw=2)
+                    if spec.fits is not None and spec.xfit is not None:
+                        ax.plot(spec.xfit, spec.fits[mol], c=colors[i], lw=2)
 
                 ax.legend(
                     loc="lower center",
@@ -478,13 +493,14 @@ class Plotter:
             plt.show()
         else:
             plt.close()
+        return fig, ax
 
     def _render_ternary_plot(
         self,
         property_name: str,
         cmap: str = "jet",
         show: bool = False,
-    ) -> None:
+    ):
         """
         Render a ternary system plot based on the provided PlotSpec.
 
@@ -532,6 +548,7 @@ class Plotter:
             plt.show()
         else:
             plt.close()
+        return fig, ax
 
     def available_properties(self) -> list[str]:
         r"""Print out the available properties to plot with :meth:`plot_property`."""
@@ -560,7 +577,7 @@ class Plotter:
         marker: str = "o",
         ylim: tuple[float, float] = (0.0, 0.0),
         show: bool = True,
-    ) -> None:
+    ):
         r"""
         Master plot function. Handles property selection, data prep, and plotting.
 
@@ -602,13 +619,13 @@ class Plotter:
         if system:
             # plot system kbis
             if prop_key == "kbi":
-                self.plot_system_kbi_analysis(system=system, units="cm^3/mol", cmap=cmap, show=show)
+                return self.plot_system_kbi_analysis(system=system, units="cm^3/mol", cmap=cmap, show=show)
 
             else:
                 print("WARNING: Invalid plot option specified! System specific include rdf and kbi.")
 
         elif prop_key == "kbi":
-            self.plot_kbis(units="cm^3/mol", cmap=cmap, show=show)
+            return self.plot_kbis(units="cm^3/mol", cmap=cmap, show=show)
 
         elif self.pipe.state.n_comp == BINARY_SYSTEM or prop_key in {
             "lngammas",
@@ -617,10 +634,10 @@ class Plotter:
             "dlngammas_fits",
         }:
             spec = self._get_plot_spec(prop_key)
-            self._render_binary_plot(spec, marker=marker, ylim=ylim, cmap=cmap, show=show)
+            return self._render_binary_plot(spec, marker=marker, ylim=ylim, cmap=cmap, show=show)
 
         elif self.pipe.state.n_comp == TERNARY_SYSTEM and prop_key in {"gm", "ge", "hmix", "se", "i0", "det_h"}:
-            self._render_ternary_plot(property_name=prop_key, cmap=cmap, show=show)
+            return self._render_ternary_plot(property_name=prop_key, cmap=cmap, show=show)
 
         elif self.pipe.state.n_comp > TERNARY_SYSTEM:
             print(

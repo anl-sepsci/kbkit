@@ -36,4 +36,5 @@ class PlotSpec:
     multi: bool = False
     y_data: Optional[NDArray[np.float64]] = None
     y_series: Optional[list[tuple[NDArray[np.float64], str, str, str]]] = None
-    fit_fns: Optional[dict[str, np.poly1d]] = None
+    xfit: Optional[NDArray[np.float64]] = None
+    fits: Optional[dict[str, NDArray[np.float64]]] = None
