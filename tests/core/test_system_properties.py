@@ -73,11 +73,10 @@ def test_file_registry(system):
     """
     Validate that the file registry correctly detects required input files.
 
-    Asserts presence of 'top', 'gro', and 'edr' keys in the registry.
+    Asserts presence of 'top' and 'edr' keys in the registry.
     """
     registry = system.file_registry
     assert "top" in registry
-    assert "gro" in registry
     assert "edr" in registry
 
 
@@ -177,7 +176,7 @@ def test_volume_fallback_from_gro(system):
     Verifies correct value and fallback logic.
     """
     system.energy.has_property = MagicMock(return_value=False)
-    system.structure.calculate_box_volume = MagicMock(return_value=1.0)
+    system.topology._calculate_box_volume = MagicMock(return_value=1.0)
     val = system.get("volume")
     assert val == 1.0
 
@@ -189,7 +188,7 @@ def test_volume_fallback_failure(system):
     Simulates ValueError from `calculate_box_volume`.
     """
     system.energy.has_property = MagicMock(return_value=False)
-    system.structure.calculate_box_volume = MagicMock(side_effect=ValueError("bad box"))
+    system.topology._calculate_box_volume = MagicMock(side_effect=ValueError("bad box"))
     with pytest.raises(ValueError, match="Alternative volume calculation from .gro file failed"):
         system.get("volume")
 

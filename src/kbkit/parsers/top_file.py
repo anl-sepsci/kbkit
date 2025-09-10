@@ -4,6 +4,8 @@ import re
 from functools import cached_property
 from typing import Any
 
+import numpy as np
+
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
@@ -23,11 +25,11 @@ class TopFileParser:
     """
 
     def __init__(self, top_path: str, verbose: bool = False):
-        self.top_path = validate_path(top_path, suffix=".top")
+        self.filepath = validate_path(top_path, suffix=".top")
         self.verbose = verbose
         self.skipped_lines: list[Any] = []
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
-        self.logger.info(f"Validated .top file: {self.top_path}")
+        self.logger.info(f"Validated .top file: {self.filepath}")
 
     def _is_valid_molecule_name(self, name: str) -> bool:
         # Allow letters, numbers, underscores, and hyphens
@@ -45,8 +47,8 @@ class TopFileParser:
         dict
             Dictionary containing molecules present and their number.
         """
-        self.logger.info(f"Reading topology file: {self.top_path}")
-        lines = self.top_path.read_text().splitlines()
+        self.logger.info(f"Reading topology file: {self.filepath}")
+        lines = self.filepath.read_text().splitlines()
         molecules = {}
         in_molecules_section = False
 
@@ -124,3 +126,13 @@ class TopFileParser:
     def total_molecules(self) -> int:
         """int: Total number of molecules present."""
         return sum(self.molecule_count.values())
+
+    @property
+    def electron_count(self) -> dict[str, int]:
+        """dict: Empty dict of electron counts."""
+        return {}
+
+    @property
+    def box_volume(self) -> float:
+        """float: NaN value for box volume."""
+        return np.nan

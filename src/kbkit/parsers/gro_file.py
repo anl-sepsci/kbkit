@@ -10,20 +10,6 @@ from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
 
-class _NullGroFileParser:
-    # objective is to mimic the interface but returns empty values
-    @property
-    def gro_path(self):
-        return ""
-
-    @property
-    def electron_count(self):
-        return {}
-
-    def calculate_box_volume(self):
-        return np.nan
-
-
 class GroFileParser:
     """
     Parse a single GROMACS .gro file to compute valence electron counts and box volume.
@@ -37,15 +23,32 @@ class GroFileParser:
     """
 
     def __init__(self, gro_path: str, verbose: bool = False) -> None:
-        self.gro_path = validate_path(gro_path, suffix=".gro")
+        self.filepath = validate_path(gro_path, suffix=".gro")
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
-        self.logger.info(f"Validated .gro file: {self.gro_path}")
-        self._universe = MDAnalysis.Universe(self.gro_path)
+        self.logger.info(f"Validated .gro file: {self.filepath}")
+        self._universe = MDAnalysis.Universe(self.filepath)
 
     @property
     def residues(self) -> MDAnalysis.core.groups.ResidueGroup:
         """mda.core.groups.ResidueGroup: Residues in the .gro file."""
         return self._universe.residues
+
+    @property
+    def molecule_count(self) -> dict[str, int]:
+        """dict[str, int]: Unique molecule residues and corresponding counts."""
+        resnames, counts = np.unique(self.residues.resnames, return_counts=True)
+        mol_dict = {res: int(count) for res, count in zip(resnames, counts, strict=False)}
+        return mol_dict
+
+    @property
+    def molecules(self) -> list[str]:
+        """list[str]: Names of molecules present."""
+        return list(self.molecule_count.keys())
+
+    @property
+    def total_molecules(self) -> int:
+        """int: Total number of molecules present."""
+        return sum(self.molecule_count.values())
 
     @property
     def atom_counts(self) -> dict[str, dict[str, int]]:
@@ -67,7 +70,12 @@ class GroFileParser:
             residue_electrons[resname] = total_electrons
         return residue_electrons
 
-    def calculate_box_volume(self) -> float:
+    @property
+    def box_volume(self) -> float:
+        """float: Box volume from last line of GROMACS .gro file."""
+        return self._calculate_box_volume()
+
+    def _calculate_box_volume(self) -> float:
         """
         Compute box volume from the last line of a GROMACS .gro file.
 

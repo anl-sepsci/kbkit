@@ -92,10 +92,14 @@ class FileResolver:
         """
         suffixes = self.ROLE_SUFFIXES.get(role)
         if not suffixes:
-            print(f"ValueError: Unknown role: '{role}'.")
-            return []
+            raise ValueError(f"Unknown role: '{role}'.")
+
+        files = find_files(self.system_path, suffixes, self.ensemble)
+        if len(files) == 0:
+            raise FileNotFoundError(f"No files found for '{role}'.")
         else:
-            return find_files(self.system_path, suffixes, self.ensemble)
+            self.logger.debug(f"Resolved {role} => {Path(files[0]).name}")
+            return files
 
     def has_file(self, role: str) -> bool:
         """

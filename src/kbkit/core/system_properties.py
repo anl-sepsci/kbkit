@@ -1,11 +1,12 @@
 """Unified interface for extracting molecular and system-level properties from GROMACS input files."""
 
 from pathlib import Path
+from typing import Union
 
 from kbkit.config.unit_registry import load_unit_registry
 from kbkit.data.property_resolver import ENERGY_ALIASES, get_gmx_unit, resolve_attr_key
 from kbkit.parsers.edr_file import EdrFileParser
-from kbkit.parsers.gro_file import GroFileParser, _NullGroFileParser
+from kbkit.parsers.gro_file import GroFileParser
 from kbkit.parsers.top_file import TopFileParser
 from kbkit.utils.file_resolver import FileResolver
 from kbkit.utils.format import resolve_units
@@ -47,6 +48,7 @@ class SystemProperties:
         self.system_path = Path(system_path)
         self.ensemble = ensemble.lower()
         self.start_time = start_time
+        self.verbose = verbose
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
         self.ureg = load_unit_registry()  # Load the unit registry for unit conversions
         self.Q_ = self.ureg.Quantity
@@ -54,15 +56,44 @@ class SystemProperties:
         # Set up file resolver
         self.file_resolver = FileResolver(self.system_path, self.ensemble, self.logger)
 
-        # File discovery and parser setup
-        top_file = self.file_resolver.get_file("topology")
-        self.topology = TopFileParser(top_file, verbose=verbose)
+        # discover files and setup parsers
+        self._discover_files()
 
-        structure_file = self.file_resolver.get_file("structure")
-        self.structure = GroFileParser(structure_file, verbose=verbose) if structure_file else _NullGroFileParser()
+    def _discover_files(self) -> None:
+        """Discover files and initialize their parsers."""
+        # log which files were discovered
+        discovered_files = {"topology": False, "structure": False, "energy": False}
+        try:
+            top_file = self.file_resolver.get_file("topology")
+            discovered_files["topology"] = True
+        except FileNotFoundError:
+            self.logger.warning("Topology file not found.")
 
-        energy_files = self.file_resolver.get_all("energy")
-        self.energy = EdrFileParser(energy_files, verbose=verbose)
+        try:
+            structure_file = self.file_resolver.get_file("structure")
+            discovered_files["structure"] = True
+        except FileNotFoundError:
+            self.logger.warning("Structure file not found.")
+
+        try:
+            energy_files = self.file_resolver.get_all("energy")
+            discovered_files["energy"] = True
+        except FileNotFoundError as e:
+            self.logger.error(f"Energy file(s) not found in '{self.system_path}'")
+            raise FileNotFoundError(f"Energy file(s) not found in '{self.system_path}'") from e
+
+        self.energy = EdrFileParser(energy_files, verbose=self.verbose)
+
+        # now debug so that at least one structure/topology is found
+        # Declare the type once, before the conditional
+        self.topology: Union[GroFileParser, TopFileParser]
+
+        if discovered_files["structure"]:
+            self.topology = GroFileParser(structure_file, verbose=self.verbose)
+        elif discovered_files["topology"]:
+            self.topology = TopFileParser(top_file, verbose=self.verbose)
+        else:
+            raise FileNotFoundError(f"No topology or structure file found in '{self.system_path}'")
 
     @property
     def file_registry(self) -> dict[str, Path | list[Path]]:
@@ -75,8 +106,7 @@ class SystemProperties:
             Dictionary mapping file types ("top", "gro", "edr") to their paths.
         """
         return {
-            "top": self.topology.top_path,
-            "gro": self.structure.gro_path,
+            "top": self.topology.filepath,
             "edr": self.energy.edr_path,
         }
 
@@ -114,14 +144,16 @@ class SystemProperties:
             if prop == "volume":
                 try:
                     self.logger.info("Using .gro file to estimate volume since .edr lacks volume data")
-                    vol = self.structure.calculate_box_volume()
+                    vol = self.topology.box_volume
                     vol_converted = float(self.Q_(vol, gmx_units).to(units).magnitude)
                     return (vol_converted, 0.0) if return_std else vol_converted
                 except ValueError as e:
                     self.logger.error(f"Volume estimation from .gro file failed: {e}")
                     raise ValueError(f"Alternative volume calculation from .gro file failed: {e}") from e
             else:
-                raise ValueError(f"GROMACS .edr file {self.file_registry['edr']} does not contain property: {prop}.")
+                raise ValueError(
+                    f"GROMACS .edr file '{self.file_registry['edr']}' does not contain property: '{prop}'."
+                )
 
         result = self.energy.average_property(name=prop, start_time=start_time, return_std=return_std)
         if isinstance(result, tuple):

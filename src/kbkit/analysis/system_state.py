@@ -157,7 +157,7 @@ class SystemState:
         uniq_elec_map: dict[str, float] = dict.fromkeys(self.top_molecules, 0)
         for meta in self.config.registry:
             mols = meta.props.topology.molecules
-            ecount = meta.props.structure.electron_count
+            ecount = meta.props.topology.electron_count
             for mol in mols:
                 if uniq_elec_map[mol] == 0 and ecount.get(mol) is not None:
                     uniq_elec_map[mol] = ecount.get(mol, 0)

@@ -84,7 +84,7 @@ def test_box_volume_calculation():
     gro_path, temp_dir = create_temp_gro_file()
     parser = GroFileParser(str(gro_path))
 
-    volume = parser.calculate_box_volume()
+    volume = parser.box_volume
     assert pytest.approx(volume, 0.001) == 1.0
 
     temp_dir.cleanup()
