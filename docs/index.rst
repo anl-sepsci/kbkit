@@ -84,7 +84,7 @@ For a full list of available commands:
 File Organization
 ------------------
 
-The KBKit workflow expects a directory structure that separates system-level simulations from pure component data. This organization supports reproducible KB analysis and automated parsing.
+KBKit expects a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
 
 .. code-block:: text
     :caption: KB Analysis File Structure
@@ -104,7 +104,26 @@ The KBKit workflow expects a directory structure that separates system-level sim
             ├── molecule1_npt.edr
             └── molecule1.top
 
-Each subdirectory is parsed by `kbkit.parsers` to extract RDFs, energies, and topologies for KB integrals. This modular layout ensures clarity and extensibility for new systems or molecules.
+**Requirements:**
+
+- Each **system** to be analyzed must include:
+  - `rdf_dir/` containing `.xvg` RDF files for all pairwise interactions
+  - `.top` topology file
+  - `.edr` energy file
+  - `.gro` structure file *(optional but recommended)*
+
+- Each **pure component** must include:
+  - `.top` topology file
+  - `.edr` energy file
+  - All other files *(optional)*
+
+These inputs are parsed by `kbkit.parsers` and fed into `kbkit.calculators` for Kirkwood-Buff integrals and thermodynamic predictions. The layout is designed for:
+
+- **Discoverability**: Clear separation of mixed vs. pure systems
+- **Reproducibility**: Consistent file naming and structure
+- **Extensibility**: Easy to add new molecules or systems
+
+For contributors, this structure ensures semantic clarity and minimizes onboarding friction. New systems can be added by replicating the folder pattern and updating input paths—no need to modify core logic.
 
 Indices and tables
 ===================
