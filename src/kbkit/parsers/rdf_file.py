@@ -229,7 +229,7 @@ class RDFParser:
         ylim: tuple[float, float] = (0.99, 1.01),
         line: bool = False,
         save_dir: Optional[str] = None,
-    ) -> None:
+    ):
         """
         Plot RDF with an inset showing a zoomed-in view of the specified region.
 
@@ -268,6 +268,7 @@ class RDFParser:
         main_ax.set_ylabel("g(r)")
         if save_dir is not None:
             plt.savefig(os.path.join(save_dir, self.rdf_file[:-4] + ".png"))
+        return fig, main_ax
 
     @staticmethod
     def extract_mols(text: str, mol_list: list[str]) -> list[str]:

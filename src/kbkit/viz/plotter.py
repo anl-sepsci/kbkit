@@ -260,6 +260,7 @@ class Plotter:
             plt.show()
         else:
             plt.close()
+        return fig, ax
 
     def plot_rdf_kbis(self, units: str = "cm^3/mol", show: bool = False) -> None:
         """
@@ -327,6 +328,7 @@ class Plotter:
             plt.show()
         else:
             plt.close()
+        return fig, ax
 
     def _get_plot_spec(self, prop: str) -> PlotSpec:
         """

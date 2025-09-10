@@ -260,7 +260,7 @@ class KBIntegrator:
         """
         return float(self.fit_kbi_inf()[0])
 
-    def plot(self, save_dir: Optional[str] = None) -> None:
+    def plot(self, save_dir: Optional[str] = None):
         """Plot RDF and the running KBI fit to thermodynamic limit.
 
         Parameters
@@ -292,3 +292,4 @@ class KBIntegrator:
         if save_dir is not None:
             plt.savefig(os.path.join(save_dir, self.rdf.rdf_file[:-4] + ".png"))
         plt.show()
+        return fig, ax

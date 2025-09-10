@@ -91,7 +91,7 @@ class SystemProperties:
         if discovered_files["structure"]:
             for file in structure_files:
                 self.topology = GroFileParser(file, verbose=self.verbose)
-                if any(len(mol)>1 for mol in self.topology.molecules):
+                if any(len(mol) > 1 for mol in self.topology.molecules):
                     break
         elif discovered_files["topology"]:
             self.topology = TopFileParser(top_file, verbose=self.verbose)
