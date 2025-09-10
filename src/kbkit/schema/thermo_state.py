@@ -122,7 +122,8 @@ class ThermoState:
 
     def to_dict(self) -> dict:
         """Convert the ThermoState dataclass to a dictionary."""
-        return {field.name: getattr(self, field.name) for field in self.__dataclass_fields__.values()}
+        state_dict = {field.name: getattr(self, field.name) for field in self.__dataclass_fields__.values()}
+        return {name: thermo.value for name, thermo in state_dict.items()}
 
     def get(self, property_name: str) -> ThermoProperty:
         """
