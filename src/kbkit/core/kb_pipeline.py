@@ -27,6 +27,8 @@ class KBPipeline:
         The base path where the systems are located. Defaults to the current working directory if empty string.
     base_systems : list, optional
         A list of base systems to include. If not provided, it will automatically detect systems in the base path.
+    rdf_dir : str, optional
+        The directory where RDF files are located within each system directory. If empty, it will search in the system directory itself. Defaults to an empty string.
     ensemble : str, optional
         The ensemble type for the systems, e.g., 'npt', 'nvt'. Defaults to 'npt'.
     cations : list, optional

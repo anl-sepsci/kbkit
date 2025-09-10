@@ -22,33 +22,40 @@
 
 ## Installation
 
-### Install via PyPI
-
-To install the latest stable release:
+### Quick install via PyPI
 
 ```python
 pip install kbkit
 ```
 
-### Install from source
+### Developer install (recommended for contributors or conda users)
 
-**KBKit** can be installed from cloning its github repository and creating an anaconda environment with dependencies.
+Clone the GitHub repository and use the provided Makefile to set up your development environment:
 
 ```python
 git clone https://github.com/aperoutka/kbkit.git
 cd kbkit
+make setup-dev
 ```
 
-Create an anaconda environment (`kbkit`) for users, from latest stable release:
+This one-liner creates the `kbkit-dev` conda environment, installs `kbkit` in editable mode, and runs the test suite.
+
+To install without running tests:
+
+```python
+make dev-install
+```
+
+To build and install the package into a clean user environment:
 
 ```python
 make setup-user
 ```
 
-Create an anaconda environment (`kbkit-dev`) for contributers, from current source:
+For a full list of available commands:
 
 ```python
-make setup-dev
+make help
 ```
 
 ## Examples
