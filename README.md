@@ -58,7 +58,7 @@ For a full list of available commands:
 make help
 ```
 
-## File Structure Requirements
+## File Organization
 
 For running `kbkit.core.KBPipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
 
