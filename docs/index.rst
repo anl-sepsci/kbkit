@@ -1,11 +1,7 @@
 KBKit: Kirkwood-Buff Analysis Toolkit
 ======================================
 
-.. image:: https://img.shields.io/github/v/release/aperoutka/kbkit?label=Latest%20Release&logo=github
-    :target: https://github.com/aperoutka/kbkit
-    :alt: Latest GitHub Release
-
-Check out our `latest release <https://github.com/aperoutka/kbkit/releases>`_ on GitHub for updates, changelogs, and tagged versions.
+Check out our `latest release <https://github.com/aperoutka/kbkit/releases>`_ on GitHub!
 
 .. toctree::
     :maxdepth: 1
