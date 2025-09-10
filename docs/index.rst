@@ -80,7 +80,11 @@ For a full list of available commands:
 File Organization
 ------------------
 
-KBKit expects a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
+For running `kbkit.core.KBPipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
+
+* NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
+
+An example of file organization:
 
 .. code-block:: text
     :caption: KB Analysis File Structure
@@ -102,16 +106,14 @@ KBKit expects a structured directory layout that separates mixed systems from pu
 
 **Requirements:**
 
-- Each **system** to be analyzed must include:
-  - `rdf_dir/` containing `.xvg` RDF files for all pairwise interactions
-  - `.top` topology file
-  - `.edr` energy file
-  - `.gro` structure file *(optional but recommended)*
-
-- Each **pure component** must include:
-  - `.top` topology file
-  - `.edr` energy file
-  - All other files *(optional)*
+* Each system to be analyzed must include:
+    * rdf_dir/ containing .xvg RDF files for all pairwise interactions
+    * either .top topology file or .gro structure file (.gro is recommended)
+    * .edr energy file
+* Each pure component must include:
+    * either .top topology file or .gro structure file (.gro is recommended)
+    * .edr energy file
+    * all other files (optional)
 
 These inputs are parsed by `kbkit.parsers` and fed into `kbkit.calculators` for Kirkwood-Buff integrals and thermodynamic predictions. The layout is designed for:
 
