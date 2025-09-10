@@ -171,7 +171,7 @@ class Plotter:
         alpha: float = 0.6,
         cmap: str = "jet",
         show: bool = False,
-    ) -> None:
+    ):
         """
         Plot KBI analysis results for a specific system. Creates a 1 x 3 subplot showing RDFs and KBIs including fit to the thermodynamic limit for all unique molecule pairs.
 
@@ -276,7 +276,7 @@ class Plotter:
         for system, _kbi_meta in self.pipe.calculator.kbi_metadata.items():
             self.plot_system_kbi_analysis(system, units=units, show=show)
 
-    def plot_kbis(self, units: str = "cm^3/mol", cmap: str = "jet", show: bool = False) -> None:
+    def plot_kbis(self, units: str = "cm^3/mol", cmap: str = "jet", show: bool = False):
         """
         Plot KBI values in the thermodynamic limit as a function of composition.
 
