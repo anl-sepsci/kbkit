@@ -45,11 +45,16 @@ class KBIntegrator:
     @property
     def mol_j(self) -> str:
         """str: Molecule j to be used in RDF integration for coordination number calculation."""
+        if not hasattr(self, "_mol_j"):
+            raise AttributeError(f"Molecule mol_j has not been defined!")
+        if len(self._mol_j) == 0:
+            raise ValueError(f"Molecule j cannot be empty str!")
         return self._mol_j
 
     @mol_j.setter
     def mol_j(self, value: str) -> str:
         """Set molecule j and validate molecule present in RDF molecules."""
+        # validate molecule j in rdf molecules
         if value not in self.rdf_molecules:
             raise ValueError(f"Molecule '{value}' not in rdf molecules '{self.rdf_molecules}'.")
         self._mol_j = value
@@ -258,14 +263,21 @@ class KBIntegrator:
         """
         Compute KBI in thermodynamic limit.
 
+        Parameters
+        ----------
+        mol_j: str
+            Molecule to use for RDF integration for coordination number calculation.
+
         Returns
         -------
         float
             KBI in the thermodynamic limit, which is the slope of the linear fit to the product
             of the length ratio and the KBI values.
         """
+        # set mol_j
         if len(mol_j) > 0:
             self.mol_j = mol_j
+        
         return float(self.fit_kbi_inf()[0])
 
     def plot(self, save_dir: Optional[str] = None):
