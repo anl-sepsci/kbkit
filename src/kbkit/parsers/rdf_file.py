@@ -25,8 +25,8 @@ class RDFParser:
     ----------
     rdf_file : str
         Path to the RDF file containing radial distances and corresponding g(r) values.
-    rdf_convergence : tuple of float, optional
-        Tuple containing convergence thresholds for slope and standard deviation of g(r). Default is (5e-3, 5e-3).
+    use_fixed_rmin : bool, optional
+        Used fixed rmin (last 0.5 nm) for fitting running KBI. (default: False)
     """
 
     def __init__(self, rdf_file: str | Path, use_fixed_rmin: bool = False) -> None:
