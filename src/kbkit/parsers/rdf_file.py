@@ -29,12 +29,14 @@ class RDFParser:
         Used fixed rmin (last 0.5 nm) for fitting running KBI. (default: False)
     """
 
-    def __init__(self, rdf_file: str | Path, use_fixed_rmin: bool = False) -> None:
+    def __init__(
+        self, rdf_file: str | Path, use_fixed_rmin: bool = False, convergence_threshold: float = 0.005
+    ) -> None:
         self.rdf_file = validate_path(rdf_file, suffix=".xvg")
         # read rdf_file
         self._read()
         # make sure rdf is converged
-        self.is_converged = self.convergence_check()
+        self.is_converged = self.convergence_check(convergence_threshold=convergence_threshold)
         # optionally fix rmin to max possible value
         if use_fixed_rmin:
             self._rmin = self.rmax - 0.5
@@ -57,22 +59,9 @@ class RDFParser:
         except Exception as e:
             raise RuntimeError(f"Unexpected error reading '{self.rdf_file}': {e}") from e
 
-        # compute std for tail noise
-        try:
-            gstd = np.array([np.nanstd(g[i - 1 : i + 1]) for i in range(1, len(g) + 1)])
-        except Exception as e:
-            raise RuntimeError(f"Failed to compute g(r) standard deviation: {e}") from e
-
-        # mask noisy tail
-        RDF_THRESH = 0.01
-
-        try:
-            mask = ((gstd > RDF_THRESH) | (gstd == 0)) & (r > r.max() - 1)
-            self._r = r[~mask]
-            self._g = g[~mask]
-            self._rmin = self._r.max() - 1
-        except Exception as e:
-            raise RuntimeError(f"Failed to filter RDF tail or set class properties: {e}") from e
+        self._r = r[:-3]
+        self._g = g[:-3]
+        self._rmin = self._r.max() - 1
 
     @property
     def r(self) -> NDArray[np.float64]:
@@ -125,7 +114,6 @@ class RDFParser:
     def convergence_check(
         self,
         convergence_threshold: float = 5e-3,
-        flatness_threshold: float = 5e-3,
         max_attempts: int = 10,
     ) -> bool:
         """
@@ -160,26 +148,22 @@ class RDFParser:
             except Exception as e:
                 raise RuntimeError(f"Failed to cpute slope via polyfit: {e}") from e
 
-            # calculate standard deviation
-            std_dev = np.nanstd(g)
-
             # perform checks
-            if abs(slope) < convergence_threshold and std_dev < flatness_threshold:
+            if abs(slope) < convergence_threshold:
                 return True
 
             # Adjust rmin to expand cutoff region slightly
             self.rmin += 0.1 * (self.rmax - self.rmin)
 
             # if rmin too close to rmax stop iterating
-            if self.rmin >= self.rmax - 0.2:
+            if self.rmin >= self.rmax - 0.5:
                 break
 
         # if convergence not acheived
         print(
             f"Convergence not achieved after {max_attempts} attempts for {self.rdf_file.name} "
             f"in system {self.rdf_file.parent.parent.name}; "
-            f"slope (thresh={convergence_threshold}) {slope:.4g}, "
-            f"stdev (thresh={flatness_threshold}) {std_dev:.4g}, "
+            f"slope (thresh={convergence_threshold:.4g}) {slope:.4g}, "
         )
         self.rmin = self.rmax - 0.2  # reset rmin to max possible safe value
         return False

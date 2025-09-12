@@ -38,17 +38,25 @@ class KBIntegrator:
         SystemProperties object.
     """
 
-    def __init__(self, rdf_file: str | Path, system_properties: SystemProperties, use_fixed_rmin: bool = False) -> None:
-        self.rdf = RDFParser(rdf_file=rdf_file, use_fixed_rmin=use_fixed_rmin)
+    def __init__(
+        self,
+        rdf_file: str | Path,
+        system_properties: SystemProperties,
+        use_fixed_rmin: bool = False,
+        convergence_threshold: float = 0.005,
+    ) -> None:
+        self.rdf = RDFParser(
+            rdf_file=rdf_file, use_fixed_rmin=use_fixed_rmin, convergence_threshold=convergence_threshold
+        )
         self.system_properties = system_properties
 
     @property
     def mol_j(self) -> str:
         """str: Molecule j to be used in RDF integration for coordination number calculation."""
         if not hasattr(self, "_mol_j"):
-            raise AttributeError(f"Molecule mol_j has not been defined!")
+            raise AttributeError("Molecule mol_j has not been defined!")
         if len(self._mol_j) == 0:
-            raise ValueError(f"Molecule j cannot be empty str!")
+            raise ValueError("Molecule j cannot be empty str!")
         return self._mol_j
 
     @mol_j.setter
@@ -81,7 +89,9 @@ class KBIntegrator:
         )
         MAGIC_TWO = 2
         if len(molecules) != MAGIC_TWO:
-            raise ValueError(f"Number of molecules detected in RDF calculation is '{len(molecules)}', expected 2.")
+            raise ValueError(
+                f"Number of molecules detected in RDF calculation is '{len(molecules)}', expected 2. Check that filname is appropriately named."
+            )
         return molecules
 
     def kd(self) -> int:
@@ -277,7 +287,7 @@ class KBIntegrator:
         # set mol_j
         if len(mol_j) > 0:
             self.mol_j = mol_j
-        
+
         return float(self.fit_kbi_inf()[0])
 
     def plot(self, save_dir: Optional[str] = None):

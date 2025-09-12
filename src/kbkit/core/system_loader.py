@@ -309,7 +309,7 @@ class SystemLoader:
             # find first dir with rdf in name
             else:
                 for subdir in meta.path.iterdir():
-                    if subdir.is_dir() and any("rdf" in p.name.lower() for p in subdir.iterdir()):
+                    if subdir.is_dir() and ("rdf" in subdir.name):
                         new_meta = replace(meta, rdf_path=subdir)
                         if new_meta:
                             updated_metadata[m] = new_meta

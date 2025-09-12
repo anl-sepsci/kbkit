@@ -41,6 +41,10 @@ class KBPipeline:
         If True, enables verbose output during processing. Defaults to False.
     use_fixed_r : bool, optional
         If True, uses a fixed cutoff radius for KBI calculations. Defaults to True.
+    force: bool, optional
+        If True, will ignore the error that RDF is not converged and perform calculations with NaN values for not converged system. Default to False.
+    rdf_convergence_threshold: float, optional
+        Set the threshold for a converged RDF. Default to `0.005`.
     gamma_integration_type : str, optional
         The type of integration to use for gamma calculations. Defaults to 'numerical'.
     gamma_polynomial_degree : int, optional
@@ -70,6 +74,7 @@ class KBPipeline:
         verbose: bool = False,
         use_fixed_r: bool = True,
         force: bool = False,
+        rdf_convergence_threshold: float = 0.005,
         gamma_integration_type: str = "numerical",
         gamma_polynomial_degree: int = 5,
     ) -> None:
@@ -91,7 +96,9 @@ class KBPipeline:
         self.state = SystemState(self.config)
 
         # create KBI calculator
-        self.calculator = KBICalculator(state=self.state, use_fixed_r=use_fixed_r, force=force)
+        self.calculator = KBICalculator(
+            state=self.state, use_fixed_r=use_fixed_r, force=force, rdf_convergence_threshold=rdf_convergence_threshold
+        )
         kbi_matrix = self.calculator.calculate()
 
         # create thermo object

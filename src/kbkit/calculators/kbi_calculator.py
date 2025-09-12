@@ -31,10 +31,13 @@ class KBICalculator:
         Dictionary mapping system names to lists of KBI metadata objects.
     """
 
-    def __init__(self, state: SystemState, use_fixed_r: bool, force: bool = False) -> None:
+    def __init__(
+        self, state: SystemState, use_fixed_r: bool, force: bool = False, rdf_convergence_threshold: float = 0.005
+    ) -> None:
         self.state = state
         self.use_fixed_r = use_fixed_r
         self.force = force
+        self.rdf_convergence_threshold = rdf_convergence_threshold
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
 
     def calculate(self, corrected: bool = True) -> NDArray[np.float64]:
@@ -98,7 +101,10 @@ class KBICalculator:
             for filepath in rdf_files:
                 # integrate rdf --> kbi calc
                 integrator = KBIntegrator(
-                    rdf_file=filepath, system_properties=meta.props, use_fixed_rmin=self.use_fixed_r
+                    rdf_file=filepath,
+                    system_properties=meta.props,
+                    use_fixed_rmin=self.use_fixed_r,
+                    convergence_threshold=self.rdf_convergence_threshold,
                 )
 
                 # get molecules present in rdf
