@@ -20,22 +20,23 @@ class FileResolver:
         "log": [".log"],
         "index": [".ndx"],
         "metadata": [".json", ".yaml"],
+        "rdf": [".xvg"],
     }
 
-    def __init__(self, system_path: Path, ensemble: str, logger: logging.Logger | None = None) -> None:
+    def __init__(self, filepath: Path, ensemble: str = "", logger: logging.Logger | None = None) -> None:
         """
         Initialize a FileResolver for a given system directory and ensemble.
 
         Parameters
         ----------
-        system_path : Path
+        filepath : Path
             Root directory containing simulation files.
-        ensemble : str
+        ensemble : str, optional
             Ensemble name used to refine file matching (e.g., "npt", "nvt").
         logger : logging.Logger, optional
             Custom logger instance. If None, a default logger is created.
         """
-        self.system_path = system_path
+        self.filepath = filepath
         self.ensemble = ensemble
         self.logger = logger or get_logger(f"{__name__}.{self.__class__.__name__}", verbose=False)
 
@@ -61,7 +62,7 @@ class FileResolver:
         if not suffixes:
             raise ValueError(f"Unknown file role: {role}")
 
-        files = find_files(self.system_path, suffixes, self.ensemble)
+        files = find_files(self.filepath, suffixes, self.ensemble)
         if len(files) == 0:
             raise FileNotFoundError(f"No file found for role '{role}'.")
         else:
@@ -91,7 +92,7 @@ class FileResolver:
         if not suffixes:
             raise ValueError(f"Unknown role: '{role}'.")
 
-        files = find_files(self.system_path, suffixes, self.ensemble)
+        files = find_files(self.filepath, suffixes, self.ensemble)
         if len(files) == 0:
             raise FileNotFoundError(f"No files found for '{role}'.")
         else:

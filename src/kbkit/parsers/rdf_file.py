@@ -2,6 +2,7 @@
 
 import os
 import re
+from pathlib import Path
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -9,6 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from kbkit.config.mplstyle import load_mplstyle
+from kbkit.utils.validation import validate_path
 
 load_mplstyle()  # load mpl figure configuration
 
@@ -27,8 +29,8 @@ class RDFParser:
         Tuple containing convergence thresholds for slope and standard deviation of g(r). Default is (5e-3, 5e-3).
     """
 
-    def __init__(self, rdf_file: str, use_fixed_rmin: bool = True) -> None:
-        self.rdf_file = rdf_file
+    def __init__(self, rdf_file: str | Path, use_fixed_rmin: bool = False) -> None:
+        self.rdf_file = validate_path(rdf_file, suffix=".xvg")
         # read rdf_file
         self._read()
         # make sure rdf is converged
@@ -174,54 +176,13 @@ class RDFParser:
 
         # if convergence not acheived
         print(
-            f"Convergence not achieved after {max_attempts} attempts for {os.path.basename(self.rdf_file)} "
-            f"in system {os.path.basename(os.path.dirname(os.path.dirname(self.rdf_file)))}; "
+            f"Convergence not achieved after {max_attempts} attempts for {self.rdf_file.name} "
+            f"in system {self.rdf_file.parent.parent.name}; "
             f"slope (thresh={convergence_threshold}) {slope:.4g}, "
             f"stdev (thresh={flatness_threshold}) {std_dev:.4g}, "
         )
         self.rmin = self.rmax - 0.2  # reset rmin to max possible safe value
         return False
-
-    def parse_gmx_rdf_header(self, top_molecules: list[str]) -> dict[str, str]:
-        r"""Extract reference and selection molecule ID from rdf_file.
-
-        Parameters
-        ----------
-        top_molecules : list[str]
-            List of molecule names from the topology to match against RDF file header.
-
-        Returns
-        -------
-        dict[str, str]
-            Dictionary with keys 'ref' and 'sel' for reference and selection molecule IDs.
-        """
-        with open(self.rdf_file) as f:
-            lines = f.readlines()
-
-        ref_str = sel_str = ""
-
-        # Extract from command line
-        for line in lines:
-            # Extract reference group name from subtitle
-            if line.strip().startswith("@ subtitle"):
-                ref_str = line.split('"')[-2] if '"' in line else line.split()[-1]
-            # Extract selection group name from legend
-            if line.strip().startswith("@ s0 legend"):
-                sel_str = line.split('"')[-2] if '"' in line else line.split()[-1]
-            # Stop after header
-            if not any(line.strip().startswith(prefix) for prefix in ["#", "@"]):
-                if all(var is not None for var in [ref_str, sel_str]):
-                    break
-
-        ref_name = RDFParser.extract_mols(ref_str, top_molecules)
-        sel_name = RDFParser.extract_mols(sel_str, top_molecules)
-
-        if len(ref_name) == 0:
-            raise ValueError(f"No match found for '{ref_str}' and {top_molecules}")
-        if len(sel_name) == 0:
-            raise ValueError(f"No match found for '{sel_str}' and {top_molecules}")
-
-        return {"ref": ref_name[0], "sel": sel_name[0]}
 
     def plot(
         self,
@@ -267,11 +228,12 @@ class RDFParser:
         main_ax.set_xlabel("r / nm")
         main_ax.set_ylabel("g(r)")
         if save_dir is not None:
-            plt.savefig(os.path.join(save_dir, self.rdf_file[:-4] + ".png"))
+            rdf_name = str(self.rdf_file.name).strip(".xvg")
+            plt.savefig(os.path.join(save_dir, rdf_name + ".png"))
         return fig, main_ax
 
     @staticmethod
-    def extract_mols(text: str, mol_list: list[str]) -> list[str]:
+    def extract_molecules(text: str, mol_list: list[str]) -> list[str]:
         """
         Extract molecule names used in RDF from the RDF file name.
 

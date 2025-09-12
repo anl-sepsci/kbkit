@@ -25,10 +25,10 @@ class KBIntegrator:
     ----------
     rdf_file : str
         Path to the RDF file containing radial distances and corresponding g(r) values.
-    use_fixed_rmin : bool
-        Whether to use a fixed minimum distance (rmin) for analysis.
     system_properties : SystemProperties
         SystemProperties object containing information about the system, including topology and box dimensions.
+    use_fixed_rmin : bool, optional
+        Whether to use a fixed minimum distance (rmin) for analysis (default: False).
 
     Attributes
     ----------
@@ -38,11 +38,22 @@ class KBIntegrator:
         SystemProperties object.
     """
 
-    def __init__(self, rdf_file: str | Path, use_fixed_rmin: bool, system_properties: SystemProperties) -> None:
-        self.rdf = RDFParser(rdf_file=str(rdf_file), use_fixed_rmin=use_fixed_rmin)
+    def __init__(self, rdf_file: str | Path, system_properties: SystemProperties, use_fixed_rmin: bool = False) -> None:
+        self.rdf = RDFParser(rdf_file=rdf_file, use_fixed_rmin=use_fixed_rmin)
         self.system_properties = system_properties
 
-        self._rdf_info = self.rdf.parse_gmx_rdf_header(top_molecules=self.system_properties.topology.molecules)
+    @property
+    def mol_j(self) -> str:
+        """str: Molecule j to be used in RDF integration for coordination number calculation."""
+        return self._mol_j
+
+    @mol_j.setter
+    def mol_j(self, value: str) -> str:
+        """Set molecule j and validate molecule present in RDF molecules."""
+        if value not in self.rdf_molecules:
+            raise ValueError(f"Molecule '{value}' not in rdf molecules '{self.rdf_molecules}'.")
+        self._mol_j = value
+        return self._mol_j
 
     def box_vol(self) -> float:
         """Return the volume of the system box in nm^3."""
@@ -50,17 +61,6 @@ class KBIntegrator:
         if isinstance(vol, tuple):
             vol = vol[0]
         return float(vol)
-
-    @property
-    def molecule_info(self) -> dict[str, str]:
-        """Get the molecules present in RDF file and their corresponding type.
-
-        Returns
-        -------
-        dict[str,str]
-            Dictionary of molecule type (ref, sel) and the molecule ID.
-        """
-        return self._rdf_info
 
     @property
     def rdf_molecules(self) -> list[str]:
@@ -71,18 +71,24 @@ class KBIntegrator:
         list
             List of molecule IDs used in RDF file.
         """
-        return list(self.molecule_info.values())
+        molecules = RDFParser.extract_molecules(
+            text=self.rdf.rdf_file.name, mol_list=self.system_properties.topology.molecules
+        )
+        MAGIC_TWO = 2
+        if len(molecules) != MAGIC_TWO:
+            raise ValueError(f"Number of molecules detected in RDF calculation is '{len(molecules)}', expected 2.")
+        return molecules
 
     def kd(self) -> int:
         """Return the Kronecker delta between molecules in RDF, i.e., determines if molecules :math:`i,j` are the same (returns True)."""
-        if len(set(self.rdf_molecules)) == 1:
+        if len(np.unique(self.rdf_molecules)) == 1:
             return 1
         else:
             return 0
 
     def n_j(self) -> int:
         """Return the number of molecule :math:`j` in the system."""
-        return self.system_properties.topology.molecule_count[self.molecule_info["ref"]]
+        return self.system_properties.topology.molecule_count[self.mol_j]
 
     def g_gv(self) -> NDArray[np.float64]:
         r"""
@@ -248,7 +254,7 @@ class KBIntegrator:
         fit_params = np.polyfit(lam[self.rdf.r_mask], lam_kbi[self.rdf.r_mask], 1)
         return fit_params  # return fit
 
-    def integrate(self) -> float:
+    def integrate(self, mol_j: str = "") -> float:
         """
         Compute KBI in thermodynamic limit.
 
@@ -258,6 +264,8 @@ class KBIntegrator:
             KBI in the thermodynamic limit, which is the slope of the linear fit to the product
             of the length ratio and the KBI values.
         """
+        if len(mol_j) > 0:
+            self.mol_j = mol_j
         return float(self.fit_kbi_inf()[0])
 
     def plot(self, save_dir: Optional[str] = None):
@@ -287,9 +295,10 @@ class KBIntegrator:
         ax[1].set_xlabel(r"$\lambda$")
         ax[1].set_ylabel(r"$\lambda$ G$_{ij}$ / nm$^3$")
         fig.suptitle(
-            f"KBI Analysis for system: {os.path.basename(self.system_properties.system_path)} {self.molecule_info['sel']}-{self.molecule_info['ref']}"
+            f"KBI Analysis for system: {os.path.basename(self.system_properties.system_path)} {self.rdf_molecules[0]}-{self.rdf_molecules[1]}"
         )
         if save_dir is not None:
-            plt.savefig(os.path.join(save_dir, self.rdf.rdf_file[:-4] + ".png"))
+            rdf_name = str(self.rdf.rdf_file.name).strip(".xvg")
+            plt.savefig(os.path.join(save_dir, rdf_name + ".png"))
         plt.show()
         return fig, ax

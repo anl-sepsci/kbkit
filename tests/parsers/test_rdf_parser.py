@@ -83,17 +83,17 @@ def test_rdf_parser_r_mask_bounds(mock_rdf_file):
     assert np.all(parser.r[mask] <= parser.rmax)
 
 
-def test_rdf_parser_extract_mols():
+def test_rdf_parser_extract_molecules():
     """Test molecule name extraction from RDF filename."""
     filename = "rdf_Na_Cl.xvg"
-    mols = RDFParser.extract_mols(filename, ["Na", "Cl", "H2O"])
+    mols = RDFParser.extract_molecules(filename, ["Na", "Cl", "H2O"])
     assert set(mols) == {"Na", "Cl"}
 
 
-def test_rdf_parser_extract_mols_empty():
-    """Test extract_mols returns empty list when no matches are found."""
+def test_rdf_parser_extract_molecules_empty():
+    """Test extract_molecules returns empty list when no matches are found."""
     filename = "rdf_unknown.xvg"
-    mols = RDFParser.extract_mols(filename, ["Na", "Cl"])
+    mols = RDFParser.extract_molecules(filename, ["Na", "Cl"])
     assert mols == []
 
 
@@ -115,5 +115,5 @@ def test_rdf_parser_plot(mock_rdf_file, tmp_path):
     """Test that RDFParser.plot() runs and saves a file without error."""
     parser = RDFParser(mock_rdf_file)
     parser.plot(save_dir=str(tmp_path))
-    output_file = tmp_path / (parser.rdf_file[:-4] + ".png")
+    output_file = tmp_path / (str(parser.rdf_file.name)[:-4] + ".png")
     assert output_file.exists()

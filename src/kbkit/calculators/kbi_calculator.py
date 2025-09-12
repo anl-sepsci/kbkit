@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 from kbkit.analysis.kb_integrator import KBIntegrator
 from kbkit.analysis.system_state import SystemState
 from kbkit.schema.kbi_metadata import KBIMetadata
-from kbkit.utils.validation import validate_path
+from kbkit.utils.file_resolver import FileResolver
 
 
 class KBICalculator:
@@ -90,31 +90,28 @@ class KBICalculator:
             if not meta.has_rdf():
                 continue
 
-            # read all rdf_files
-            for filepath in meta.rdf_path.iterdir():
-                # if hidden file skip or not readable
-                if filepath.name.startswith("."):
-                    continue
-                # if filepath not valid skip system
-                try:
-                    validate_path(filepath, suffix=".xvg")
-                except Exception:
-                    print(f"WARNING: filepath '{filepath}' not valid. Skipping this system.")
-                    continue
+            # get all rdf files present
+            file_res = FileResolver(filepath=meta.rdf_path)
+            rdf_files = file_res.get_all(role="rdf")
 
+            # read all rdf_files
+            for filepath in rdf_files:
                 # integrate rdf --> kbi calc
                 integrator = KBIntegrator(
-                    rdf_file=filepath, use_fixed_rmin=self.use_fixed_r, system_properties=meta.props
+                    rdf_file=filepath, system_properties=meta.props, use_fixed_rmin=self.use_fixed_r
                 )
 
-                # extract molecule pair from rdf_file
-                i, j = [self.state._get_mol_idx(mol, self.state.top_molecules) for mol in integrator.rdf_molecules]
+                # get molecules present in rdf
+                mol_i, mol_j = integrator.rdf_molecules
+
+                # get molecule indices
+                i = self.state._get_mol_idx(mol_i, self.state.top_molecules)
+                j = self.state._get_mol_idx(mol_j, self.state.top_molecules)
 
                 # if convergence is met, store kbi value
                 if integrator.rdf.is_converged:
-                    kbi = integrator.integrate()
-                    kbis[s, i, j] = kbi
-                    kbis[s, j, i] = kbi
+                    kbis[s, i, j] = integrator.integrate(mol_j=mol_j)
+                    kbis[s, j, i] = integrator.integrate(mol_j=mol_i)
                 # override convergence check to skip system if not converged
                 else:  # for not converged rdf
                     msg = f"RDF for system '{meta.name}' and pair {integrator.rdf_molecules} did not converge."
@@ -125,13 +122,11 @@ class KBICalculator:
                         raise RuntimeError(msg)
 
                 # add values to metadata
-                self._populate_kbi_metadata(system=meta.name, rdf_mols=integrator.rdf_molecules, integrator=integrator)
+                self._populate_kbi_metadata(system=meta.name, integrator=integrator)
 
         return kbis
 
-    def _populate_kbi_metadata(
-        self, system: str, rdf_mols: tuple[str, ...] | list[str], integrator: KBIntegrator
-    ) -> None:
+    def _populate_kbi_metadata(self, system: str, integrator: KBIntegrator) -> None:
         r"""
         Populate KBI metadata dictionary with integration results for a given RDF file.
 
@@ -148,14 +143,12 @@ class KBICalculator:
         ----------
         system : str
             Name of the system being processed.
-        rdf_mols : tuple[str, str]
-            Pair of molecules associated with the RDF file.
         integrator : KBIntegrator
             Integrator object containing RDF and KBI data.
         """
         self.kbi_metadata.setdefault(system, []).append(
             KBIMetadata(
-                mols=tuple(rdf_mols),
+                mols=tuple(integrator.rdf_molecules),
                 r=integrator.rdf.r,
                 g=integrator.rdf.g,
                 rkbi=(rkbi := integrator.rkbi()),

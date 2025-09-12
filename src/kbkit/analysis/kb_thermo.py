@@ -361,6 +361,11 @@ class KBThermo:
         """
         return self.dmui_dxj.value / self.state.total_molecules[:, np.newaxis, np.newaxis]
 
+    def _set_pure_to_zero(self, array: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Set value of array to zero where value is pure component."""
+        array[np.where(self.state.mol_fr == 1)] = 0
+        return array
+
     @register_property("dmui_dxi", "kJ/mol")
     def dmui_dxi(self) -> NDArray[np.float64]:
         r"""
@@ -415,7 +420,7 @@ class KBThermo:
         with np.errstate(divide="ignore", invalid="ignore"):  # avoids zeros in mfr
             mfr_dmui_product = mfr[:, :-1] * dmui_dxi[:, :-1]
             dmui_dxi[:, -1] = mfr_dmui_product.sum(axis=1) / mfr[:, -1]
-        return dmui_dxi
+        return self._set_pure_to_zero(dmui_dxi)  # replace values of pure component with 0
 
     @register_property("dlngammas_dxs", "")
     def dlngammas_dxs(self) -> NDArray[np.float64]:
@@ -454,7 +459,7 @@ class KBThermo:
         factor = 1 / (self.gas_constant * self.state.temperature()[:, np.newaxis])
         with np.errstate(divide="ignore", invalid="ignore"):
             lng_dx = factor * self.dmui_dxi.value - 1 / self.state.mol_fr
-        return lng_dx
+        return self._set_pure_to_zero(lng_dx)
 
     def _get_ref_state_dict(self, mol: str) -> dict[str, object]:
         """Return reference state parameters for a molecule."""
@@ -597,7 +602,7 @@ class KBThermo:
                     raise ValueError(
                         f"Length mismatch between lngammas: {len(lng)} and lngammas matrix: {ln_gammas.shape[0]}. Details: {ve}."
                     ) from ve
-        return ln_gammas
+        return self._set_pure_to_zero(ln_gammas)
 
     def dlngammas_polynomial_integration(
         self, xi: np.ndarray, dlng: np.ndarray, mol: str, polynomial_degree: int = 5
@@ -685,7 +690,10 @@ class KBThermo:
             - :math:`x_i` is mol fraction of molecule :math:`i`
             - :math:`\gamma_i` is activity coefficient of molecule :math:`i`
         """
-        return self.gas_constant * self.state.temperature() * (self.state.mol_fr * self.lngammas.value).sum(axis=1)
+        ge = self.gas_constant * self.state.temperature() * (self.state.mol_fr * self.lngammas.value).sum(axis=1)
+        # where any system contains a pure component, set excess to zero
+        ge[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
+        return ge
 
     @register_property("gid", "kJ/mol")
     def gid(self) -> NDArray[np.float64]:
@@ -713,12 +721,13 @@ class KBThermo:
             - :math:`x_i` is mol fraction of molecule :math:`i`
         """
         with np.errstate(divide="ignore", invalid="ignore"):
-            GID = (
+            gid = (
                 self.gas_constant
                 * self.state.temperature()
                 * (self.state.mol_fr * np.log(self.state.mol_fr)).sum(axis=1)
             )
-        return np.asarray(GID)
+        gid[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
+        return gid
 
     @register_property("gm", "kJ/mol")
     def gm(self) -> NDArray[np.float64]:
@@ -742,7 +751,9 @@ class KBThermo:
         .. math::
             \Delta G_{mix} = G^E + G^{id}
         """
-        return self.ge.value + self.gid.value
+        gm = self.ge.value + self.gid.value
+        gm[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
+        return gm
 
     @register_property("se", "kJ/mol/K")
     def se(self) -> NDArray[np.float64]:
@@ -766,7 +777,9 @@ class KBThermo:
         .. math::
             S^E = \frac{\Delta H_{mix} - G^E}{T}
         """
-        return (self.state.h_mix() - self.ge.value) / self.state.temperature()
+        se = (self.state.h_mix() - self.ge.value) / self.state.temperature()
+        se[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
+        return se
 
     @register_property("i0", "1/cm")
     def i0(self) -> NDArray[np.float64]:
