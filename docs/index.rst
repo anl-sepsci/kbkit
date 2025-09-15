@@ -12,6 +12,8 @@ Check out our `latest release <https://github.com/aperoutka/kbkit/releases>`_ on
     kbkit.calculators
     kbkit.core
     kbkit.parsers
+    kbkit.schema
+    kbkit.utils
     kbkit.viz.plotter
 
 
