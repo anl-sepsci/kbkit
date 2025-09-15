@@ -1,7 +1,7 @@
 Logging
 =====================================
 
-.. automodule:: kbkit.uitls.logging
+.. automodule:: kbkit.utils.logging
    :members:
    :undoc-members:
    :show-inheritance:
