@@ -104,7 +104,7 @@ class KBThermo:
 
         Notes
         -----
-        Elements of **A**:math:`\textbf{^{-1}}` are calculated for molecules :math:`i,j`, using the formula:
+        Elements of **A** :math:`^{-1}` are calculated for molecules :math:`i,j`, using the formula:
 
         .. math::
             A_{ij}^{-1} = \rho x_i x_j G_{ij} + x_i \delta_{i,j}
@@ -541,8 +541,8 @@ class KBThermo:
             \ln{\gamma_i}(x_i) = \int_{a_0}^{x_i} \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right) dx_i
 
         The integration method is chosen by the `integration_type` argument:
-        - "numerical": trapezoidal rule (see :meth:`dlngammas_numerical_integration`)
-        - "polynomial": polynomial fit and integration (see :meth:`dlngammas_polynomial_integration`)
+            * "numerical": trapezoidal rule (see :meth:`dlngammas_numerical_integration`)
+            * "polynomial": polynomial fit and integration (see :meth:`dlngammas_polynomial_integration`)
         """
         integration_type = integration_type.lower()
         dlng_dxs = self.dlngammas_dxs.value  # avoid repeated calls
@@ -690,17 +690,13 @@ class KBThermo:
         .. math::
            \ln{\gamma_i}(x_i) \approx \sum_{a=a_0}^{x_i} \frac{\Delta x}{2} \left[\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a} + \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a \pm \Delta x}\right]
         
-        where:
-        
-        *  :math:`\ln{\gamma_i}(x_i)` is the natural logarithm of the activity coefficient
-           of component `i` at mole fraction :math:`x_i`.
-        *  :math:`a` is the index of summation
-        *  :math:`a_0` is the starting value for the index of summation
-        *  :math:`x_i` is the mole fraction of component :math:`i`.
-        *  :math:`\Delta x` is the step size in :math:`x` between points.
-        *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}` is the
-           derivative of the natural logarithm of the activity coefficient of
-           component `i` with respect to its mole fraction, evaluated at point `a`.
+        where:        
+            *  :math:`\ln{\gamma_i}(x_i)` is the natural logarithm of the activity coefficient of component `i` at mole fraction :math:`x_i`.
+            *  :math:`a` is the index of summation
+            *  :math:`a_0` is the starting value for the index of summation
+            *  :math:`x_i` is the mole fraction of component :math:`i`.
+            *  :math:`\Delta x` is the step size in :math:`x` between points.
+            *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}` is the derivative of the natural logarithm of the activity coefficient of component `i` with respect to its mole fraction, evaluated at point `a`.
         
         The integration starts at a reference state where :math:`x_i = a_0` and
         :math:`\ln{\gamma_i}(a_0) = 0`.  The step size :math:`\Delta x` is determined
@@ -835,7 +831,7 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.i0()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.i0` for full derivation and calculation.
         """
         return self.structure_calculator.i0()
 
@@ -846,7 +842,7 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_e()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_e` for full derivation and calculation.
         """
         return self.structure_calculator.s0_e()
 
@@ -857,7 +853,7 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_x_e()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_x_e` for full derivation and calculation.
         """
         return self.structure_calculator.s0_x_e()
 
@@ -868,7 +864,7 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_xp_e()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_xp_e` for full derivation and calculation.
         """
         return self.structure_calculator.s0_xp_e()
 
@@ -879,7 +875,7 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_p_e()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_p_e` for full derivation and calculation.
         """
         return self.structure_calculator.s0_p_e()
 
@@ -890,7 +886,7 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_x()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_x` for full derivation and calculation.
         """
         return self.structure_calculator.s0_x()
 
@@ -901,7 +897,7 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_xp()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_xp` for full derivation and calculation.
         """
         return self.structure_calculator.s0_xp()
 
@@ -912,7 +908,7 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_p()` for full derivation and calculation.
+        :meth:`StaticStructureCalculator.s0_p` for full derivation and calculation.
         """
         return self.structure_calculator.s0_p()
 
