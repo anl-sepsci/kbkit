@@ -86,6 +86,7 @@ kbi_dir/
 
 * Each system to be analyzed must include:
     * rdf_dir/ containing .xvg RDF files for all pairwise interactions
+        * Both molecule IDs in RDF calculation *MUST BE* in filename
     * either .top topology file or .gro structure file (.gro is recommended)
     * .edr energy file
 * Each pure component must include:
@@ -103,13 +104,14 @@ Below are several examples on various ways to implement **KBKit**.
 from kbkit.analysis import KBIntegrator
 
 # create integrator object from single RDF file
+rdf_file = "./kbi_dir/project/system/rdf_dir/mol1_mol2.xvg"
 integrator = KBIntegrator(rdf_file)
 
 # calculate running-KBI
 rkbi = integrator.rkbi()
 
 # calculate KBI in thermodynamic limit
-kbi = integrator.integrate()
+kbi = integrator.integrate(mol_j="mol2")
 
 # visualize KBI integration and extrapolation
 integrator.plot()
