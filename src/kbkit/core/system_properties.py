@@ -34,12 +34,10 @@ class SystemProperties:
 
     Attributes
     ----------
-    topology: TopFileParser
-        GROMACS topology (.top) file parser.
-    structure: GroFileParser
-        GROMACS structure (.gro) file parser.
+    topology: TopFileParser | GroFileParser
+        GROMACS topology file parser (.gro or .top files).
     energy: EdrFileParser
-        GROMACS energy (.edr) file parser.
+        GROMACS energy file parser (.edr files).
     """
 
     def __init__(
@@ -106,7 +104,7 @@ class SystemProperties:
         Returns
         -------
         dict[str, str or list[str]]
-            Dictionary mapping file types ("top", "gro", "edr") to their paths.
+            Dictionary mapping file types ("top", "edr") to their paths.
         """
         return {
             "top": self.topology.filepath,
