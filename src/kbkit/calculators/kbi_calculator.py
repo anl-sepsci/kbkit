@@ -20,10 +20,12 @@ class KBICalculator:
     ----------
     state : SystemState
         SystemState object providing molecule indexing, salt pairs, and composition.
-    use_fixed_r : bool
-        If True, uses a fixed cutoff radius for KBI calculations.
-    force : bool, optional
-        If True, forces KBI calculations to skip entire systems with non-converged RDFs. Defaults to False.
+    use_fixed_r : bool, optional
+        If True, uses a fixed cutoff radius for KBI calculations (default: False).
+    ignore_convergence_errors : bool, optional
+        If True, ingnores convergence errors and forces KBI calculations to skip entire systems with non-converged RDFs (default: False).
+    rdf_convergence_threshold: float, optional
+        Value of the slope of RDF tail for the RDF to be considered as converged (default: 0.005).
 
     Attributes
     ----------
@@ -32,56 +34,65 @@ class KBICalculator:
     """
 
     def __init__(
-        self, state: SystemState, use_fixed_r: bool, force: bool = False, rdf_convergence_threshold: float = 0.005
+        self, state: SystemState, use_fixed_r: bool = False, ignore_convergence_errors: bool = False, rdf_convergence_threshold: float = 0.005
     ) -> None:
         self.state = state
         self.use_fixed_r = use_fixed_r
-        self.force = force
+        self.ignore_convergence_errors = ignore_convergence_errors
         self.rdf_convergence_threshold = rdf_convergence_threshold
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
 
-    def calculate(self, corrected: bool = True) -> NDArray[np.float64]:
+    def run(self, apply_electrolyte_correction: bool = True) -> NDArray[np.float64]:
         """
-        Public entry point for computing KBIs.
+        Runs the full KBI computation workflow.
+
+        This is the main entry point for the calculator. It orchestrates the
+        process of computing the raw KBI matrix and, if specified, applies
+        the electrolyte correction.
 
         Parameters
         ----------
-        corrected: bool
-            Whether to apply electrolyte correction.
-
+        apply_electrolyte_correction: bool, optional
+            If True (default), applies corrections
+            for salt-salt and salt-other interactions. If False, returns the
+            raw, uncorrected KBI matrix.
+    
         Returns
         -------
         np.ndarray
-            KBI matrix
+            A 3D numpy array representing the final KBI matrix.
         """
-        return self.compute_electrolyte_corrected_kbi_matrix() if corrected else self.compute_raw_kbi_matrix()
+        if apply_electrolyte_correction:
+            self.state.config.logger.info("Computing KBI matrix with electrolyte correction...")
+            return self.compute_electrolyte_corrected_kbi_matrix()
+        else:
+            self.state.config.logger.info("Computing raw KBI matrix...")
+            return self.compute_raw_kbi_matrix()
 
     def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
         r"""
         Compute the raw KBI matrix for all systems.
 
-        Each KBI value :math:`G_{ij}` is computed by integrating the radial distribution function (RDF)
-        between molecule types :math:`i` and :math:`j`:
+        Each KBI value :math:`G_{ij}` is computed by integrating the RDF
+        between molecule types :math:`i, j`:
 
         .. math::
-            G_{ij} = 4\pi \int_0^\infty [g_{ij}(r) - 1] r^2 \, dr
+            G_{ij} = 4\pi \int_0^\infty (g_{ij}(r) - 1) r^2 \, dr
 
         Returns
         -------
         np.ndarray
             A 3D matrix of KBIs with shape ``(n_sys, n_mols, n_mols)``, where:
-            - ``n_sys`` is the number of systems
-            - ``n_mols`` is the number of unique molecules
+            ``n_sys`` is the number of systems and``n_mols`` is the number of unique molecules.
 
         Notes
         -----
-        - If an RDF directory is missing, the corresponding system's values remain NaN.
-        - Populates `kbi_metadata` with integration results for each RDF file.
+        * If an RDF directory is missing, the corresponding system's values remain NaN, if ignore_convergence_errors is True.
+        * Populates `kbi_metadata` with integration results for each RDF file.
 
         See Also
         --------
-        :class:`KBIntegrator` : Performs RDF integration and finite-size corrections.
-        :class:`RDFParser` : Extracts molecule pairs from RDF filenames.
+        :class:`KBIntegrator` : For derivation and detailed formulas for RDF integration and finite-size corrections.
         """
         kbis = np.full(
             (self.state.n_sys, len(self.state.top_molecules), len(self.state.top_molecules)), fill_value=np.nan
@@ -116,12 +127,12 @@ class KBICalculator:
 
                 # if convergence is met, store kbi value
                 if integrator.rdf.is_converged:
-                    kbis[s, i, j] = integrator.integrate(mol_j=mol_j)
-                    kbis[s, j, i] = integrator.integrate(mol_j=mol_i)
+                    kbis[s, i, j] = integrator.compute_kbi_inf(mol_j=mol_j)
+                    kbis[s, j, i] = integrator.compute_kbi_inf(mol_j=mol_i)
                 # override convergence check to skip system if not converged
                 else:  # for not converged rdf
                     msg = f"RDF for system '{meta.name}' and pair {integrator.rdf_molecules} did not converge."
-                    if self.force:
+                    if self.ignore_convergence_errors:
                         print(f"WARNING: {msg} Skipping this system.")
                         continue
                     else:
@@ -138,12 +149,12 @@ class KBICalculator:
 
         Stores both raw and corrected KBI values, including:
 
-        - :math:`r` — radial distances
-        - :math:`g(r)` — RDF values
-        - :math:`G(r)` — cumulative KBI curve
-        - :math:`\lambda(r)` — finite-size correction factor
-        - :math:`\lambda(r) \cdot G(r)` — corrected KBI curve
-        - :math:`G_{\infty}` — extrapolated KBI at infinite dilution
+        * :math:`r` — radial distances
+        * :math:`g(r)` — RDF values
+        * :math:`G(r)` — cumulative KBI curve
+        * :math:`\lambda(r)` — finite-size correction factor
+        * :math:`\lambda(r) \cdot G(r)` — corrected KBI curve
+        * :math:`G_{\infty}` — extrapolated KBI at infinite dilution
 
         Parameters
         ----------
@@ -157,12 +168,12 @@ class KBICalculator:
                 mols=tuple(integrator.rdf_molecules),
                 r=integrator.rdf.r,
                 g=integrator.rdf.g,
-                rkbi=(rkbi := integrator.rkbi()),
+                rkbi=(rkbi := integrator.running_kbi()),
                 lam=(lam := integrator.lambda_ratio()),
                 lam_rkbi=rkbi * lam,
                 lam_fit=(lam_fit := lam[integrator.rdf.r_mask]),
                 lam_rkbi_fit=np.polyval(integrator.fit_kbi_inf(), lam_fit),
-                kbi=integrator.integrate(),
+                kbi=integrator.compute_kbi_inf(),
             )
         )
 
@@ -194,21 +205,6 @@ class KBICalculator:
         This method modifies the KBI matrix to account for salt-salt and salt-other interactions
         using mole fraction-weighted combinations of cation and anion contributions.
 
-        Parameters
-        ----------
-        kbi_matrix : np.ndarray
-            Raw KBI matrix with shape ``(n_sys, n_comp, n_comp)``.
-        salt_pairs : list[tuple[str, str]]
-            List of salt component pairs (cation, anion).
-        top_molecules : list[str]
-            Molecules defined in the topology.
-        unique_molecules : list[str]
-            Molecules including salt pairs.
-        nosalt_molecules : list[str]
-            Molecules excluding salt components.
-        molecule_counts : np.ndarray
-            Molecule counts per system.
-
         Returns
         -------
         np.ndarray
@@ -227,11 +223,11 @@ class KBICalculator:
             G_{si} = x_c G_{ic} + x_a G_{ia}
 
         where:
-            - :math:`x_c = \frac{N_c}{N_c + N_a}` is the mole fraction of the cation
-            - :math:`x_a = \frac{N_a}{N_c + N_a}` is the mole fraction of the anion
-            - :math:`G_{ij}` are the raw KBIs between molecule types :math:`i` and :math:`j`
+            * :math:`x_c = \frac{N_c}{N_c + N_a}` is the mole fraction of the cation
+            * :math:`x_a = \frac{N_a}{N_c + N_a}` is the mole fraction of the anion
+            * :math:`G_{ij}` are the raw KBIs between molecule types :math:`i` and :math:`j`
         """
-        # initialize the variables
+        # This method first computes the raw matrix then corrects it
         kbi_matrix = self.compute_raw_kbi_matrix()
         salt_pairs = self.state.salt_pairs
         top_molecules = self.state.top_molecules
