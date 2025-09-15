@@ -190,7 +190,7 @@ class Plotter:
         """
         # add legend to above figure.
         color_dict = self._get_rdf_colors(cmap=cmap)
-        kbi_meta = self.pipe.calculator.kbi_metadata.get(system)
+        kbi_meta = self.pipe.kbi_calc.kbi_metadata.get(system)
         if kbi_meta is None:
             raise ValueError(f"No KBIs for sytem: {system}")
         units = "cm^3/mol" if units == "" else units
@@ -273,7 +273,7 @@ class Plotter:
         show: bool, optional
             Display figures. Default is False.
         """
-        for system, _kbi_meta in self.pipe.calculator.kbi_metadata.items():
+        for system, _kbi_meta in self.pipe.kbi_calc.kbi_metadata.items():
             self.plot_system_kbi_analysis(system, units=units, show=show)
 
     def plot_kbis(self, units: str = "cm^3/mol", cmap: str = "jet", show: bool = False):
@@ -295,7 +295,7 @@ class Plotter:
         # get list of SystemMeta for each system
         for s, system_meta in enumerate(self.pipe.config.registry):
             # get kbi meta for system
-            meta_list = self.pipe.calculator.kbi_metadata.get(system_meta.name, [])
+            meta_list = self.pipe.kbi_calc.kbi_metadata.get(system_meta.name, [])
             if len(meta_list) < 1:
                 continue
             # then iterate through all metas

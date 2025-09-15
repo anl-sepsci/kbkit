@@ -1,10 +1,10 @@
 """High-level orchestration layer for running thermodynamic analysis workflows."""
 
 from dataclasses import fields
+from functools import cached_property
 
 import numpy as np
 from numpy.typing import NDArray
-from functools import cached_property
 
 from kbkit.analysis.kb_thermo import KBThermo
 from kbkit.analysis.system_state import SystemState
@@ -12,8 +12,6 @@ from kbkit.calculators.kbi_calculator import KBICalculator
 from kbkit.core.system_loader import SystemLoader
 from kbkit.schema.thermo_property import ThermoProperty
 from kbkit.schema.thermo_state import ThermoState
-from kbkit.schema.system_config import SystemConfig
-from kbkit.utils.logging import get_logger
 
 
 class KBPipeline:
@@ -85,22 +83,21 @@ class KBPipeline:
         gamma_integration_type: str = "numerical",
         gamma_polynomial_degree: int = 5,
     ) -> None:
-
-        self.pure_path=pure_path
-        self.pure_systems=pure_systems
-        self.base_path=base_path
-        self.base_systems=base_systems
-        self.rdf_dir=rdf_dir
-        self.ensemble=ensemble
-        self.cations=cations or []
-        self.anions=anions or []
-        self.start_time=start_time
-        self.verbose=verbose
-        self.use_fixed_r=use_fixed_r
-        self.ignore_convergence_errors=ignore_convergence_errors
-        self.rdf_convergence_threshold=rdf_convergence_threshold
-        self.gamma_integration_type=gamma_integration_type
-        self.gamma_polynomial_degree=gamma_polynomial_degree
+        self.pure_path = pure_path
+        self.pure_systems = pure_systems
+        self.base_path = base_path
+        self.base_systems = base_systems
+        self.rdf_dir = rdf_dir
+        self.ensemble = ensemble
+        self.cations = cations or []
+        self.anions = anions or []
+        self.start_time = start_time
+        self.verbose = verbose
+        self.use_fixed_r = use_fixed_r
+        self.ignore_convergence_errors = ignore_convergence_errors
+        self.rdf_convergence_threshold = rdf_convergence_threshold
+        self.gamma_integration_type = gamma_integration_type
+        self.gamma_polynomial_degree = gamma_polynomial_degree
 
         # initialize property attribute
         self.properties: list[ThermoProperty] = []
@@ -108,9 +105,9 @@ class KBPipeline:
     def run(self) -> None:
         """
         Executes the full Kirkwood-Buff Integral (KBI) calculation pipeline.
-    
+
         This method orchestrates the entire process, including:
-    
+
         1.  Loading system configurations using :class:`~kbkit.core.system_loader.SystemLoader`.
         2.  Building the system state using :class:`~kbkit.analysis.system_state.SystemState`.
         3.  Initializing the KBI calculator using :class:`~kbkit.calculators.kbi_calculator.KBICalculator`.
@@ -118,16 +115,16 @@ class KBPipeline:
         5.  Creating the thermodynamic model using :class:`~kbkit.analysis.kb_thermo.KBThermo`.
         6.  Generating :class:`~kbkit.schema.thermo_property.ThermoProperty` objects.
         7.  Mapping properties into a structured thermodynamic state.
-    
+
         This is the primary entry point for running the entire KBI-based
         thermodynamic analysis.
-    
+
         Returns
         -------
         None
             The results of the pipeline are stored in the `results` attribute
             of this object. Use :meth:`results` to access them.
-    
+
         Notes
         -----
         The pipeline's progress is logged using the logger initialized within
@@ -154,10 +151,10 @@ class KBPipeline:
 
         self.logger.info("Initializing KBICalculator")
         self.kbi_calc = KBICalculator(
-            state=self.state, 
-            use_fixed_r=self.use_fixed_r, 
-            ignore_convergence_errors=self.ignore_convergence_errors, 
-            rdf_convergence_threshold=self.rdf_convergence_threshold
+            state=self.state,
+            use_fixed_r=self.use_fixed_r,
+            ignore_convergence_errors=self.ignore_convergence_errors,
+            rdf_convergence_threshold=self.rdf_convergence_threshold,
         )
         self.logger.info("Calculating KBIs")
         kbi_matrix = self.kbi_calc.run()
@@ -169,7 +166,7 @@ class KBPipeline:
             gamma_integration_type=self.gamma_integration_type,
             gamma_polynomial_degree=self.gamma_polynomial_degree,
         )
-        
+
         self.logger.info("Generating ThermoProperty objects...")
         self.properties = self._compute_properties()
 

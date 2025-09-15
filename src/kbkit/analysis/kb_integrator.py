@@ -269,8 +269,8 @@ class KBIntegrator:
         return fit_params  # return fit
 
     def compute_kbi_inf(self, mol_j: str = "") -> float:
-        """
-        Compute KBI in thermodynamic limit as :math:`V \rightarrow \infty` .
+        r"""
+        Compute KBI in thermodynamic limit as :math:`V \rightarrow \\infty` .
 
         Parameters
         ----------

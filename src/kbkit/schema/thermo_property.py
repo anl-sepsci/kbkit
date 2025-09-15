@@ -44,12 +44,16 @@ def register_property(name: str, units: str):
     Callable
         The resulting decorator produces a cached property containing a ThermoProperty instance.
     """
+
     def decorator(func):
         """Recieve decorated method and applies the wrapping logic."""
+
         @cached_property
         @wraps(func)
         def wrapper(self):
             """Create and return the ThermoProperty object for a given function."""
             return ThermoProperty(name=name, value=func(self), units=units)
+
         return wrapper
+
     return decorator

@@ -34,7 +34,11 @@ class KBICalculator:
     """
 
     def __init__(
-        self, state: SystemState, use_fixed_r: bool = False, ignore_convergence_errors: bool = False, rdf_convergence_threshold: float = 0.005
+        self,
+        state: SystemState,
+        use_fixed_r: bool = False,
+        ignore_convergence_errors: bool = False,
+        rdf_convergence_threshold: float = 0.005,
     ) -> None:
         self.state = state
         self.use_fixed_r = use_fixed_r
@@ -56,7 +60,7 @@ class KBICalculator:
             If True (default), applies corrections
             for salt-salt and salt-other interactions. If False, returns the
             raw, uncorrected KBI matrix.
-    
+
         Returns
         -------
         np.ndarray

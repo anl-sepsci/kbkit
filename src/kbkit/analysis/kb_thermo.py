@@ -120,7 +120,9 @@ class KBThermo:
             self.state.mol_fr[:, :, np.newaxis] * self.state.mol_fr[:, np.newaxis, :]
         )  # compute square of 3d array
         rho_bar = self.state.rho_bar("molecule/nm^3")[:, np.newaxis, np.newaxis]  # compute mixture number density
-        Aij_inv = mfr_3d * self.kronecker_delta()[np.newaxis, :] + rho_bar * mfr_3d_sq * self.kbis.value  # inverse of
+        Aij_inv = (
+            mfr_3d * self.kronecker_delta()[np.newaxis, :] + rho_bar * mfr_3d_sq * self.kbi_matrix.value
+        )  # inverse of
         return Aij_inv
 
     @register_property("A_matrix", "")
@@ -664,7 +666,9 @@ class KBThermo:
         lng = lng_fn(xi)
         return lng
 
-    def dlngammas_numerical_integration(self, xi: NDArray[np.float64], dlng: NDArray[np.float64], mol: str) -> NDArray[np.float64]:
+    def dlngammas_numerical_integration(
+        self, xi: NDArray[np.float64], dlng: NDArray[np.float64], mol: str
+    ) -> NDArray[np.float64]:
         r"""
         Numerical integration of activity coefficient derivatives using the trapezoidal rule.
 
@@ -686,18 +690,18 @@ class KBThermo:
         -----
         The trapezoidal rule is used to approximate the integral because an analytical
         solution is not available.  The integral is approximated as:
-        
+
         .. math::
            \ln{\gamma_i}(x_i) \approx \sum_{a=a_0}^{x_i} \frac{\Delta x}{2} \left[\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a} + \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a \pm \Delta x}\right]
-        
-        where:        
+
+        where:
             *  :math:`\ln{\gamma_i}(x_i)` is the natural logarithm of the activity coefficient of component `i` at mole fraction :math:`x_i`.
             *  :math:`a` is the index of summation
             *  :math:`a_0` is the starting value for the index of summation
             *  :math:`x_i` is the mole fraction of component :math:`i`.
             *  :math:`\Delta x` is the step size in :math:`x` between points.
             *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}` is the derivative of the natural logarithm of the activity coefficient of component `i` with respect to its mole fraction, evaluated at point `a`.
-        
+
         The integration starts at a reference state where :math:`x_i = a_0` and
         :math:`\ln{\gamma_i}(a_0) = 0`.  The step size :math:`\Delta x` is determined
         by the spacing of the input data points.
