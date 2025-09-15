@@ -32,10 +32,10 @@ class KBThermo:
 
     Attributes
     ----------
-    structure_calculator: StaticStructureCalculator
-        Calculator for calculating static structure.
     state: SystemState
         Initialized SystemState object.
+    structure_calculator: StaticStructureCalculator
+        Calculator for calculating static structure.
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class KBThermo:
         self.state = state
 
         # create attribute from kbi_matrix
-        self.kbi_matrix = kbi_matrix
+        self._kbi_matrix = kbi_matrix
 
         # how to integrate activity coefficients and what polynomial degree to be used if type=="polynomial"
         self.gamma_integration_type = gamma_integration_type
@@ -68,9 +68,9 @@ class KBThermo:
         )
 
     @register_property("kbis", "nm^3/molecule")
-    def kbis(self) -> NDArray[np.float64]:
+    def kbi_matrix(self) -> NDArray[np.float64]:
         """ThermoProperty: Matrix of KBI values."""
-        return self.kbi_matrix
+        return self._kbi_matrix
 
     @property
     def gas_constant(self) -> float:
