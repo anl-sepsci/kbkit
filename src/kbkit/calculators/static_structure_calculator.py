@@ -170,13 +170,6 @@ class StaticStructureCalculator:
         r"""
         Structure factor as q :math:`\rightarrow` 0 for composition-composition fluctuations.
 
-        Parameters
-        ----------
-        T: float
-            Temperature (K) of system.
-        hessian: np.ndarray
-            Hessian of Gibbs mixing free energy (kJ/mol).
-
         Returns
         -------
         np.ndarray
@@ -198,13 +191,6 @@ class StaticStructureCalculator:
     def s0_xp(self) -> NDArray[np.float64]:
         r"""
         Structure factor as q :math:`\rightarrow` 0 for composition-density fluctuations.
-
-        Parameters
-        ----------
-        T: float
-            Temperature (K) of system.
-        hessian: np.ndarray
-            Hessian of Gibbs mixing free energy (kJ/mol).
 
         Returns
         -------
@@ -230,15 +216,6 @@ class StaticStructureCalculator:
     def s0_p(self) -> NDArray[np.float64]:
         r"""
         Structure factor as q :math:`\rightarrow` 0 for density-density fluctuations.
-
-        Parameters
-        ----------
-        T: float
-            Temperature (K) of system.
-        hessian: np.ndarray
-            Hessian of Gibbs mixing free energy (kJ/mol).
-        isothermal_compressibility: np.ndarray
-            Isothermal compressibility (1/kPa).
 
         Returns
         -------
@@ -268,13 +245,6 @@ class StaticStructureCalculator:
         r"""
         Contribution of concentration-concentration structure factor to electron density structure factor.
 
-        Parameters
-        ----------
-        T: float
-            Temperature (K) of system.
-        hessian: np.ndarray
-            Hessian of Gibbs mixing free energy (kJ/mol).
-
         Returns
         -------
         np.ndarray
@@ -301,13 +271,6 @@ class StaticStructureCalculator:
         r"""
         Contribution of concentration-density structure factor to electron density structure factor.
 
-        Parameters
-        ----------
-        T: float
-            Temperature (K) of system.
-        hessian: np.ndarray
-            Hessian of Gibbs mixing free energy (kJ/mol).
-
         Returns
         -------
         np.ndarray
@@ -331,13 +294,6 @@ class StaticStructureCalculator:
         r"""
         Contribution of density-density structure factor to electron density structure factor.
 
-        Parameters
-        ----------
-        T: float
-            Temperature (K) of system.
-        hessian: np.ndarray
-            Hessian of Gibbs mixing free energy (kJ/mol).
-
         Returns
         -------
         np.ndarray
@@ -358,11 +314,6 @@ class StaticStructureCalculator:
     def s0_e(self) -> NDArray[np.float64]:
         r"""
         Structure factor of electron density as q :math:`\rightarrow` 0.
-
-        Returns
-        -------
-        np.ndarray
-            1D array of shape ``(n_sys)``.
 
         Notes
         -----
