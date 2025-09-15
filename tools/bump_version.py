@@ -107,4 +107,10 @@ if PUBLISH:
     CONDA_META.write_text(conda_content)
     print("Updated meta.yaml => version, URL, and SHA256")
 
+    # --- Git Tag and Push ---
+    tag_name = f"v{VERSION}"
+    subprocess.run(["git", "tag", tag_name], check=True)
+    subprocess.run(["git", "push", "origin", tag_name], check=True)
+    print(f"Tagged and pushed release: {tag_name}")
+
 print(f"Version bump complete => {VERSION}")
