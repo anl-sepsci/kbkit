@@ -29,6 +29,8 @@ class KBIntegrator:
         SystemProperties object containing information about the system, including topology and box dimensions.
     use_fixed_rmin : bool, optional
         Whether to use a fixed minimum distance (rmin) for analysis (default: False).
+    converged_threshold : float, optional
+        Value of the slope of RDF tail for the RDF to be considered as converged (default: 0.005).
 
     Attributes
     ----------
@@ -60,15 +62,14 @@ class KBIntegrator:
         return self._mol_j
 
     @mol_j.setter
-    def mol_j(self, value: str) -> str:
+    def mol_j(self, value: str) -> None:
         """Set molecule j and validate molecule present in RDF molecules."""
         # validate molecule j in rdf molecules
         if value not in self.rdf_molecules:
             raise ValueError(f"Molecule '{value}' not in rdf molecules '{self.rdf_molecules}'.")
         self._mol_j = value
-        return self._mol_j
 
-    def box_vol(self) -> float:
+    def box_volume(self) -> float:
         """Return the volume of the system box in nm^3."""
         vol = self.system_properties.get("volume", units="nm^3")
         if isinstance(vol, tuple):
@@ -94,18 +95,16 @@ class KBIntegrator:
             )
         return molecules
 
-    def kd(self) -> int:
+    def kronecker_delta(self) -> int:
         """Return the Kronecker delta between molecules in RDF, i.e., determines if molecules :math:`i,j` are the same (returns True)."""
-        if len(np.unique(self.rdf_molecules)) == 1:
-            return 1
-        else:
-            return 0
+        return int(self.rdf_molecules[0] == self.rdf_molecules[1])
 
+    @property
     def n_j(self) -> int:
-        """Return the number of molecule :math:`j` in the system."""
+        """int: Number of molecule :math:`j` in the system."""
         return self.system_properties.topology.molecule_count[self.mol_j]
 
-    def g_gv(self) -> NDArray[np.float64]:
+    def gv_corrected_rdf(self) -> NDArray[np.float64]:
         r"""
         Compute the corrected pair distribution function, accounting for finite-size effects in the simulation box, based on the approach by `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_.
 
@@ -142,10 +141,10 @@ class KBIntegrator:
             The cumulative integral :math:`\Delta N_j` is approximated numerically using the trapezoidal rule.
         """
         # calculate the reduced volume
-        vr = 1 - ((4 / 3) * np.pi * self.rdf.r**3 / self.box_vol())
+        vr = 1 - ((4 / 3) * np.pi * self.rdf.r**3 / self.box_volume())
 
         # get the number density for molecule j
-        rho_j = self.n_j() / self.box_vol()
+        rho_j = self.n_j / self.box_volume()
 
         # function to integrate over
         f = 4.0 * np.pi * self.rdf.r**2 * rho_j * (self.rdf.g - 1)
@@ -153,7 +152,7 @@ class KBIntegrator:
         Delta_Nj = np.append(Delta_Nj, Delta_Nj[-1])
 
         # correct g(r) with GV correction
-        g_gv = self.rdf.g * self.n_j() * vr / (self.n_j() * vr - Delta_Nj - self.kd())
+        g_gv = self.rdf.g * self.n_j * vr / (self.n_j * vr - Delta_Nj - self.kronecker_delta())
         return np.asarray(g_gv)  # make sure that an array is returned
 
     def window(self) -> NDArray[np.float64]:
@@ -196,9 +195,9 @@ class KBIntegrator:
             h(r) = g_{GV}(r) - 1
 
         """
-        return self.g_gv() - 1
+        return self.gv_corrected_rdf() - 1
 
-    def rkbi(self) -> NDArray[np.float64]:
+    def running_kbi(self) -> NDArray[np.float64]:
         r"""
         Compute KBI as a function of radial distance between molecules :math:`i` and :math:`j`.
 
@@ -245,7 +244,7 @@ class KBIntegrator:
             - :math:`r` is the radial distance
             - :math:`V` is the box volume
         """
-        Vr = (4 / 3) * np.pi * self.rdf.r**3 / self.box_vol()
+        Vr = (4 / 3) * np.pi * self.rdf.r**3 / self.box_volume()
         return Vr ** (1 / 3)
 
     def fit_kbi_inf(self) -> NDArray[np.float64]:
@@ -263,15 +262,15 @@ class KBIntegrator:
         """
         # get x and y values to fit thermodynamic correction
         lam = self.lambda_ratio()  # characteristic length
-        lam_kbi = lam * self.rkbi()  # length x KBI (r)
+        lam_kbi = lam * self.running_kbi()  # length x KBI (r)
 
         # fit linear regression to masked values
         fit_params = np.polyfit(lam[self.rdf.r_mask], lam_kbi[self.rdf.r_mask], 1)
         return fit_params  # return fit
 
-    def integrate(self, mol_j: str = "") -> float:
+    def compute_kbi_inf(self, mol_j: str = "") -> float:
         """
-        Compute KBI in thermodynamic limit.
+        Compute KBI in thermodynamic limit as :math:`V \rightarrow \infty` .
 
         Parameters
         ----------
@@ -299,7 +298,7 @@ class KBIntegrator:
             Directory to save the plot. If not provided, the plot will be displayed but not saved
         """
         # get running kbi
-        rkbi = self.rkbi()
+        rkbi = self.running_kbi()
         # parameters for thermo-limit extrapolation
         lam = self.lambda_ratio()
         lam_rkbi = lam * rkbi
