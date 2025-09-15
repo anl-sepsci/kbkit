@@ -1,7 +1,7 @@
 """Structured representation of scalar properties with units and semantic tags."""
 
 from dataclasses import dataclass, field
-from functools import cached_property
+from functools import cached_property, wraps
 from typing import Any
 
 
