@@ -106,8 +106,33 @@ class KBPipeline:
         self.properties: list[ThermoProperty] = []
 
     def run(self) -> None:
-        r"""Calculate thermodynamic properties from Kirkwood-Buff theory :class:`KBThermo`."""
-        # Build SystemConfig object.
+        """
+        Executes the full Kirkwood-Buff Integral (KBI) calculation pipeline.
+    
+        This method orchestrates the entire process, including:
+    
+        1.  Loading system configurations using :class:`~kbkit.core.system_loader.SystemLoader`.
+        2.  Building the system state using :class:`~kbkit.analysis.system_state.SystemState`.
+        3.  Initializing the KBI calculator using :class:`~kbkit.calculators.kbi_calculator.KBICalculator`.
+        4.  Computing the KBI matrix.
+        5.  Creating the thermodynamic model using :class:`~kbkit.analysis.kb_thermo.KBThermo`.
+        6.  Generating :class:`~kbkit.schema.thermo_property.ThermoProperty` objects.
+        7.  Mapping properties into a structured thermodynamic state.
+    
+        This is the primary entry point for running the entire KBI-based
+        thermodynamic analysis.
+    
+        Returns
+        -------
+        None
+            The results of the pipeline are stored in the `results` attribute
+            of this object. Use :meth:`results` to access them.
+    
+        Notes
+        -----
+        The pipeline's progress is logged using the logger initialized within
+        :class:`~kbkit.core.system_loader.SystemLoader`.
+        """
         loader = SystemLoader(verbose=self.verbose)
         self.logger = loader.logger
 
