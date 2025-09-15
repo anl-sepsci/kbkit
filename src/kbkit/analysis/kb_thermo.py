@@ -23,7 +23,7 @@ class KBThermo:
     ----------
     state: SystemState
         SystemState at a constant temperature.
-    kbi_matrix: np.ndarray
+    kbi_matrix: NDArray[np.float64]
         Matrix of KBI values for each pairwise interaction.
     gamma_integration_type: str, optional.
         How to perform activity coefficient integration. Options: numerical, polynomial (default: numerical).
@@ -34,8 +34,6 @@ class KBThermo:
     ----------
     structure_calculator: StaticStructureCalculator
         Calculator for calculating static structure.
-    kbis: np.ndarray
-        Matrix of KBI values.
     state: SystemState
         Initialized SystemState object.
     """
@@ -79,7 +77,7 @@ class KBThermo:
         """float: Gas constant in kJ/mol/K."""
         return float(self.state.ureg("R").to("kJ/mol/K").magnitude)
 
-    def kd(self) -> NDArray[np.float64]:
+    def kronecker_delta(self) -> NDArray[np.float64]:
         """Kronecker delta between pairs of unique molecules."""
         return np.eye(self.state.n_comp)
 
@@ -106,10 +104,10 @@ class KBThermo:
 
         Notes
         -----
-        Elements of **A** are calculated for molecules :math:`i,j`, using the formula:
+        Elements of **A**:math:`\textbf{^{-1}}` are calculated for molecules :math:`i,j`, using the formula:
 
         .. math::
-            A_{ij} = \rho x_i x_j G_{ij} + x_i \delta_{i,j}
+            A_{ij}^{-1} = \rho x_i x_j G_{ij} + x_i \delta_{i,j}
 
         where:
             - :math:`\rho` is the average mixture density.
@@ -122,7 +120,7 @@ class KBThermo:
             self.state.mol_fr[:, :, np.newaxis] * self.state.mol_fr[:, np.newaxis, :]
         )  # compute square of 3d array
         rho_bar = self.state.rho_bar("molecule/nm^3")[:, np.newaxis, np.newaxis]  # compute mixture number density
-        Aij_inv = mfr_3d * self.kd()[np.newaxis, :] + rho_bar * mfr_3d_sq * self.kbis.value  # inverse of
+        Aij_inv = mfr_3d * self.kronecker_delta()[np.newaxis, :] + rho_bar * mfr_3d_sq * self.kbis.value  # inverse of
         return Aij_inv
 
     @register_property("A_matrix", "")
@@ -255,7 +253,7 @@ class KBThermo:
             kT_converted = np.asarray(self.state.Q_(kT, units="mol/kJ * nm^3/molecule").to("1/kPa").magnitude)
         return kT_converted
 
-    def _matrix_setup(self, matrix: np.ndarray) -> NDArray[np.float64]:
+    def _subtract_nth_elements(self, matrix: NDArray[np.float64]) -> NDArray[np.float64]:
         """Set up matrices for multicomponent analysis."""
         n = self.state.n_comp - 1
         mat_ij = matrix[:, :n, :n]
@@ -296,7 +294,7 @@ class KBThermo:
             - :math:`M_{ij}` is matrix **M** for molecules :math:`i,j`
             - :math:`n` represents the last element in **M** matrix
         """
-        return self._matrix_setup(self.dmui_dxj.value)
+        return self._subtract_nth_elements(self.dmui_dxj.value)
 
     @register_property("det_hessian", "kJ/mol")
     def det_hessian(self) -> NDArray[np.float64]:
@@ -391,20 +389,20 @@ class KBThermo:
         -----
         For each system, the chemical potential derivative matrix :math:`M_{ij}` is used to construct the derivatives:
 
-        - For components ``i = 1, \ldots, n-1``:
+        * For components ``i = 1, \ldots, n-1``:
 
-            .. math::
-                \left(\frac{\partial \mu_i}{\partial x_i}\right) = \mathrm{diag}\left(M_{ij} - M_{i,n}\right)_{j=1}^{n-1}
+        .. math::
+            \left(\frac{\partial \mu_i}{\partial x_i}\right) = \mathrm{diag}\left(M_{ij} - M_{i,n}\right)_{j=1}^{n-1}
 
-            This is implemented as:
+        This is implemented as:
 
-            .. math::
-                dmui\_dxi[:, :-1] = \mathrm{diag}\left(M_{ij} - M_{i,n}\right)
+        .. math::
+            dmui\_dxi[:, :-1] = \mathrm{diag}\left(M_{ij} - M_{i,n}\right)
 
-        - For the last component ``n`` (by Gibbs-Duhem):
+        * For the last component ``n`` (by Gibbs-Duhem):
 
-            .. math::
-                \left(\frac{\partial \mu_n}{\partial x_n}\right) = \frac{1}{x_n} \sum_{j=1}^{n-1} x_j \left(\frac{\partial \mu_j}{\partial x_j}\right)
+        .. math::
+            \left(\frac{\partial \mu_n}{\partial x_n}\right) = \frac{1}{x_n} \sum_{j=1}^{n-1} x_j \left(\frac{\partial \mu_j}{\partial x_j}\right)
 
         This ensures the sum of mol fraction derivatives is thermodynamically consistent.
         """
@@ -605,11 +603,29 @@ class KBThermo:
         return self._set_pure_to_zero(ln_gammas)
 
     def dlngammas_polynomial_integration(
-        self, xi: np.ndarray, dlng: np.ndarray, mol: str, polynomial_degree: int = 5
+        self, xi: NDArray[np.float64], dlng: NDArray[np.float64], mol: str, polynomial_degree: int = 5
     ) -> NDArray[np.float64]:
         r"""
         Analytical integration of activity coefficient derivatives using polynomial fitting.
 
+        Parameters
+        ----------
+        xi: NDArray[np.float64]
+            Mol fraction 1D array to integrate over.
+        dlng: NDArray[np.float64]
+            Natural log of activity coefficients with respect to mol fraction.
+        mol: str
+            Molecule ID of mol fraction and activity coefficient derivative.
+        polynomial_degree: int, optional.
+            Polynomial degree for activity coefficient derivative fit (default: 5).
+
+        Returns
+        -------
+        np.ndarray
+            A 1D array with shape ``(n_sys)``
+
+        Notes
+        -----
         The method fits a polynomial :math:`P(x_i)` to the derivative data and integrates:
 
         .. math::
@@ -648,16 +664,47 @@ class KBThermo:
         lng = lng_fn(xi)
         return lng
 
-    def dlngammas_numerical_integration(self, xi: np.ndarray, dlng: np.ndarray, mol: str) -> NDArray[np.float64]:
+    def dlngammas_numerical_integration(self, xi: NDArray[np.float64], dlng: NDArray[np.float64], mol: str) -> NDArray[np.float64]:
         r"""
         Numerical integration of activity coefficient derivatives using the trapezoidal rule.
 
-        The method approximates the integral as:
+        Parameters
+        ----------
+        xi: NDArray[np.float64]
+            Mol fraction 1D array to integrate over.
+        dlng: NDArray[np.float64]
+            Natural log of activity coefficients with respect to mol fraction.
+        mol: str
+            Molecule ID of mol fraction and activity coefficient derivative.
 
+        Returns
+        -------
+        np.ndarray
+            A 1D array with shape ``(n_sys)``
+
+        Notes
+        -----
+        The trapezoidal rule is used to approximate the integral because an analytical
+        solution is not available.  The integral is approximated as:
+        
         .. math::
-            \ln{\gamma_i}(x_i) \approx \sum_{a=a_0}^{x_i} \frac{\Delta x}{2} \left[\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a} + \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a \pm \Delta x}\right]
-
-        where :math:`\Delta x` is the step size in :math:`x` between points.
+           \ln{\gamma_i}(x_i) \approx \sum_{a=a_0}^{x_i} \frac{\Delta x}{2} \left[\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a} + \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a \pm \Delta x}\right]
+        
+        where:
+        
+        *  :math:`\ln{\gamma_i}(x_i)` is the natural logarithm of the activity coefficient
+           of component `i` at mole fraction :math:`x_i`.
+        *  :math:`a` is the index of summation
+        *  :math:`a_0` is the starting value for the index of summation
+        *  :math:`x_i` is the mole fraction of component :math:`i`.
+        *  :math:`\Delta x` is the step size in :math:`x` between points.
+        *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}` is the
+           derivative of the natural logarithm of the activity coefficient of
+           component `i` with respect to its mole fraction, evaluated at point `a`.
+        
+        The integration starts at a reference state where :math:`x_i = a_0` and
+        :math:`\ln{\gamma_i}(a_0) = 0`.  The step size :math:`\Delta x` is determined
+        by the spacing of the input data points.
         """
         try:
             return np.asarray(cumulative_trapezoid(dlng, xi, initial=0))
