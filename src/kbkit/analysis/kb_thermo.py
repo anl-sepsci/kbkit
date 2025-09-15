@@ -34,7 +34,7 @@ class KBThermo:
     ----------
     state: SystemState
         Initialized SystemState object.
-    structure_calculator: StaticStructureCalculator
+    structure_calc: StaticStructureCalculator
         Calculator for calculating static structure.
     """
 
@@ -56,12 +56,12 @@ class KBThermo:
         self.gamma_polynomial_degree = gamma_polynomial_degree
 
         # initialize static structure calculator & set conditions
-        self.structure_calculator = StaticStructureCalculator(
+        self.structure_calc = StaticStructureCalculator(
             molar_volume=self.state.molar_volume("cm^3/mol"),
             n_electrons=self.state.n_electrons,
             mol_fr=self.state.pure_mol_fr,
         )
-        self.structure_calculator.update_conditions(
+        self.structure_calc.update_conditions(
             T=float(self.state.temperature().mean()),
             hessian=self.hessian.value,
             isothermal_compressibility=self.isothermal_compressibility.value,
@@ -831,9 +831,9 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.i0` for full derivation and calculation.
+        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.i0` for full derivation and calculation.
         """
-        return self.structure_calculator.i0()
+        return self.structure_calc.i0()
 
     @register_property("s0_e", "")
     def s0_e(self) -> NDArray[np.float64]:
@@ -842,9 +842,9 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_e` for full derivation and calculation.
+        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_e` for full derivation and calculation.
         """
-        return self.structure_calculator.s0_e()
+        return self.structure_calc.s0_e()
 
     @register_property("s0_x_e", "")
     def s0_x_e(self) -> NDArray[np.float64]:
@@ -853,9 +853,9 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_x_e` for full derivation and calculation.
+        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_x_e` for full derivation and calculation.
         """
-        return self.structure_calculator.s0_x_e()
+        return self.structure_calc.s0_x_e()
 
     @register_property("s0_xp_e", "")
     def s0_xp_e(self) -> NDArray[np.float64]:
@@ -864,9 +864,9 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_xp_e` for full derivation and calculation.
+        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_xp_e` for full derivation and calculation.
         """
-        return self.structure_calculator.s0_xp_e()
+        return self.structure_calc.s0_xp_e()
 
     @register_property("s0_p_e", "")
     def s0_p_e(self) -> NDArray[np.float64]:
@@ -875,9 +875,9 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_p_e` for full derivation and calculation.
+        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_p_e` for full derivation and calculation.
         """
-        return self.structure_calculator.s0_p_e()
+        return self.structure_calc.s0_p_e()
 
     @register_property("s0_x", "")
     def s0_x(self) -> NDArray[np.float64]:
@@ -886,9 +886,9 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_x` for full derivation and calculation.
+        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_x` for full derivation and calculation.
         """
-        return self.structure_calculator.s0_x()
+        return self.structure_calc.s0_x()
 
     @register_property("s0_xp", "")
     def s0_xp(self) -> NDArray[np.float64]:
@@ -897,9 +897,9 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_xp` for full derivation and calculation.
+        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_xp` for full derivation and calculation.
         """
-        return self.structure_calculator.s0_xp()
+        return self.structure_calc.s0_xp()
 
     @register_property("s0_p", "")
     def s0_p(self) -> NDArray[np.float64]:
@@ -908,9 +908,9 @@ class KBThermo:
 
         See Also
         --------
-        :meth:`StaticStructureCalculator.s0_p` for full derivation and calculation.
+        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_p` for full derivation and calculation.
         """
-        return self.structure_calculator.s0_p()
+        return self.structure_calc.s0_p()
 
     def computed_properties(self) -> list[ThermoProperty]:
         """
