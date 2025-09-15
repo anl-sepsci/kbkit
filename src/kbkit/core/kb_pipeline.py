@@ -4,6 +4,7 @@ from dataclasses import fields
 
 import numpy as np
 from numpy.typing import NDArray
+from functools import cached_property
 
 from kbkit.analysis.kb_thermo import KBThermo
 from kbkit.analysis.system_state import SystemState
@@ -11,6 +12,8 @@ from kbkit.calculators.kbi_calculator import KBICalculator
 from kbkit.core.system_loader import SystemLoader
 from kbkit.schema.thermo_property import ThermoProperty
 from kbkit.schema.thermo_state import ThermoState
+from kbkit.schema.system_config import SystemConfig
+from kbkit.utils.logging import get_logger
 
 
 class KBPipeline:
@@ -28,36 +31,40 @@ class KBPipeline:
     base_systems : list, optional
         A list of base systems to include. If not provided, it will automatically detect systems in the base path.
     rdf_dir : str, optional
-        The directory where RDF files are located within each system directory. If empty, it will search in the system directory itself. Defaults to an empty string.
+        The directory where RDF files are located within each system directory. If empty, it will search in the system directory itself. (default: "").
     ensemble : str, optional
-        The ensemble type for the systems, e.g., 'npt', 'nvt'. Defaults to 'npt'.
+        The ensemble type for the systems, e.g., 'npt', 'nvt'. (default: 'npt').
     cations : list, optional
-        A list of cation names to consider for salt pairs. Defaults to an empty list.
+        A list of cation names to consider for salt pairs. (default: []).
     anions : list, optional
-        A list of anion names to consider for salt pairs. Defaults to an empty list.
+        A list of anion names to consider for salt pairs. (default: []).
     start_time : int, optional
-        The starting time for analysis, used in temperature and enthalpy calculations. Defaults to 0.
+        The starting time for analysis, used in temperature and enthalpy calculations. (default: `0`).
     verbose : bool, optional
-        If True, enables verbose output during processing. Defaults to False.
+        If True, enables verbose output during processing. (default: False).
     use_fixed_r : bool, optional
-        If True, uses a fixed cutoff radius for KBI calculations. Defaults to True.
-    force: bool, optional
-        If True, will ignore the error that RDF is not converged and perform calculations with NaN values for not converged system. Default to False.
+        If True, uses a fixed cutoff radius for KBI calculations. (default: True).
+    ignore_convergence_errors: bool, optional
+        If True, will ignore the error that RDF is not converged and perform calculations with NaN values for not converged system. (default: False).
     rdf_convergence_threshold: float, optional
-        Set the threshold for a converged RDF. Default to `0.005`.
+        Set the threshold for a converged RDF. (default: `0.005`).
     gamma_integration_type : str, optional
-        The type of integration to use for gamma calculations. Defaults to 'numerical'.
+        The type of integration to use for gamma calculations. (default: 'numerical').
     gamma_polynomial_degree : int, optional
-        The degree of the polynomial to fit for gamma calculations if using polynomial integration. Defaults to 5.
+        The degree of the polynomial to fit for gamma calculations if using polynomial integration. (default: `5`).
 
     Attributes
     ----------
+    config: SystemConfig
+        SystemConfig object for SystemState analysis.
     state: SystemState
-        Initialized SystemState object for systems as a function of composition at single temperature.
-    calculator: KBICalculator
-        Initialized KBICalculator object for performing KBI calculations.
+        SystemState object for systems as a function of composition at single temperature.
+    kbi_calc: KBICalculator
+        KBICalculator object for performing KBI calculations.
     thermo: KBThermo
-        Initialized KBThermo object for computing thermodynamic properties from KBIs.
+        KBThermo object for computing thermodynamic properties from KBIs.
+    results: ThermoState
+        ThermoState object containing results from KBThermo and SystemState.
     """
 
     def __init__(
@@ -73,55 +80,80 @@ class KBPipeline:
         start_time: int = 0,
         verbose: bool = False,
         use_fixed_r: bool = True,
-        force: bool = False,
+        ignore_convergence_errors: bool = False,
         rdf_convergence_threshold: float = 0.005,
         gamma_integration_type: str = "numerical",
         gamma_polynomial_degree: int = 5,
     ) -> None:
-        # build configuration
-        loader = SystemLoader(verbose=verbose)
-        self.config = loader.build_config(
-            pure_path=pure_path,
-            pure_systems=pure_systems,
-            base_path=base_path,
-            base_systems=base_systems,
-            rdf_dir=rdf_dir,
-            ensemble=ensemble,
-            cations=cations or [],
-            anions=anions or [],
-            start_time=start_time,
-        )
 
-        # get composition state
-        self.state = SystemState(self.config)
-
-        # create KBI calculator
-        self.calculator = KBICalculator(
-            state=self.state, use_fixed_r=use_fixed_r, force=force, rdf_convergence_threshold=rdf_convergence_threshold
-        )
-        kbi_matrix = self.calculator.calculate()
-
-        # create thermo object
-        self.thermo = KBThermo(
-            state=self.state,
-            kbi_matrix=kbi_matrix,
-            gamma_integration_type=gamma_integration_type,
-            gamma_polynomial_degree=gamma_polynomial_degree,
-        )
+        self.pure_path=pure_path
+        self.pure_systems=pure_systems
+        self.base_path=base_path
+        self.base_systems=base_systems
+        self.rdf_dir=rdf_dir
+        self.ensemble=ensemble
+        self.cations=cations or []
+        self.anions=anions or []
+        self.start_time=start_time
+        self.verbose=verbose
+        self.use_fixed_r=use_fixed_r
+        self.ignore_convergence_errors=ignore_convergence_errors
+        self.rdf_convergence_threshold=rdf_convergence_threshold
+        self.gamma_integration_type=gamma_integration_type
+        self.gamma_polynomial_degree=gamma_polynomial_degree
 
         # initialize property attribute
         self.properties: list[ThermoProperty] = []
 
-    def run(self) -> ThermoState:
+    def run(self) -> None:
         r"""Calculate thermodynamic properties from Kirkwood-Buff theory :class:`KBThermo`."""
-        # 1. Generate ThermoProperty objects
+        # Build SystemConfig object.
+        loader = SystemLoader(verbose=self.verbose)
+        self.logger = loader.logger
+
+        self.logger.info("Building SystemConfig...")
+        self.config = loader.build_config(
+            pure_path=self.pure_path,
+            pure_systems=self.pure_systems,
+            base_path=self.base_path,
+            base_systems=self.base_systems,
+            rdf_dir=self.rdf_dir,
+            ensemble=self.ensemble,
+            cations=self.cations,
+            anions=self.anions,
+            start_time=self.start_time,
+        )
+
+        self.logger.info("Building SystemState...")
+        self.state = SystemState(self.config)
+
+        self.logger.info("Initializing KBICalculator")
+        self.kbi_calc = KBICalculator(
+            state=self.state, 
+            use_fixed_r=self.use_fixed_r, 
+            ignore_convergence_errors=self.ignore_convergence_errors, 
+            rdf_convergence_threshold=self.rdf_convergence_threshold
+        )
+        self.logger.info("Calculating KBIs")
+        kbi_matrix = self.kbi_calc.run()
+
+        self.logger.info("Creating KBThermo...")
+        self.thermo = KBThermo(
+            state=self.state,
+            kbi_matrix=kbi_matrix,
+            gamma_integration_type=self.gamma_integration_type,
+            gamma_polynomial_degree=self.gamma_polynomial_degree,
+        )
+        
+        self.logger.info("Generating ThermoProperty objects...")
         self.properties = self._compute_properties()
 
-        # 2. Map them into a ThermoState
-        self._results = self._build_state(self.properties)
-        return self._results
+        self.logger.info("Mapping ThermoProperty obejcts into ThermoState...")
+        self._results = self._build_thermo_state(self.properties)
 
-    @property
+        self.logger.info("Pipeline sucessfully built!")
+
+    @cached_property
     def results(self) -> ThermoState:
         """ThermoState object containing all computed thermodynamic properties."""
         if not hasattr(self, "_results"):
@@ -153,7 +185,7 @@ class KBPipeline:
         properties.append(ThermoProperty(name="molecule_counts", value=self.state.molecule_counts, units="molecule"))
         return properties
 
-    def _build_state(self, props: list[ThermoProperty]) -> ThermoState:
+    def _build_thermo_state(self, props: list[ThermoProperty]) -> ThermoState:
         """Build a ThermoState object for easy property access."""
         prop_map = {p.name: p for p in props}
         state_kwargs = {}
