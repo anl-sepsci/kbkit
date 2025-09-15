@@ -1,7 +1,7 @@
 System Config
 =====================================
 
-.. automodule:: kbkit.schem.system_config
+.. automodule:: kbkit.schema.system_config
    :members:
    :undoc-members:
    :show-inheritance:
