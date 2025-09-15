@@ -89,15 +89,25 @@ if PUBLISH:
     print(f"Uploading {dist_file.name} to PyPI...")
     subprocess.run(["conda", "run", "-n", "kbkit-dev", "python", "-m", "twine", "upload", str(dist_file)], check=True)
 
+    # Add a delay to allow PyPI to process the upload
+    print("Waiting 10 seconds for PyPI to process the upload...")
+    import time
+    time.sleep(10)
+
+
     # Update URL and SHA256 in meta.yaml
     new_url = f"https://files.pythonhosted.org/packages/source/k/kbkit/kbkit-{VERSION}.tar.gz"
     conda_content = re.sub(
         r'^\s*(  url\s*:\s*)(["\']?).*?([\'\"]?)$', rf'\1"{new_url}"', conda_content, flags=re.MULTILINE
     )
 
-    print("🔍 Fetching tarball from PyPI to compute SHA256...")
-    response = requests.get(new_url, timeout=30)
-    response.raise_for_status()
+    print("Fetching tarball from PyPI to compute SHA256...")
+    try:
+        response = requests.get(new_url, timeout=30)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching tarball: {e}", file=sys.stderr)
+        sys.exit(1)
 
     digest = hashlib.sha256(response.content).hexdigest()
     conda_content = re.sub(
@@ -106,6 +116,12 @@ if PUBLISH:
 
     CONDA_META.write_text(conda_content)
     print("Updated meta.yaml => version, URL, and SHA256")
+
+    # --- Push to version updated files to main branch ---
+    subprocess.run(["git", "add", "."], check=True)
+    subprocess.run(["git", "commit", "-m", f"'Updated version to v{VERSION}'"], check=True)
+    subprocess.run(["git", "push", "origin", "main"], check=True)
+    print(f"Pushed updates to version: v{VERSION}")
 
     # --- Git Tag and Push ---
     tag_name = f"v{VERSION}"
