@@ -243,17 +243,17 @@ class KBThermo:
         Array :math:`\kappa` is computed using the formula:
 
         .. math::
-            RT\kappa = \frac{\bar{V}}{l}
+            RT\kappa = \sum_{j=1}^n V_j A_{ij}^{-1}
 
         where:
-            - :math:`\bar{V}` is the mixing volume as a function of composition.
-            - :math:`l` is the stability array (see :meth:`l_stability`).
+            - :math:`V_j` is the molar volume of molecule :math:`j`.
+            - :math:`A_{ij}^{-1}` is the inverse of the stability matrix (see :meth:`A_inv_matrix`).
         """
-        upper = self.state.volume_bar() / (self.gas_constant * self.state.temperature())
-        with np.errstate(divide="ignore", invalid="ignore"):
-            kT = upper / self.l_stability.value
-            kT_converted = np.asarray(self.state.Q_(kT, units="mol/kJ * nm^3/molecule").to("1/kPa").magnitude)
-        return kT_converted
+        frac_RT = 1 / (self.gas_constant * self.state.temperature())
+        vj_A = self.state.molar_volume("m^3/mol")[np.newaxis,:] * self.A_inv_matrix.value[:,0,:]
+        vj_A_sum = vj_A.sum(axis=1)
+        kT = vj_A_sum * frac_RT
+        return kT
 
     def _subtract_nth_elements(self, matrix: NDArray[np.float64]) -> NDArray[np.float64]:
         """Set up matrices for multicomponent analysis."""
