@@ -8,5 +8,6 @@
   "potential": "kJ/mol",
   "kinetic-en": "kJ/mol",
   "total-energy": "kJ/mol",
-  "time": "ps"
+  "time": "ps",
+  "isothermal_compressibility": "1/kPa"
 }

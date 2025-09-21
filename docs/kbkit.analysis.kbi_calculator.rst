@@ -1,7 +1,7 @@
 KBI Calculator 
 =============================
 
-.. automodule:: kbkit.calculators.kbi_calculator
+.. automodule:: kbkit.analysis.kbi_calculator
    :members:
    :undoc-members:
    :show-inheritance:

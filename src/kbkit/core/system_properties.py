@@ -185,8 +185,28 @@ class SystemProperties:
         gmx_units = get_gmx_unit(prop)
         cap = self.energy.heat_capacity(nmol=self.topology.total_molecules)
         units = resolve_units(units, gmx_units)
-        unit_corr = self.Q_(cap, gmx_units).to(units).magnitude
-        return float(unit_corr)
+        return float(self.Q_(cap, gmx_units).to(units).magnitude)
+    
+    def _isothermal_compressiblity(self, units: str = "") -> float:
+        """
+        Compute the isothermal compressibility of the system.
+
+        Parameters
+        ----------
+        units : str, optional
+            Desired output units (default: 1/kPa).
+
+        Returns
+        -------
+        float
+            Isothermal compressibility in the requested units.
+        """
+        self.logger.debug(f"Calculating isothermal compressibility with units '{units}'")
+        prop = resolve_attr_key("isothermal_compressibility", ENERGY_ALIASES)
+        gmx_units = get_gmx_unit(prop)
+        kappa = self.energy.isothermal_compressibility()
+        units = resolve_units(units, gmx_units)
+        return float(self.Q_(kappa, gmx_units).to(units).magnitude)
 
     def _enthalpy(self, start_time: float = 0, units: str = "") -> float:
         r"""
@@ -220,8 +240,7 @@ class SystemProperties:
 
         H = (U + P * V) / self.topology.total_molecules  # convert to per molecule
         units = resolve_units(units, "kJ/mol")
-        unit_corr = self.Q_(H, "kJ/mol").to(units).magnitude
-        return float(unit_corr)
+        return float(self.Q_(H, "kJ/mol").to(units).magnitude)
 
     def get(self, name: str, start_time: float = 0, units: str = "", std: bool = False) -> float | tuple[float, float]:
         """
@@ -251,5 +270,7 @@ class SystemProperties:
             return self._heat_capacity(units=units)
         elif name == "enthalpy":
             return self._enthalpy(start_time=start_time, units=units)
+        elif name == "isothermal_compressibility":
+            return self._isothermal_compressiblity(units=units)
 
         return self._get_average_property(name=name, start_time=start_time, units=units, return_std=std)

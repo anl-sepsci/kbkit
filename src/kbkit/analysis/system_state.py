@@ -247,6 +247,36 @@ class SystemState:
             1D array of system enthalpies as a function of composition.
         """
         return np.array([meta.props.get("enthalpy", units=units) for meta in self.config.registry])
+    
+    def heat_capacity(self, units: str = "kJ/mol/K") -> NDArray[np.float64]:
+        """Heat capacity of each simulation.
+
+        Parameters
+        ----------
+        units: str
+            Heat capacity units (default: kJ/mol/K)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of system heat capacities as a function of composition.
+        """
+        return np.array([meta.props.get("heat_capacity", units=units) for meta in self.config.registry])
+    
+    def isothermal_compressibility(self, units: str = "1/kPa") -> NDArray[np.float64]:
+        """Isothermal compressiblity of each simulation.
+
+        Parameters
+        ----------
+        units: str
+            Isothermal compressiblity units (default: 1.kPa)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of system isothermal compressiblities as a function of composition.
+        """
+        return np.array([meta.props.get("isothermal_compressibility", units=units) for meta in self.config.registry])
 
     def pure_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Pure component enthalpies.

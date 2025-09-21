@@ -7,6 +7,7 @@ The `kbkit.analysis` module contains the following submodules:
    :maxdepth: 1
 
    kbkit.analysis.kb_integrator
+   kbkit.analysis.kbi_calculator
    kbkit.analysis.kb_thermo
    kbkit.analysis.system_state
    

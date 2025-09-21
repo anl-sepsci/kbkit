@@ -207,23 +207,25 @@ class EdrFileParser:
         - Applies drift correction and fluctuation analysis via `gmx energy`.
         """
         if self.has_property("enthalpy"):
-            props = "Enthalpy\nTemperature\n"
+            input_props = "Enthalpy\nTemperature\n"
             regex = r"Heat capacity at constant pressure Cp\s+=\s+([\d\.Ee+-]+)"
         else:
-            props = "total-energy\nTemperature\n"
+            input_props = "total-energy\nTemperature\n"
             regex = r"Heat capacity at constant volume Cv\s+=\s+([\d\.Ee+-]+)"
 
         capacities = []
         for edr in self.edr_path:
             try:
+                output_file = edr.with_name(f"heat_capacity_{edr.stem}.xvg")
                 result = subprocess.run(
-                    ["gmx", "energy", "-f", str(edr), "-nmol", str(nmol), "-fluct_props", "-driftcorr"],
-                    input=props,
+                    ["gmx", "energy", "-f", str(edr), "-o", str(output_file), "-nmol", str(nmol), "-fluct_props", "-driftcorr"],
+                    input=input_props,
                     text=True,
                     capture_output=True,
                     check=True,
                 )
                 match = re.search(regex, result.stdout)
+                subprocess.run(f"rm -r {output_file}", shell=True, check=True) # remove output file
                 if match:
                     capacities.append(float(match.group(1)) / 1000)  # J/mol/K → kJ/mol/K
                 else:
@@ -235,6 +237,45 @@ class EdrFileParser:
             raise ValueError("No heat capacity values could be extracted from any .edr file.")
 
         return float(np.mean(capacities))
+    
+    def isothermal_compressibility(self) -> float:
+        """
+        Extract isothermal compressibility from GROMACS energy output.
+
+        Returns
+        -------
+        float
+            Average isothermal compressiblity in kPa^-1.
+
+        """
+
+        input_props = "temperature\nvolume\n"
+        regex = r"Isothermal Compressibility Kappa\s+=\s+([\d\.Ee+-]+)"
+
+        kappas = []
+        for edr in self.edr_path:
+            output_file = edr.with_name(f"isothermal_compressiblity_{edr.stem}.xvg")
+            try:
+                result = subprocess.run(
+                    ["gmx", "energy", "-f", str(edr), "-o", str(output_file), "-fluct_props"],
+                    input=input_props,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+                match = re.search(regex, result.stdout)
+                subprocess.run(f"rm -r {output_file}", shell=True, check=True) # remove output file
+                if match:
+                    kappas.append(float(match.group(1))*1000) # units kPa^-1
+                else:
+                    self.logger.warning(f"Isothermal compressiblity not found in output from {edr}")
+            except subprocess.CalledProcessError as e:
+                    self.logger.warning(f"GROMACS energy failed for {edr}: {e.stderr}")
+        
+        if not kappas:
+            raise ValueError("No isothermal compressiblity values could be extracted from any .edr file.")
+        
+        return float(np.mean(kappas))
 
     def _run_gmx_energy(self, prop: str, output_file: Path, edr_path: Path) -> None:
         """

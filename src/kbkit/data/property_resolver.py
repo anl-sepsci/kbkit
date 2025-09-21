@@ -16,6 +16,7 @@ ENERGY_ALIASES: dict[str, set[str]] = {
     "kinetic-en": {"kinetic_energy", "kinetic", "ke"},
     "total-energy": {"total_energy", "etot", "total", "E"},
     "time": {"time", "timestep", "dt"},
+    "isothermal_compressibility": {"kappa", "kT", "kt", "isothermal_compressibility"}
 }
 
 

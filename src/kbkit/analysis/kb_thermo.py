@@ -5,9 +5,10 @@ import warnings
 import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
+from scattpack import MixtureData
+from scattpack.q0 import Q0StaticCalculator
 
 from kbkit.analysis.system_state import SystemState
-from kbkit.calculators.static_structure_calculator import StaticStructureCalculator
 from kbkit.schema.thermo_property import ThermoProperty, register_property
 
 # Suppress only the specific RuntimeWarning from numpy.linalg
@@ -56,12 +57,13 @@ class KBThermo:
         self.gamma_polynomial_degree = gamma_polynomial_degree
 
         # initialize static structure calculator & set conditions
-        self.structure_calc = StaticStructureCalculator(
+        mixture_data = MixtureData(
             molar_volume=self.state.molar_volume("cm^3/mol"),
             n_electrons=self.state.n_electrons,
             mol_fr=self.state.pure_mol_fr,
         )
-        self.structure_calc.update_conditions(
+        self.structure_calc = Q0StaticCalculator(
+            mixture=mixture_data,
             T=float(self.state.temperature().mean()),
             hessian=self.hessian.value,
             isothermal_compressibility=self.isothermal_compressibility.value,
@@ -243,17 +245,15 @@ class KBThermo:
         Array :math:`\kappa` is computed using the formula:
 
         .. math::
-            RT\kappa = \sum_{j=1}^n V_j A_{ij}^{-1}
+            RT\kappa = \frac{\bar{V}}{\sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
 
         where:
-            - :math:`V_j` is the molar volume of molecule :math:`j`.
-            - :math:`A_{ij}^{-1}` is the inverse of the stability matrix (see :meth:`A_inv_matrix`).
+            - :math:`\bar{V}` is the molar volume of the mixture.
+            - :math:`A_{ij}` is the stability matrix (see :meth:`A_matrix`).
         """
-        frac_RT = 1 / (self.gas_constant * self.state.temperature())
-        vj_A = self.state.molar_volume("m^3/mol")[np.newaxis,:] * self.A_inv_matrix.value[:,0,:]
-        vj_A_sum = vj_A.sum(axis=1)
-        kT = vj_A_sum * frac_RT
-        return kT
+        RT = (self.gas_constant * self.state.temperature())
+        RTkT = self.state.volume_bar("m^3/mol") / self.l_stability.value
+        return RTkT / RT
 
     def _subtract_nth_elements(self, matrix: NDArray[np.float64]) -> NDArray[np.float64]:
         """Set up matrices for multicomponent analysis."""
