@@ -152,8 +152,8 @@ class SystemState:
         return arr
 
     @cached_property
-    def n_electrons(self) -> NDArray[np.float64]:
-        """np.ndarray: Number of electrons corresponding to pure molecules."""
+    def top_electron_map(self) -> dict[str, int]:
+        """dict[str, int]: Number of electrons corresponding to unique molecules."""
         uniq_elec_map: dict[str, float] = dict.fromkeys(self.top_molecules, 0)
         for meta in self.config.registry:
             mols = meta.props.topology.molecules
@@ -161,16 +161,24 @@ class SystemState:
             for mol in mols:
                 if uniq_elec_map[mol] == 0 and ecount.get(mol) is not None:
                     uniq_elec_map[mol] = ecount.get(mol, 0)
+        return uniq_elec_map
 
-        elec_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
-        for mol_ls in self.pure_molecules:
+    @cached_property
+    def n_electrons(self) -> NDArray[np.float64]:
+        """np.ndarray: Number of electrons corresponding to unique molecules."""
+        elec_map: dict[str, float] = dict.fromkeys(self.unique_molecules, 0)
+        for mol_ls in self.unique_molecules:
             mols = mol_ls.split(".")
-            elec_map[mol_ls] = sum([uniq_elec_map.get(mol, 0) for mol in mols])
-
+            elec_map[mol_ls] = sum([self.top_electron_map.get(mol, 0) for mol in mols])
         elec_mapped = np.fromiter(elec_map.values(), dtype=np.float64)
         if not all(elec_mapped > 0):
-            elec_mapped = np.full_like(self.pure_molecules, fill_value=np.nan, dtype=float)
+            elec_mapped = np.full_like(self.unique_molecules, fill_value=np.nan, dtype=float)
         return elec_mapped
+    
+    @cached_property
+    def electron_bar(self) -> NDArray[np.float64]:
+        """np.ndarray: Linear combination of electron numbers and mol fractions."""
+        return self.mol_fr @ self.n_electrons
 
     @cached_property
     def mol_fr(self) -> NDArray[np.float64]:
@@ -365,7 +373,7 @@ class SystemState:
         return np.asarray(N / V)
 
     def volume_bar(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
-        """Molar volume of mixture.
+        """Ideal molar volume of mixture.
 
         Parameters
         ----------
@@ -378,6 +386,39 @@ class SystemState:
             1D array of molar volumes as a function of composition.
         """
         return self.pure_mol_fr @ self.molar_volume(units)
+    
+    def volume_mix(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
+        """Molar volume of mixture.
+
+        Parameters
+        ----------
+        units: str
+            Molar volume units (default: nm^3/molecule)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of molar volumes as a function of composition.
+        """
+        vol_unit, N_unit = units.split("/")
+        volumes = self.volume(vol_unit)
+        molecs = self.Q_(self.total_molecules, "molecule").to(N_unit).magnitude
+        return np.asarray(volumes/molecs, dtype=np.float64)
+    
+    def excess_volume(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
+        """Excess molar volume of mixture.
+
+        Parameters
+        ----------
+        units: str
+            Molar volume units (default: nm^3/molecule)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of molar volumes as a function of composition.
+        """         
+        return self.volume_mix(units) - self.volume_bar(units)
 
     def rho_bar(self, units: str = "molecule/nm^3") -> NDArray[np.float64]:
         """Mixture number density.

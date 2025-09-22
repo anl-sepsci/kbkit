@@ -5,8 +5,6 @@ import warnings
 import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
-from scattpack import MixtureData
-from scattpack.q0 import Q0StaticCalculator
 
 from kbkit.analysis.system_state import SystemState
 from kbkit.schema.thermo_property import ThermoProperty, register_property
@@ -55,19 +53,6 @@ class KBThermo:
         # how to integrate activity coefficients and what polynomial degree to be used if type=="polynomial"
         self.gamma_integration_type = gamma_integration_type
         self.gamma_polynomial_degree = gamma_polynomial_degree
-
-        # initialize static structure calculator & set conditions
-        mixture_data = MixtureData(
-            molar_volume=self.state.molar_volume("cm^3/mol"),
-            n_electrons=self.state.n_electrons,
-            mol_fr=self.state.pure_mol_fr,
-        )
-        self.structure_calc = Q0StaticCalculator(
-            mixture=mixture_data,
-            T=float(self.state.temperature().mean()),
-            hessian=self.hessian.value,
-            isothermal_compressibility=self.isothermal_compressibility.value,
-        )
 
     @register_property("kbis", "nm^3/molecule")
     def kbi_matrix(self) -> NDArray[np.float64]:
@@ -741,6 +726,15 @@ class KBThermo:
         # where any system contains a pure component, set excess to zero
         ge[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return ge
+    
+    @register_property("se", "kJ/mol/K")
+    def se(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Excess entropy."""
+        return self.compute_se()
+    
+    def compute_se(self) -> NDArray[np.float64]:
+        r"""Compute excess entropy from mixing enthalpy and Gibbs excess energy."""
+        return (self.state.h_mix("kJ/mol") - self.ge.value) / self.state.temperature("K")
 
     @register_property("gid", "kJ/mol")
     def gid(self) -> NDArray[np.float64]:
@@ -802,119 +796,166 @@ class KBThermo:
         gm[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return gm
 
-    @register_property("se", "kJ/mol/K")
-    def se(self) -> NDArray[np.float64]:
-        r"""
-        ThermoProperty: Excess entropy from Gibbs excess property relationship.
-
-        See Also
-        --------
-        :meth:`compute_se` for full formula.
-        """
-        return self.compute_se()
-
-    def compute_se(self) -> NDArray[np.float64]:
-        r"""
-        Excess entropy determined from Gibbs relation between enthlapy and free energy.
-
-        Notes
-        -----
-        Excess entropy, :math:`S^{E}`, is calculated according to:
-
-        .. math::
-            S^E = \frac{\Delta H_{mix} - G^E}{T}
-        """
-        se = (self.state.h_mix() - self.ge.value) / self.state.temperature()
-        se[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
-        return se
-
-    @register_property("i0", "1/cm")
-    def i0(self) -> NDArray[np.float64]:
-        r"""
-        X-ray intensity as q :math:`\rightarrow` 0.
-
-        See Also
-        --------
-        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.i0` for full derivation and calculation.
-        """
-        return self.structure_calc.i0()
-
-    @register_property("s0_e", "")
-    def s0_e(self) -> NDArray[np.float64]:
-        r"""
-        Structure factor contribution to electron density as q :math:`\rightarrow` 0.
-
-        See Also
-        --------
-        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_e` for full derivation and calculation.
-        """
-        return self.structure_calc.s0_e()
-
-    @register_property("s0_x_e", "")
-    def s0_x_e(self) -> NDArray[np.float64]:
-        r"""
-        Contribution from concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
-
-        See Also
-        --------
-        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_x_e` for full derivation and calculation.
-        """
-        return self.structure_calc.s0_x_e()
-
-    @register_property("s0_xp_e", "")
-    def s0_xp_e(self) -> NDArray[np.float64]:
-        r"""
-        Contribution from concentration-density fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
-
-        See Also
-        --------
-        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_xp_e` for full derivation and calculation.
-        """
-        return self.structure_calc.s0_xp_e()
-
-    @register_property("s0_p_e", "")
-    def s0_p_e(self) -> NDArray[np.float64]:
-        r"""
-        Contribution from density-density fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
-
-        See Also
-        --------
-        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_p_e` for full derivation and calculation.
-        """
-        return self.structure_calc.s0_p_e()
-
     @register_property("s0_x", "")
     def s0_x(self) -> NDArray[np.float64]:
-        r"""
-        Contribution from concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0."""
+        return self.compute_s0_x()
+    
+    def compute_s0_x(self):
+        r"""Calculate the structure factor contribution from concentration-concentration fluctuations.
+        
+        Notes
+        -----
+        Structure factor, :math:`\hat{S}_{ij}^x(0)`, is calcuted via:
 
-        See Also
-        --------
-        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_x` for full derivation and calculation.
+        .. math::
+            \hat{S}_{ij}^x(0) = A_{ij}^{-1} - x_i \sum_k^{n} A_{kj}^{-1} - x_j \sum_k^{n} A_{ik}^{-1} + x_i x_j \sum_k^{n}\sum_l^{n} A_{kl}^{-1}
+
+        This is indexed over all n-1 x n-1 molecules.
         """
-        return self.structure_calc.s0_x()
+        n = self.state.n_comp - 1
+        A_inv = self.A_inv_matrix.value
+        xi = self.state.mol_fr[:,:,np.newaxis]
+        xj = self.state.mol_fr[:,np.newaxis,:]
+        s0_x_all = A_inv - xi*A_inv.sum(axis=1)[:,:,np.newaxis] - xj*A_inv.sum(axis=2)[:,:,np.newaxis] + xi*xj*A_inv.sum(axis=(1,2))[:,np.newaxis, np.newaxis]
+        return s0_x_all[:,:n,:n]
+    
+    @register_property("s0_x_e", "")
+    def s0_x_e(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Contribution from concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0."""
+        return self.compute_s0_x_e()
+    
+    def compute_s0_x_e(self):
+        r"""Calculate the electron density structure factor contribution from concentration-concentration fluctuations.
+        
+        Notes
+        -----
+        Structure factor, :math:`\hat{S}_{ij}^{x,e}(0)`, is calcuted via:
+
+        .. math::
+            \hat{S}_{ij}^{x,e}(0) = \sum_{i=1}^{n-1}\sum_{j=1}^{n-1} (Z_i - Z_n)(Z_j - Z_n) \hat{S}_{ij}^x(0)
+        """
+        delta_z = self.state.n_electrons[:-1] - self.state.n_electrons[-1]
+        dz1 = delta_z[:,np.newaxis]
+        dz2 = delta_z[np.newaxis,:]
+        return (dz1[np.newaxis,:] * dz2[np.newaxis,:] * self.s0_x.value).sum(axis=(1,2))
 
     @register_property("s0_xp", "")
     def s0_xp(self) -> NDArray[np.float64]:
-        r"""
-        Contribution from concentration-density fluctuations to structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from concentration-density fluctuations to structure factor as q :math:`\rightarrow` 0."""
+        return self.compute_s0_xp()
+    
+    def compute_s0_xp(self) -> NDArray[np.float64]:
+        r"""Calculate the structure factor contribution from concentration-density fluctuations.
+        
+        Notes
+        -----
+        Structure factor, :math:`\hat{S}_i^{x\rho}(0)`, is calcuted via:
 
-        See Also
-        --------
-        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_xp` for full derivation and calculation.
+        .. math::
+            \hat{S}_i^{x\rho}(0) = \sum_k^{n} A_{ik}^{-1} - x_i \sum_k^{n}\sum_l^{n} A_{kl}^{-1}
+
+        This is indexed over n-1 molecules.
         """
-        return self.structure_calc.s0_xp()
+        n = self.state.n_comp - 1
+        A_inv = self.A_inv_matrix.value
+        mfr = self.state.mol_fr
+        s0_xp_all = A_inv.sum(axis=2) - mfr * A_inv.sum(axis=(1,2))[:,np.newaxis]
+        return s0_xp_all[:,:n]
+    
+    @register_property("s0_xp_e", "")
+    def s0_xp_e(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Contribution from concentration-density fluctuations to electron density structure factor as q :math:`\rightarrow` 0."""
+        return self.compute_s0_xp_e()
+    
+    def compute_s0_xp_e(self):
+        r"""Calculate the electron density structure factor contribution from concentration-density fluctuations.
+        
+        Notes
+        -----
+        Structure factor, :math:`\hat{S}_i^{x\rho,e}(0)`, is calcuted via:
+
+        .. math::
+            \hat{S}_i^{x\rho,e}(0) = 2 \bar{Z} \sum_{i=1}^{n-1} (Z_i - Z_n) \hat{S}_i^{x\rho}(0)
+        """
+        delta_z = self.state.n_electrons[:-1] - self.state.n_electrons[-1]
+        zbar = self.state.electron_bar
+        return 2 * zbar * (delta_z[np.newaxis,:] * self.s0_xp.value).sum(axis=1)
 
     @register_property("s0_p", "")
     def s0_p(self) -> NDArray[np.float64]:
-        r"""
-        Contribution from density-density fluctuations to structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from density-density fluctuations to structure factor as q :math:`\rightarrow` 0."""
+        return self.compute_s0_p()
+    
+    def compute_s0_p(self) -> NDArray[np.float64]:
+        r"""Calculate the structure factor contribution from density-density fluctuations.
+        
+        Notes
+        -----
+        Structure factor, :math:`\hat{S}^{\rho}(0)`, is calcuted via:
 
-        See Also
-        --------
-        :meth:`~kbkit.calculators.static_structure_calculator.StaticStructureCalculator.s0_p` for full derivation and calculation.
+        .. math::
+            \hat{S}^{\rho}(0) = \sum_k^{n}sum_l^{n} A_{kl}^{-1}
         """
-        return self.structure_calc.s0_p()
+        A_inv = self.A_inv_matrix.value
+        return A_inv.sum(axis=(1,2))
+    
+    @register_property("s0_p_e", "")
+    def s0_p_e(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Contribution from density-density fluctuations to electron density structure factor as q :math:`\rightarrow` 0."""
+        return self.compute_s0_p_e()
+    
+    def compute_s0_p_e(self):
+        r"""Calculate the electron density structure factor contribution from concentration-density fluctuations.
+        
+        Notes
+        -----
+        Structure factor, :math:`\hat{S}_i^{x\rho,e}(0)`, is calcuted via:
+
+        .. math::
+            \hat{S}_i^{x\rho,e}(0) = 2 \bar{Z} \sum_{i=1}^{n-1} (Z_i - Z_n) \hat{S}_i^{x\rho}(0)
+        """
+        return self.state.electron_bar**2 * self.s0_p.value
+    
+    @register_property("s0_e", "")
+    def s0_e(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Electron density constrast structure factor as q :math:`\rightarrow` 0."""
+        return self.compute_s0_e()
+    
+    def compute_s0_e(self) -> NDArray[np.float64]:
+        r"""Calculate the electron density structure factor for entire mixture.
+        
+        Notes
+        -----
+        Structure factor, :math:`\hat{S}^e(0)`, is calcuted via:
+
+        .. math::
+            \hat{S}^e(0) = \sum_i^{n}sum_j^{n} Z_i Z_j A_{ij}^{-1}
+        """
+        Zi = self.state.n_electrons[np.newaxis,:,np.newaxis]
+        Zj = self.state.n_electrons[np.newaxis,np.newaxis,:]
+        z2_Ainv = Zi * Zj * self.A_inv_matrix.value
+        return z2_Ainv.sum(axis=(1,2))
+    
+    @register_property("i0", "1/cm")
+    def i0(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: X-ray intensity as q :math:`\rightarrow` 0."""
+        return self.compute_i0()
+
+    def compute_i0(self) -> NDArray[np.float64]:
+        r"""Calculate the electron density structure factor for entire mixture.
+        
+        Notes
+        -----
+        X-ray intensity, :math:`I(0)`, is calcuted via:
+
+        .. math::
+            I(0) = r_e^2 \rho \hat{S}^e
+        """
+        re = float(self.state.ureg("re").to("cm").magnitude)
+        rho = self.state.rho_bar(units="molecule/cm^3")
+        return re**2 * rho * self.s0_e.value
+
 
     def computed_properties(self) -> list[ThermoProperty]:
         """
