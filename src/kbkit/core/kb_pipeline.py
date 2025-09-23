@@ -5,6 +5,7 @@ from functools import cached_property
 
 import numpy as np
 from numpy.typing import NDArray
+from typing import Union
 
 from kbkit.analysis.kb_thermo import KBThermo
 from kbkit.analysis.system_state import SystemState
@@ -171,7 +172,7 @@ class KBPipeline:
         self.properties = self._compute_properties()
 
         self.logger.info("Mapping ThermoProperty obejcts into ThermoState...")
-        self._results = self._build_thermo_state(self.properties)
+        self.thermo_state = self._build_thermo_state(self.properties)
 
         self.logger.info("Pipeline sucessfully built!")
 
@@ -180,32 +181,18 @@ class KBPipeline:
         """ThermoState object containing all computed thermodynamic properties."""
         if not hasattr(self, "_results"):
             self.run()  # no attribute detected, run the pipeline
+            self._results = self.thermo_state.to_dict()
         return self._results
+    
+    def get(self, name: str) -> Union[list[str], NDArray[np.float64]]:
+        r"""Extract the property value from ThermoState object."""
+        if not hasattr(self, "thermo_state"):
+            self.run()
+        return self.thermo_state.get(name).value
 
     def _compute_properties(self) -> list[ThermoProperty]:
         """Compute ThermoProperties for all attributes of interest."""
-        properties = self.thermo.computed_properties()
-        properties.append(ThermoProperty(name="molecules", value=self.state.unique_molecules, units=""))
-        properties.append(ThermoProperty(name="mol_fr", value=self.state.mol_fr, units=""))
-        properties.append(ThermoProperty(name="temperature", value=self.state.temperature(units="K"), units="K"))
-        properties.append(ThermoProperty(name="volume", value=self.state.volume(units="nm^3"), units="nm^3"))
-        properties.append(
-            ThermoProperty(
-                name="molar_volume", value=self.state.molar_volume(units="nm^3/molecule"), units="nm^3/molecule"
-            )
-        )
-        properties.append(ThermoProperty(name="n_electrons", value=self.state.n_electrons, units="electron/molecule"))
-        properties.append(ThermoProperty(name="h_mix", value=self.state.h_mix(units="kJ/mol"), units="kJ/mol"))
-        properties.append(
-            ThermoProperty(name="volume_bar", value=self.state.volume_bar(units="nm^3/molecule"), units="nm^3")
-        )
-        properties.append(
-            ThermoProperty(
-                name="molecule_rho", value=self.state.molecule_rho(units="molecule/nm^3"), units="molecule/nm^3"
-            )
-        )
-        properties.append(ThermoProperty(name="molecule_counts", value=self.state.molecule_counts, units="molecule"))
-        return properties
+        return self.thermo.computed_properties() + self.state.computed_properties()
 
     def _build_thermo_state(self, props: list[ThermoProperty]) -> ThermoState:
         """Build a ThermoState object for easy property access."""
@@ -232,12 +219,14 @@ class KBPipeline:
         np.ndarray
             Property in converted units.
         """
-        meta = self.results.get(name)
+        meta = self.thermo_state.get(name)
 
         value = meta.value
         units = meta.units
         if len(units) == 0:
             raise ValueError("This is a unitlesss property!")
+        elif isinstance(value, dict):
+            raise TypeError(f"Could not convert values from type dict. Values must be list or np.ndarray.")
 
         try:
             converted = self.state.Q_(value, units).to(target_units)
@@ -247,4 +236,4 @@ class KBPipeline:
 
     def available_properties(self) -> list[str]:
         """Get list of available thermodynamic properties from `KBThermo` and `SystemState`."""
-        return list(self.results.to_dict().keys())
+        return list(self.thermo_state.to_dict().keys())

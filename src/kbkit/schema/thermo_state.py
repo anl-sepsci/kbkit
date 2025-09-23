@@ -49,6 +49,8 @@ class ThermoState:
         Excess entropy.
     i0 : ThermoProperty
         X-ray intensity as q → 0.
+    s0_ij: ThermoProperty
+        Partial structure factor between molecules i,j as q → 0.
     s0_e : ThermoProperty
         Electron density structure factor as q → 0.
     s0_x_e : ThermoProperty
@@ -63,6 +65,8 @@ class ThermoState:
         Concentration-density contribution to structure factor.
     s0_p : ThermoProperty
         Density-density contribution to structure factor.
+    top_molecules: ThermoProperty
+        Molecules present in topology files.
     molecules : ThermoProperty
         List of molecule names in the system.
     mol_fr : ThermoProperty
@@ -71,17 +75,25 @@ class ThermoState:
         System temperature.
     volume : ThermoProperty
         System volume.
+    isothermal_compressibility: ThermoProperty
+        Isothermal compressibility of the system.
+    heat_capacity: ThermoProperty
+        Heat capacity of the system.
     molar_volume : ThermoProperty
         Molar volume of the system.
+    molar_volume_map: ThermoProperty
+        Dictionary of molar volumes mapped to their molecule name.
     n_electrons : ThermoProperty
         Number of electrons in the system.
+    electron_map: ThermoProperty
+        Electron numbers mapped to their molecule name.
     h_mix : ThermoProperty
         Enthalpy of mixing.
     volume_bar : ThermoProperty
         Average volume per molecule.
     molecule_rho : ThermoProperty
         Number density for each molecule type.
-    molecule_counts : ThermoProperty
+    molecule_info : ThermoProperty
         Count of each molecule type in the system.
     """
 
@@ -101,6 +113,7 @@ class ThermoState:
     gid: ThermoProperty
     gm: ThermoProperty
     se: ThermoProperty
+    s0_ij: ThermoProperty
     i0: ThermoProperty
     s0_e: ThermoProperty
     s0_x_e: ThermoProperty
@@ -109,16 +122,20 @@ class ThermoState:
     s0_x: ThermoProperty
     s0_xp: ThermoProperty
     s0_p: ThermoProperty
+    top_molecules: ThermoProperty
     molecules: ThermoProperty
     mol_fr: ThermoProperty
     temperature: ThermoProperty
     volume: ThermoProperty
+    isothermal_compressibility: ThermoProperty
+    heat_capacity: ThermoProperty
     molar_volume: ThermoProperty
+    molar_volume_map: ThermoProperty
     n_electrons: ThermoProperty
+    electron_map: ThermoProperty
     h_mix: ThermoProperty
     volume_bar: ThermoProperty
-    molecule_rho: ThermoProperty
-    molecule_counts: ThermoProperty
+    molecule_info: ThermoProperty
 
     def to_dict(self) -> dict:
         """Convert the ThermoState dataclass to a dictionary."""

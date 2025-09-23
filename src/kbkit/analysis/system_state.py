@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 
 from kbkit.config.unit_registry import load_unit_registry
 from kbkit.schema.system_config import SystemConfig
+from kbkit.schema.thermo_property import ThermoProperty
 
 
 class SystemState:
@@ -102,6 +103,14 @@ class SystemState:
     def total_molecules(self) -> NDArray[np.float64]:
         """np.ndarray: Total molecule count for each system."""
         return np.array([meta.props.topology.total_molecules for meta in self.config.registry])
+    
+    @cached_property
+    def molecule_info(self) -> dict[str, dict[str, int]]:
+        """dict: Number of molecules of each type in topology mapped to each system."""
+        return {
+            meta.name: meta.props.topology.molecule_count
+            for meta in self.config.registry
+        }
 
     @cached_property
     def _top_molecule_counts(self) -> NDArray[np.float64]:
@@ -450,3 +459,44 @@ class SystemState:
             2D array of pairwise mixture number densities as a function of composition.
         """
         return self.molecule_rho(units)[:, :, np.newaxis] * self.molecule_rho(units)[:, np.newaxis, :]
+
+    def computed_properties(self) -> list[ThermoProperty]:
+        """
+        Collects all computed properties from molecular dynamics for current set of systems.
+
+        Returns
+        -------
+        List[ThermoProperty]
+            A list of `ThermoProperty` instances, containing the name, value, and units of the
+            computed property from current set of systems. The units are corresponding to GROMACS
+            default units.        
+        """
+        properties = []
+        properties.append(ThermoProperty(name="top_molecules", value=self.top_molecules, units=""))
+        properties.append(ThermoProperty(name="molecules", value=self.unique_molecules, units=""))
+        properties.append(ThermoProperty(name="mol_fr", value=self.mol_fr, units=""))
+        properties.append(ThermoProperty(name="temperature", value=self.temperature(units="K"), units="K"))
+        properties.append(ThermoProperty(name="volume", value=self.volume(units="nm^3"), units="nm^3"))
+        properties.append(ThermoProperty(name="isothermal_compressibility", value=self.isothermal_compressibility(units="1/kPa"), units="1/kPa"))
+        properties.append(ThermoProperty(name="heat_capacity", value=self.heat_capacity(units="kJ/mol/K"), units="kJ/mol/K"))
+        properties.append(ThermoProperty(name="excess_volume", value=self.excess_volume(units="cm^3/mol"), units="cm^3/mol"))
+        properties.append(
+            ThermoProperty(
+                name="molar_volume", value=self.molar_volume(units="cm^3/mol"), units="cm^3/mol"
+            )
+        )
+        molar_volume = {key: value for key, value in zip(self.pure_molecules, self.molar_volume(units="cm^3/mol"))}
+        properties.append(
+            ThermoProperty(
+                name="molar_volume_map", value=molar_volume, units="cm^3/mol"
+            )
+        )
+        properties.append(ThermoProperty(name="n_electrons", value=self.n_electrons, units="electron/molecule"))
+        properties.append(ThermoProperty(name="electron_map", value=self.top_electron_map, units="electron/molecule"))
+        properties.append(ThermoProperty(name="h_mix", value=self.h_mix(units="kJ/mol"), units="kJ/mol"))
+        properties.append(
+            ThermoProperty(name="volume_bar", value=self.volume_bar(units="nm^3/molecule"), units="nm^3")
+        )
+        properties.append(ThermoProperty(name="molecule_info", value=self.molecule_info, units="molecule"))
+        return properties
+

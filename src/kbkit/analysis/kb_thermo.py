@@ -795,6 +795,25 @@ class KBThermo:
         gm = self.ge.value + self.gid.value
         gm[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return gm
+    
+    @register_property("s0_ij", "")
+    def s0_ij(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Partial structure factors between each molecule type."""
+        return self.compute_s0_ij()
+    
+    def compute_s0_ij(self):
+        r"""Calculate the partial structure factors.
+        
+        Notes
+        -----
+        Partial structure factor, :math:`\hat{S}_{ij}(0)` is calculated according to:
+
+        .. math::
+            \hat{S}_{ij}(0) = (x_i x_j)^{1/2} A_{ij}^{-1}
+        """
+        xi = self.state.mol_fr[:,:,np.newaxis]
+        xj = self.state.mol_fr[:,np.newaxis,:]
+        return (xi * xj)**(1/2) * self.A_inv_matrix.value
 
     @register_property("s0_x", "")
     def s0_x(self) -> NDArray[np.float64]:
