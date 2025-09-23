@@ -813,7 +813,7 @@ class KBThermo:
         """
         xi = self.state.mol_fr[:,:,np.newaxis]
         xj = self.state.mol_fr[:,np.newaxis,:]
-        return (xi * xj)**(1/2) * self.A_inv_matrix.value
+        return self.A_inv_matrix.value / (xi * xj)**(1/2)
 
     @register_property("s0_x", "")
     def s0_x(self) -> NDArray[np.float64]:
