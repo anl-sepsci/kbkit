@@ -195,27 +195,6 @@ print("Density array over simulation time: ", edr_parser.extract_timeseries("den
 print("Average density with std deviation: ", edr_parser.average_property("density", return_std=True))
 ```
 
-### Calculate static structure factors and x-ray intensities as q &rarr; 0
-
-```python
-from kbkit.calculators import StaticStructureCalculator
-
-"""
-Requires:
-    - mol fraction matrix: shape(num compositions, num components)
-    - molar_volume: shape(num components), units cm^3/mol
-    - n_electrons: shape(num components)
-"""
-calculator = StaticStructureCalculator(mol_fr, molar_volume, n_electrons)
-
-# update conditions
-# if conditions are not updated all calculations will use previous values
-calculator.update_conditions(T, Hessian, isothermal_compressibility)
-
-# calculate x-ray intensity
-calculator.i0()
-```
-
 ## Credits
 
 This package was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) and the [jevandezande/pixi-cookiecutter](https://github.com/jevandezande/pixi-cookiecutter) project template.
