@@ -972,8 +972,8 @@ class KBThermo:
             I(0) = r_e^2 \rho \hat{S}^e
         """
         re = float(self.state.ureg("re").to("cm").magnitude)
-        rho = self.state.rho_bar(units="molecule/cm^3")
-        return re**2 * rho * self.s0_e.value
+        vbar = self.state.volume_bar(units="cm^3/molecule")
+        return re**2 * (1/vbar) * self.s0_e.value
 
 
     def computed_properties(self) -> list[ThermoProperty]:

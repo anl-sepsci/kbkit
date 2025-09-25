@@ -239,7 +239,7 @@ class SystemState:
         """
         vol_unit, N_unit = units.split("/")
         volumes = self.volume(vol_unit)
-        # make dict in same order as top molecules
+        # make dict in same order as pure molecules
         volumes_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
         for i, meta in enumerate(self.config.registry):
             top = meta.props.topology
@@ -249,6 +249,7 @@ class SystemState:
                 volumes_map[".".join(top.molecules)] = volumes[i] / N
 
         return np.fromiter(volumes_map.values(), dtype=np.float64)
+       
 
     def enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Enthalpy of each simulation.
