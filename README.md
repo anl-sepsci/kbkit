@@ -133,15 +133,13 @@ pipe = KBPipeline(
 )
 
 # run kbkit pipeline
-results = pipe.run()
+pipe.run()
 
 # Access the results properties
 # stored in dataclass (ThermoProperty); attributes: name, value, units
 # example for excess energy
-ge_obj = results.ge
-ge_array = ge_obj.value
-ge_units = ge_obj.units
-print("GE summary: ", ge_array.shape, ge_units)
+ge_obj = pipe.get("ge")
+print("GE summary: ", ge_array.shape)
 
 # Convert units from kJ/mol -> kcal/mol
 # default units will be those from GROMACS
