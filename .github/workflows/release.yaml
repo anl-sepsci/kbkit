@@ -29,4 +29,4 @@ jobs:
           body: |
             Automated release for version ${{ steps.extract.outputs.version }}.
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
