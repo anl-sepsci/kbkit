@@ -113,14 +113,13 @@ class ThermoState:
     gid: ThermoProperty
     gm: ThermoProperty
     se: ThermoProperty
-    s0_ij: ThermoProperty
     i0: ThermoProperty
+    i0_x: ThermoProperty
+    i0_p: ThermoProperty
     s0_e: ThermoProperty
     s0_x_e: ThermoProperty
-    s0_xp_e: ThermoProperty
     s0_p_e: ThermoProperty
     s0_x: ThermoProperty
-    s0_xp: ThermoProperty
     s0_p: ThermoProperty
     top_molecules: ThermoProperty
     molecules: ThermoProperty
