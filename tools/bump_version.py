@@ -125,8 +125,13 @@ if PUBLISH:
 
     # --- Git Tag and Push ---
     tag_name = f"v{VERSION}"
-    subprocess.run(["git", "tag", tag_name], check=True)
-    subprocess.run(["git", "push", "origin", tag_name], check=True)
-    print(f"Tagged and pushed release: {tag_name}")
+    # list existing tags
+    existing = subprocess.run(["git", "tag"], capture_output=True, text=True, check=True)
+    if tag_name in existing.stdout.split():
+        print(f"Tag {tag_name} already exists, skipping creation.")
+    else:
+        subprocess.run(["git", "tag", tag_name], check=True)
+        subprocess.run(["git", "push", "origin", tag_name], check=True)
+        print(f"Tagged and pushed release: {tag_name}")
 
 print(f"Version bump complete => {VERSION}")
