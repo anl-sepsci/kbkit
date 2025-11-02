@@ -115,5 +115,6 @@ def test_rdf_parser_plot(mock_rdf_file, tmp_path):
     """Test that RDFParser.plot() runs and saves a file without error."""
     parser = RDFParser(mock_rdf_file)
     parser.plot(save_dir=str(tmp_path))
-    output_file = tmp_path / (str(parser.rdf_file.name)[:-4] + ".png")
+    rdf_name = str(parser.rdf_file.name).strip(".xvg")
+    output_file = tmp_path / f"{rdf_name}.png"
     assert output_file.exists()
