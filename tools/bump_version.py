@@ -118,11 +118,14 @@ if PUBLISH:
     print("Updated meta.yaml => version, URL, and SHA256")
 
     # --- Push to version updated files to main branch ---
-    subprocess.run(["git", "add", "."], check=True)
-    subprocess.run(["git", "commit", "-m", f"'Updated version to v{VERSION}'"], check=True)
-    subprocess.run(["git", "push", "origin", "main"], check=True)
-    print(f"Pushed updates to version: v{VERSION}")
-
+    try:
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", f"'Updated version to v{VERSION}'"], check=True)
+        subprocess.run(["git", "push", "origin", "main"], check=True)
+        print(f"Pushed updates to version: v{VERSION}")
+    except:
+        pass 
+    
     # --- Git Tag and Push ---
     tag_name = f"v{VERSION}"
     # list existing tags
