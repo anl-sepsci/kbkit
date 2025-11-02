@@ -75,8 +75,6 @@ class ThermoState:
         System temperature.
     volume : ThermoProperty
         System volume.
-    isothermal_compressibility: ThermoProperty
-        Isothermal compressibility of the system.
     heat_capacity: ThermoProperty
         Heat capacity of the system.
     molar_volume : ThermoProperty
@@ -104,7 +102,6 @@ class ThermoState:
     dmui_dxj: ThermoProperty
     dmui_dnj: ThermoProperty
     dmui_dxi: ThermoProperty
-    isothermal_compressibility: ThermoProperty
     hessian: ThermoProperty
     det_hessian: ThermoProperty
     dlngammas_dxs: ThermoProperty

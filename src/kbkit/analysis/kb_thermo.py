@@ -236,7 +236,7 @@ class KBThermo:
             - :math:`\bar{V}` is the molar volume of the mixture.
             - :math:`A_{ij}` is the stability matrix (see :meth:`A_matrix`).
         """
-        RT = (self.gas_constant * self.state.temperature())
+        RT = self.gas_constant * self.state.temperature()
         RTkT = self.state.volume_bar("m^3/mol") / self.l_stability.value
         return RTkT / RT
 
@@ -726,12 +726,12 @@ class KBThermo:
         # where any system contains a pure component, set excess to zero
         ge[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return ge
-    
+
     @register_property("se", "kJ/mol/K")
     def se(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Excess entropy."""
         return self.compute_se()
-    
+
     def compute_se(self) -> NDArray[np.float64]:
         r"""Compute excess entropy from mixing enthalpy and Gibbs excess energy."""
         return (self.state.h_mix("kJ/mol") - self.ge.value) / self.state.temperature("K")
@@ -795,15 +795,15 @@ class KBThermo:
         gm = self.ge.value + self.gid.value
         gm[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return gm
-    
+
     @register_property("s0_x", "")
     def s0_x(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0."""
         return self.compute_s0_x()
-    
+
     def compute_s0_x(self):
         r"""Calculate the structure factor contribution from concentration-concentration fluctuations.
-        
+
         Notes
         -----
         Structure factor, :math:`\hat{S}_{ij}^x(0)`, is calcuted via:
@@ -819,8 +819,8 @@ class KBThermo:
         # xj = self.state.mol_fr[:,np.newaxis,:]
         # s0_x_all = A_inv - xi*A_inv.sum(axis=1)[:,:,np.newaxis] - xj*A_inv.sum(axis=2)[:,:,np.newaxis] + xi*xj*A_inv.sum(axis=(1,2))[:,np.newaxis, np.newaxis]
         # return s0_x_all[:,:n,:n]
-        return self.gas_constant * self.state.temperature()[:,np.newaxis,np.newaxis] / self.hessian.value
-    
+        return self.gas_constant * self.state.temperature()[:, np.newaxis, np.newaxis] / self.hessian.value
+
     def drho_elec_dxi(self):
         r"""
         Calculate the electron density contrast for x-ray scattering calculation.
@@ -837,16 +837,16 @@ class KBThermo:
         molar_v = self.state.molar_volume("cm^3/mol")
         delta_v = molar_v[:-1] - molar_v[-1]
         vbar = self.state.volume_bar("cm^3/mol")
-        return delta_z[np.newaxis,:] - (zbar/vbar)[:,np.newaxis]*delta_v[np.newaxis,:]
-    
+        return delta_z[np.newaxis, :] - (zbar / vbar)[:, np.newaxis] * delta_v[np.newaxis, :]
+
     @register_property("s0_x_e", "")
     def s0_x_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0."""
         return self.compute_s0_x_e()
-    
+
     def compute_s0_x_e(self):
         r"""Calculate the electron density structure factor contribution from concentration-concentration fluctuations.
-        
+
         Notes
         -----
         Structure factor, :math:`\hat{S}_{ij}^{x,e}(0)`, is calcuted via:
@@ -858,19 +858,19 @@ class KBThermo:
         # dz1 = delta_z[:,np.newaxis]
         # dz2 = delta_z[np.newaxis,:]
         # return (dz1[np.newaxis,:] * dz2[np.newaxis,:] * self.s0_x.value).sum(axis=(1,2))
-        drho1 = self.drho_elec_dxi()[:,:,np.newaxis]
-        drho2 = self.drho_elec_dxi()[:,np.newaxis,:]
+        drho1 = self.drho_elec_dxi()[:, :, np.newaxis]
+        drho2 = self.drho_elec_dxi()[:, np.newaxis, :]
         s0_x_e_calc = drho1 * drho2 * self.s0_x.value
-        return np.nansum(s0_x_e_calc, axis=(1,2))
+        return np.nansum(s0_x_e_calc, axis=(1, 2))
 
     @register_property("s0_p", "")
     def s0_p(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from density-density fluctuations to structure factor as q :math:`\rightarrow` 0."""
         return self.compute_s0_p()
-    
+
     def compute_s0_p(self) -> NDArray[np.float64]:
         r"""Calculate the structure factor contribution from density-density fluctuations.
-        
+
         Notes
         -----
         Structure factor, :math:`\hat{S}^{\rho}(0)`, is calcuted via:
@@ -880,17 +880,21 @@ class KBThermo:
         """
         # A_inv = self.A_inv_matrix.value
         # return A_inv.sum(axis=(1,2))
-        return self.gas_constant * self.state.temperature() * self.isothermal_compressibility.value / self.state.volume_bar("m^3/mol")
+        return (
+            self.gas_constant
+            * self.state.temperature()
+            * self.isothermal_compressibility.value
+            / self.state.volume_bar("m^3/mol")
+        )
 
-    
     @register_property("s0_p_e", "")
     def s0_p_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from density-density fluctuations to electron density structure factor as q :math:`\rightarrow` 0."""
         return self.compute_s0_p_e()
-    
+
     def compute_s0_p_e(self):
         r"""Calculate the electron density structure factor contribution from concentration-density fluctuations.
-        
+
         Notes
         -----
         Structure factor, :math:`\hat{S}_i^{x\rho,e}(0)`, is calcuted via:
@@ -899,15 +903,15 @@ class KBThermo:
             \hat{S}_i^{x\rho,e}(0) = 2 \bar{Z} \hat{S}^{\rho}(0)
         """
         return self.state.electron_bar**2 * self.s0_p.value
-    
+
     @register_property("s0_e", "")
     def s0_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Electron density constrast structure factor as q :math:`\rightarrow` 0."""
         return self.compute_s0_e()
-    
+
     def compute_s0_e(self) -> NDArray[np.float64]:
         r"""Calculate the electron density structure factor for entire mixture.
-        
+
         Notes
         -----
         Structure factor, :math:`\hat{S}^e(0)`, is calcuted via:
@@ -920,12 +924,13 @@ class KBThermo:
         # z2_Ainv = Zi * Zj * self.A_inv_matrix.value
         # return z2_Ainv.sum(axis=(1,2))
         return self.s0_x_e.value + self.s0_p_e.value
-    
+
     def calculate_i0_from_s0e(self, s0_elec):
+        r"""Calculates X-ray scattering intensity from electron density contribution of structure factor."""
         re = float(self.state.ureg("re").to("cm").magnitude)
         vbar = self.state.volume_bar(units="cm^3/mol")
         N_A = float(self.state.ureg("N_A").to("1/mol").magnitude)
-        return re**2 * (1/vbar) * N_A * s0_elec
+        return re**2 * (1 / vbar) * N_A * s0_elec
 
     @register_property("i0", "1/cm")
     def i0(self) -> NDArray[np.float64]:
@@ -934,7 +939,7 @@ class KBThermo:
 
     def compute_i0(self) -> NDArray[np.float64]:
         r"""Calculate the electron density structure factor for entire mixture.
-        
+
         Notes
         -----
         X-ray intensity, :math:`I(0)`, is calcuted via:
@@ -943,7 +948,7 @@ class KBThermo:
             I(0) = r_e^2 \rho \hat{S}^e
         """
         return self.calculate_i0_from_s0e(self.s0_e.value)
-    
+
     @register_property("i0_p", "1/cm")
     def i0_p(self) -> NDArray[np.float64]:
         r"""ThermoProperty: X-ray intensity as q :math:`\rightarrow` 0."""
@@ -951,7 +956,7 @@ class KBThermo:
 
     def compute_i0_p(self) -> NDArray[np.float64]:
         r"""Calculate the electron density structure factor for entire mixture.
-        
+
         Notes
         -----
         X-ray intensity, :math:`I(0)`, is calcuted via:
@@ -960,7 +965,7 @@ class KBThermo:
             I(0) = r_e^2 \rho \hat{S}^e
         """
         return self.calculate_i0_from_s0e(self.s0_p_e.value)
-    
+
     @register_property("i0_x", "1/cm")
     def i0_x(self) -> NDArray[np.float64]:
         r"""ThermoProperty: X-ray intensity as q :math:`\rightarrow` 0."""
@@ -968,7 +973,7 @@ class KBThermo:
 
     def compute_i0_x(self) -> NDArray[np.float64]:
         r"""Calculate the electron density structure factor for entire mixture.
-        
+
         Notes
         -----
         X-ray intensity, :math:`I(0)`, is calcuted via:
@@ -977,7 +982,6 @@ class KBThermo:
             I(0) = r_e^2 \rho \hat{S}^e
         """
         return self.calculate_i0_from_s0e(self.s0_x_e.value)
-
 
     def computed_properties(self) -> list[ThermoProperty]:
         """
@@ -997,5 +1001,3 @@ class KBThermo:
         summarizing, or validating the full set of derived thermodynamic results.
         """
         return [getattr(self, attr) for attr in dir(self) if isinstance(getattr(self, attr), ThermoProperty)]
-
-    

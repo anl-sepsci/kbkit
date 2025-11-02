@@ -92,8 +92,8 @@ if PUBLISH:
     # Add a delay to allow PyPI to process the upload
     print("Waiting 10 seconds for PyPI to process the upload...")
     import time
-    time.sleep(10)
 
+    time.sleep(10)
 
     # Update URL and SHA256 in meta.yaml
     new_url = f"https://files.pythonhosted.org/packages/source/k/kbkit/kbkit-{VERSION}.tar.gz"

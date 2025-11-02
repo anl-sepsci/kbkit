@@ -2,14 +2,14 @@
 
 from dataclasses import fields
 from functools import cached_property
+from typing import Any, Union
 
 import numpy as np
 from numpy.typing import NDArray
-from typing import Union
 
 from kbkit.analysis.kb_thermo import KBThermo
-from kbkit.analysis.system_state import SystemState
 from kbkit.analysis.kbi_calculator import KBICalculator
+from kbkit.analysis.system_state import SystemState
 from kbkit.core.system_loader import SystemLoader
 from kbkit.schema.thermo_property import ThermoProperty
 from kbkit.schema.thermo_state import ThermoState
@@ -177,13 +177,13 @@ class KBPipeline:
         self.logger.info("Pipeline sucessfully built!")
 
     @cached_property
-    def results(self) -> ThermoState:
+    def results(self) -> dict[Any, Any]:
         """ThermoState object containing all computed thermodynamic properties."""
         if not hasattr(self, "_results"):
             self.run()  # no attribute detected, run the pipeline
             self._results = self.thermo_state.to_dict()
         return self._results
-    
+
     def get(self, name: str) -> Union[list[str], NDArray[np.float64]]:
         r"""Extract the property value from ThermoState object."""
         if not hasattr(self, "thermo_state"):
@@ -226,7 +226,7 @@ class KBPipeline:
         if len(units) == 0:
             raise ValueError("This is a unitlesss property!")
         elif isinstance(value, dict):
-            raise TypeError(f"Could not convert values from type dict. Values must be list or np.ndarray.")
+            raise TypeError("Could not convert values from type dict. Values must be list or np.ndarray.")
 
         try:
             converted = self.state.Q_(value, units).to(target_units)

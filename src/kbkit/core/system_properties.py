@@ -186,7 +186,7 @@ class SystemProperties:
         cap = self.energy.heat_capacity(nmol=self.topology.total_molecules)
         units = resolve_units(units, gmx_units)
         return float(self.Q_(cap, gmx_units).to(units).magnitude)
-    
+
     def _isothermal_compressiblity(self, units: str = "") -> float:
         """
         Compute the isothermal compressibility of the system.
