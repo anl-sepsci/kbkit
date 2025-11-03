@@ -111,4 +111,4 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kbkit"]
+packages = ["kbkit"]
