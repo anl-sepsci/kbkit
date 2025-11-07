@@ -885,7 +885,7 @@ class KBThermo:
             self.gas_constant
             * self.state.temperature()
             * self.isothermal_compressibility.value
-            / self.state.volume_bar("m^3")
+            / self.state.volume("m^3")
         )
 
     @register_property("s0_p_e", "")
