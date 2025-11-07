@@ -1,0 +1,12 @@
+#include "oplsaa.ff/forcefield.itp"
+
+#include "../ETHOL_opls.itp"
+
+#include "../SPCEW_opls.itp"
+
+[ system ]
+sys_401
+
+[ molecules ]
+ETHOL 9282
+SPCEW 3330
