@@ -16,7 +16,7 @@ scatter.edgecolors : k
 markers.fillstyle : none
 errorbar.capsize : 5
 savefig.transparent : False
-savefig.dpi : 300
+savefig.dpi : 100
 savefig.bbox : tight
 legend.labelspacing : 0.1
 legend.fontsize : 11
