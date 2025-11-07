@@ -861,7 +861,8 @@ class KBThermo:
         drho1 = self.drho_elec_dxi()[:, :, np.newaxis]
         drho2 = self.drho_elec_dxi()[:, np.newaxis, :]
         s0_x_e_calc = drho1 * drho2 * self.s0_x.value
-        return np.nansum(s0_x_e_calc, axis=(1, 2))
+        N_A = float(self.state.ureg("N_A").to("1/mol").magnitude)
+        return N_A * np.nansum(s0_x_e_calc, axis=(1, 2))
 
     @register_property("s0_p", "")
     def s0_p(self) -> NDArray[np.float64]:
@@ -884,7 +885,7 @@ class KBThermo:
             self.gas_constant
             * self.state.temperature()
             * self.isothermal_compressibility.value
-            / self.state.volume_bar("m^3/mol")
+            / self.state.volume_bar("m^3")
         )
 
     @register_property("s0_p_e", "")
@@ -929,8 +930,7 @@ class KBThermo:
         r"""Calculates X-ray scattering intensity from electron density contribution of structure factor."""
         re = float(self.state.ureg("re").to("cm").magnitude)
         vbar = self.state.volume_bar(units="cm^3/mol")
-        N_A = float(self.state.ureg("N_A").to("1/mol").magnitude)
-        return re**2 * (1 / vbar) * N_A * s0_elec
+        return re**2 * (1 / vbar) * s0_elec
 
     @register_property("i0", "1/cm")
     def i0(self) -> NDArray[np.float64]:
