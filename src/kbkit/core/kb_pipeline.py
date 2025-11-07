@@ -62,8 +62,10 @@ class KBPipeline:
         KBICalculator object for performing KBI calculations.
     thermo: KBThermo
         KBThermo object for computing thermodynamic properties from KBIs.
-    results: ThermoState
+    thermo_state: ThermoState
         ThermoState object containing results from KBThermo and SystemState.
+    results: dict[str, NDArray[np.float64]]
+        Dictionary of attributes and their corresponding values in ThermoState object.
     """
 
     def __init__(
@@ -204,7 +206,7 @@ class KBPipeline:
             state_kwargs[field.name] = prop_map[field.name]
         return ThermoState(**state_kwargs)
 
-    def convert_units(self, name: str, target_units: str) -> NDArray[np.float64]:
+    def convert_units(self, name: str, units: str) -> NDArray[np.float64]:
         """Get thermodynamic property in desired units.
 
         Parameters
@@ -229,10 +231,10 @@ class KBPipeline:
             raise TypeError("Could not convert values from type dict. Values must be list or np.ndarray.")
 
         try:
-            converted = self.state.Q_(value, units).to(target_units)
+            converted = self.state.Q_(value, units).to(units)
             return np.asarray(converted.magnitude)
         except Exception as e:
-            raise ValueError(f"Could not convert units from {units} to {target_units}") from e
+            raise ValueError(f"Could not convert units from {units} to {units}") from e
 
     def available_properties(self) -> list[str]:
         """Get list of available thermodynamic properties from `KBThermo` and `SystemState`."""
