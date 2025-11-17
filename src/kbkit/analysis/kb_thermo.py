@@ -734,7 +734,8 @@ class KBThermo:
         t1 = np.nansum(self.A_inv_matrix.value, axis=2)
         t2 = -self.state.mol_fr * np.nansum(self.A_inv_matrix.value, axis=(2, 1))[:, np.newaxis]
         n = self.state.n_comp - 1
-        return (t1 + t2)[:, :n]
+        dz_sign = np.sign(self._delta_z)
+        return dz_sign[np.newaxis, :] * (t1 + t2)[:, :n]
 
     @register_property("s0_nn", "")
     def s0_nn(self) -> NDArray[np.float64]:
@@ -812,7 +813,8 @@ class KBThermo:
         .. math::
             \hat{S}^{nc,e}(0) = 2 \bar{Z} \sum_{i=1}^{n-1} \left( Z_i - Z_n \right)  \hat{S}^{nc}(0)
         """
-        t1 = self._delta_z[np.newaxis, :] * self.s0_nc.value
+        dz_sign = np.sign(self._delta_z)
+        t1 = self._delta_z[np.newaxis, :] * dz_sign[np.newaxis, :] * self.s0_nc.value
         return 2 * self._zbar * np.nansum(t1, axis=1)
 
     @register_property("s0_nn_e", "")

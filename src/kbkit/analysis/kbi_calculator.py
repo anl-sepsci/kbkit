@@ -1,6 +1,5 @@
 """Calculator for Kirkwood-Buff Integrals (KBIs)."""
 
-
 import numpy as np
 from numpy.typing import NDArray
 

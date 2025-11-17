@@ -111,11 +111,6 @@ class SystemRegistry:
         -------
         Iterator[SystemMetadata]
             Iterator over all systems.
-
-        Examples
-        --------
-        >>> for system in registry:
-        ...     print(system.name)
         """
         return iter(self._systems)
 
@@ -127,10 +122,5 @@ class SystemRegistry:
         -------
         int
             Total number of registered systems.
-
-        Examples
-        --------
-        >>> len(registry)
-        5
         """
         return len(self._systems)
