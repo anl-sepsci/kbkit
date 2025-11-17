@@ -221,7 +221,7 @@ class SystemState:
         """
         return np.array([meta.props.get("volume", units=units) for meta in self.config.registry])
 
-    def molar_volume_map(self, units: str = "nm^3 / molecule") -> dict[str, NDArray[np.float64]]:
+    def molar_volume_map(self, units: str = "nm^3 / molecule") -> dict[str, float]:
         """Molar volumes of mapped to molecule name (for pure components).
 
         Parameters

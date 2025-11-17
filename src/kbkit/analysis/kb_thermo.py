@@ -55,7 +55,7 @@ class KBThermo:
         self.gamma_polynomial_degree = gamma_polynomial_degree
 
     @register_property("kbis", "nm^3/molecule")
-    def kbi_matrix(self) -> ThermoProperty:
+    def kbi_matrix(self) -> NDArray[np.float64]:
         """ThermoProperty: Matrix of KBI values."""
         return self._kbi_matrix
 
@@ -69,7 +69,7 @@ class KBThermo:
         return np.eye(self.state.n_comp)
 
     @register_property("A_inv_matrix", "")
-    def A_inv_matrix(self) -> ThermoProperty:
+    def A_inv_matrix(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Inverse of matrix **A** corresponding to fluctuations in Helmholtz free energy representation, from compositions and KBI matrix, **G**.
 
@@ -103,7 +103,7 @@ class KBThermo:
         return Aij_inv
 
     @register_property("A_matrix", "")
-    def A_matrix(self) -> ThermoProperty:
+    def A_matrix(self) -> NDArray[np.float64]:
         """ThermoProperty: Stability matrix (**A**) of a thermodynamic system in the Helmholtz free energy representation."""
         A_inv = self.A_inv_matrix.value
         try:
@@ -112,7 +112,7 @@ class KBThermo:
             raise ValueError("One or more A_inv blocks are singular and cannot be inverted.") from e
 
     @register_property("l_stability", "")
-    def l_stability(self) -> ThermoProperty:
+    def l_stability(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Stability array :math:`l`, quantifies the stability of a multicomponent fluid mixture.
 
@@ -138,7 +138,7 @@ class KBThermo:
         return np.nansum(l_arr_calc, axis=(2, 1))
 
     @register_property("dmui_dxj", "kJ/mol")
-    def dmui_dxj(self) -> ThermoProperty:
+    def dmui_dxj(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Chemical potential derivatives, **M**, corresponding to composition fluctuations in Gibbs free energy representation.
 
@@ -173,7 +173,7 @@ class KBThermo:
         return M_mat
 
     @register_property("isothermal_compressibility", "1/kPa")
-    def isothermal_compressibility(self) -> ThermoProperty:
+    def isothermal_compressibility(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Isothermal compressibility, :math:`\kappa`, of mixture.
 
@@ -208,7 +208,7 @@ class KBThermo:
         return np.asarray(mat_ij - mat_in - mat_jn + mat_nn)
 
     @register_property("hessian", "kJ/mol")
-    def hessian(self) -> ThermoProperty:
+    def hessian(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Hessian matrix, **H**, of Gibbs mixing free energy.
 
@@ -232,7 +232,7 @@ class KBThermo:
         return self._subtract_nth_elements(self.dmui_dxj.value)
 
     @register_property("det_hessian", "kJ/mol")
-    def det_hessian(self) -> ThermoProperty:
+    def det_hessian(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Determinant of the Hessian, :math:`|\mathbf{H}|`, of Gibbs free energy of mixing.
 
@@ -252,7 +252,7 @@ class KBThermo:
         return np.asarray([np.linalg.det(block) for block in self.hessian.value])
 
     @register_property("dmui_dnj", "kJ/mol")
-    def dmui_dnj(self) -> ThermoProperty:
+    def dmui_dnj(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Chemical potential derivatives of molecule :math:`i` with respect to the number of residues of molecule :math:`j`.
 
@@ -280,7 +280,7 @@ class KBThermo:
         return array
 
     @register_property("dmui_dxi", "kJ/mol")
-    def dmui_dxi(self) -> ThermoProperty:
+    def dmui_dxi(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Derivative of the chemical potential of each component with respect to its own mol fraction, enforcing thermodynamic consistency.
 
@@ -326,7 +326,7 @@ class KBThermo:
         return self._set_pure_to_zero(dmui_dxi)  # replace values of pure component with 0
 
     @register_property("dlngammas_dxs", "")
-    def dlngammas_dxs(self) -> ThermoProperty:
+    def dlngammas_dxs(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Derivative of natural logarithm of the activity coefficient of molecule :math:`i` with respect to its mol fraction.
 
@@ -400,7 +400,7 @@ class KBThermo:
             raise TypeError("Could not exctract callable from weight_fn for mol.")
 
     @register_property("lngammas", "")
-    def lngammas(self) -> ThermoProperty:
+    def lngammas(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Activity coefficients as a function of composition and molecule.
 
@@ -605,7 +605,7 @@ class KBThermo:
             raise Exception(f"Could not perform numerical integration for {mol}. Details: {e}.") from e
 
     @register_property("ge", "kJ/mol")
-    def ge(self) -> ThermoProperty:
+    def ge(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Gibbs excess energy from activity coefficients.
 
@@ -626,12 +626,12 @@ class KBThermo:
         return ge
 
     @register_property("se", "kJ/mol/K")
-    def se(self) -> ThermoProperty:
+    def se(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Excess entropy from mixing enthalpy and Gibbs excess energy."""
         return (self.state.h_mix("kJ/mol") - self.ge.value) / self.state.temperature("K")
 
     @register_property("gid", "kJ/mol")
-    def gid(self) -> ThermoProperty:
+    def gid(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Ideal free energy calculated from mol fractions.
 
@@ -655,7 +655,7 @@ class KBThermo:
         return gid
 
     @register_property("gm", "kJ/mol")
-    def gm(self) -> ThermoProperty:
+    def gm(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Gibbs mixing free energy calculated from excess and ideal contributions.
 
@@ -681,7 +681,7 @@ class KBThermo:
         return self.state.electron_bar
 
     @register_property("s0_ij", "")
-    def s0_ij(self) -> ThermoProperty:
+    def s0_ij(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Partial structure factors for pairwise interaction between components.
 
         Notes
@@ -696,7 +696,7 @@ class KBThermo:
         return self.A_inv_matrix.value / np.sqrt(xi * xj)
 
     @register_property("s0_cc", "")
-    def s0_cc(self) -> ThermoProperty:
+    def s0_cc(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -719,7 +719,7 @@ class KBThermo:
         return (t1 + t2 + t3 + t4)[:, :n, :n]
 
     @register_property("s0_nc", "")
-    def s0_nc(self) -> ThermoProperty:
+    def s0_nc(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from number-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -737,7 +737,7 @@ class KBThermo:
         return (t1 + t2)[:, :n]
 
     @register_property("s0_nn", "")
-    def s0_nn(self) -> ThermoProperty:
+    def s0_nn(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from number-number fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -750,7 +750,7 @@ class KBThermo:
         return np.nansum(self.A_inv_matrix.value, axis=(2, 1))
 
     @register_property("s0_kappa", "")
-    def s0_kappa(self) -> ThermoProperty:
+    def s0_kappa(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from isothermal compressibility to density-density fluctuations structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -768,7 +768,7 @@ class KBThermo:
         )
 
     @register_property("s0_x", "")
-    def s0_x(self) -> ThermoProperty:
+    def s0_x(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -787,7 +787,7 @@ class KBThermo:
         )
 
     @register_property("s0_cc_e", "")
-    def s0_cc_e(self) -> ThermoProperty:
+    def s0_cc_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -802,7 +802,7 @@ class KBThermo:
         return np.nansum(t1, axis=(2, 1))
 
     @register_property("s0_nc_e", "")
-    def s0_nc_e(self) -> ThermoProperty:
+    def s0_nc_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from number-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -816,7 +816,7 @@ class KBThermo:
         return 2 * self._zbar * np.nansum(t1, axis=1)
 
     @register_property("s0_nn_e", "")
-    def s0_nn_e(self) -> ThermoProperty:
+    def s0_nn_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from number-number fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -829,7 +829,7 @@ class KBThermo:
         return self._zbar**2 * self.s0_nn.value
 
     @register_property("s0_kappa_e", "")
-    def s0_kappa_e(self) -> ThermoProperty:
+    def s0_kappa_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from isothermal compressibility to density-density fluctuations electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -842,7 +842,7 @@ class KBThermo:
         return self._zbar**2 * self.s0_kappa.value
 
     @register_property("s0_x_e", "")
-    def s0_x_e(self) -> ThermoProperty:
+    def s0_x_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
@@ -855,7 +855,7 @@ class KBThermo:
         return self.s0_cc_e.value + self.s0_nc_e.value + self.s0_nn_e.value - self.s0_kappa_e.value
 
     @register_property("s0_e", "")
-    def s0_e(self) -> ThermoProperty:
+    def s0_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Electron density structure factor as q :math:`\rightarrow` 0 for the entire mixture.
 
         Notes
@@ -878,7 +878,7 @@ class KBThermo:
         return re**2 * (1 / vbar) * N_A * s0_elec
 
     @register_property("i0_cc", "1/cm")
-    def i0_cc(self) -> ThermoProperty:
+    def i0_cc(self) -> NDArray[np.float64]:
         r"""ThermoProperty:  Contribution from concentration-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
@@ -891,7 +891,7 @@ class KBThermo:
         return self._calculate_i0_from_s0e(self.s0_cc_e.value)
 
     @register_property("i0_nc", "1/cm")
-    def i0_nc(self) -> ThermoProperty:
+    def i0_nc(self) -> NDArray[np.float64]:
         r"""ThermoProperty:  Contribution from number-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
@@ -904,7 +904,7 @@ class KBThermo:
         return self._calculate_i0_from_s0e(self.s0_nc_e.value)
 
     @register_property("i0_nn", "1/cm")
-    def i0_nn(self) -> ThermoProperty:
+    def i0_nn(self) -> NDArray[np.float64]:
         r"""ThermoProperty:  Contribution from number-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
@@ -917,7 +917,7 @@ class KBThermo:
         return self._calculate_i0_from_s0e(self.s0_nn_e.value)
 
     @register_property("i0_kappa", "1/cm")
-    def i0_kappa(self) -> ThermoProperty:
+    def i0_kappa(self) -> NDArray[np.float64]:
         r"""ThermoProperty:  Contribution from isothermal compressibility to density-density fluctuations x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
@@ -930,7 +930,7 @@ class KBThermo:
         return self._calculate_i0_from_s0e(self.s0_kappa_e.value)
 
     @register_property("i0_x", "1/cm")
-    def i0_x(self) -> ThermoProperty:
+    def i0_x(self) -> NDArray[np.float64]:
         r"""ThermoProperty:  Contribution from concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
@@ -943,7 +943,7 @@ class KBThermo:
         return self._calculate_i0_from_s0e(self.s0_x_e.value)
 
     @register_property("i0", "1/cm")
-    def i0(self) -> ThermoProperty:
+    def i0(self) -> NDArray[np.float64]:
         r"""ThermoProperty: X-ray intensity as q :math:`\rightarrow` 0 for entire mixture.
 
         Notes
