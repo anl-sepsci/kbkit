@@ -1,8 +1,8 @@
 """Calculator for Kirkwood-Buff Integrals (KBIs)."""
 
+
 import numpy as np
 from numpy.typing import NDArray
-from itertools import product
 
 from kbkit.analysis.kb_integrator import KBIntegrator
 from kbkit.analysis.system_state import SystemState
@@ -76,7 +76,7 @@ class KBICalculator:
             return self.compute_electrolyte_corrected_kbi_matrix(kbis)
         # correct matrix to unique molecules --> assumes no electrolytes
         elif not electrolyte_chk:
-            return self._convert_unique_molecules(kbis) 
+            return self._convert_unique_molecules(kbis)
         # return raw kbi matrix if electrolytes are detected but user doesn't want corrected kbi matrix
         else:
             return kbis

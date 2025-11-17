@@ -220,7 +220,7 @@ class SystemState:
             1D volume array as a function of composition.
         """
         return np.array([meta.props.get("volume", units=units) for meta in self.config.registry])
-    
+
     def molar_volume_map(self, units: str = "nm^3 / molecule") -> dict[str, NDArray[np.float64]]:
         """Molar volumes of mapped to molecule name (for pure components).
 
@@ -244,7 +244,7 @@ class SystemState:
             if meta.kind == "pure":
                 N = self.Q_(top.total_molecules, "molecule").to(N_unit).magnitude
                 volumes_map[".".join(top.molecules)] = volumes[i] / N
-        
+
         return volumes_map
 
     def molar_volume(self, units: str = "nm^3 / molecule") -> NDArray[np.float64]:
@@ -498,13 +498,13 @@ class SystemState:
         properties.append(ThermoProperty(name="mol_fr", value=self.mol_fr, units=""))
         properties.append(ThermoProperty(name="temperature", value=self.temperature(units="K"), units="K"))
         properties.append(ThermoProperty(name="volume", value=self.volume(units="nm^3"), units="nm^3"))
-        properties.append(ThermoProperty(name="molar_volume_map", value=self.molar_volume_map(units="cm^3/mol"), units="cm^3/mol"))
+        properties.append(
+            ThermoProperty(name="molar_volume_map", value=self.molar_volume_map(units="cm^3/mol"), units="cm^3/mol")
+        )
         properties.append(
             ThermoProperty(name="molar_volume", value=self.molar_volume(units="cm^3/mol"), units="cm^3/mol")
         )
-        properties.append(
-            ThermoProperty(name="enthalpy", value=self.enthalpy(units="kJ/mol"), units="kJ/mol")
-        )
+        properties.append(ThermoProperty(name="enthalpy", value=self.enthalpy(units="kJ/mol"), units="kJ/mol"))
         properties.append(
             ThermoProperty(name="heat_capacity", value=self.heat_capacity(units="kJ/mol/K"), units="kJ/mol/K")
         )

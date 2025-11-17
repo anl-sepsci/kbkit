@@ -135,7 +135,7 @@ class KBThermo:
         """
         mfr_3d_sq = self.state.mol_fr[:, :, np.newaxis] * self.state.mol_fr[:, np.newaxis, :]
         l_arr_calc = mfr_3d_sq * self.A_matrix.value
-        return np.nansum(l_arr_calc, axis=(2,1))
+        return np.nansum(l_arr_calc, axis=(2, 1))
 
     @register_property("dmui_dxj", "kJ/mol")
     def dmui_dxj(self) -> ThermoProperty:
@@ -669,21 +669,21 @@ class KBThermo:
         gm = self.ge.value + self.gid.value
         gm[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return gm
-    
+
     @property
     def _delta_z(self) -> NDArray[np.float64]:
         r"""Calculate the difference in electrons."""
         return self.state.n_electrons[:-1] - self.state.n_electrons[-1]
-    
+
     @property
     def _zbar(self) -> NDArray[np.float64]:
         r"""Calculate the linear combination of electrons for each system."""
         return self.state.electron_bar
-        
+
     @register_property("s0_ij", "")
     def s0_ij(self) -> ThermoProperty:
         r"""ThermoProperty: Partial structure factors for pairwise interaction between components.
-        
+
         Notes
         -----
         Partial structure factor, :math:`\hat{S}_{ij}(0)`, is calculated via:
@@ -691,9 +691,9 @@ class KBThermo:
         .. math::
             \hat{S}_{ij}(0) = \frac{A_{ij}^{-1}}{(x_i x_j)^{(1/2)}}
         """
-        xi = self.state.mol_fr[:,:,np.newaxis]
-        xj = self.state.mol_fr[:,np.newaxis,:]
-        return self.A_inv_matrix.value / np.sqrt(xi*xj)
+        xi = self.state.mol_fr[:, :, np.newaxis]
+        xj = self.state.mol_fr[:, np.newaxis, :]
+        return self.A_inv_matrix.value / np.sqrt(xi * xj)
 
     @register_property("s0_cc", "")
     def s0_cc(self) -> ThermoProperty:
@@ -709,14 +709,14 @@ class KBThermo:
         for i and j from 1 to n-1.
         """
         mfr = self.state.mol_fr
-        xi = mfr[:,:,np.newaxis]
-        xj = mfr[:,np.newaxis,:]
+        xi = mfr[:, :, np.newaxis]
+        xj = mfr[:, np.newaxis, :]
         t1 = self.A_inv_matrix.value
-        t2 = -xi * np.nansum(self.A_inv_matrix.value, axis=2)[:,:,np.newaxis]
-        t3 = -xj * np.nansum(self.A_inv_matrix.value, axis=1)[:,:,np.newaxis]
-        t4 = xi * xj * np.nansum(self.A_inv_matrix.value, axis=(2,1))[:,np.newaxis,np.newaxis]
+        t2 = -xi * np.nansum(self.A_inv_matrix.value, axis=2)[:, :, np.newaxis]
+        t3 = -xj * np.nansum(self.A_inv_matrix.value, axis=1)[:, :, np.newaxis]
+        t4 = xi * xj * np.nansum(self.A_inv_matrix.value, axis=(2, 1))[:, np.newaxis, np.newaxis]
         n = self.state.n_comp - 1
-        return (t1 + t2 + t3 + t4)[:,:n,:n]
+        return (t1 + t2 + t3 + t4)[:, :n, :n]
 
     @register_property("s0_nc", "")
     def s0_nc(self) -> ThermoProperty:
@@ -732,10 +732,10 @@ class KBThermo:
         for i from 1 to n-1.
         """
         t1 = np.nansum(self.A_inv_matrix.value, axis=2)
-        t2 = - self.state.mol_fr * np.nansum(self.A_inv_matrix.value, axis=(2,1))[:,np.newaxis]
+        t2 = -self.state.mol_fr * np.nansum(self.A_inv_matrix.value, axis=(2, 1))[:, np.newaxis]
         n = self.state.n_comp - 1
-        return (t1 + t2)[:,:n]
-    
+        return (t1 + t2)[:, :n]
+
     @register_property("s0_nn", "")
     def s0_nn(self) -> ThermoProperty:
         r"""ThermoProperty: Contribution from number-number fluctuations to structure factor as q :math:`\rightarrow` 0.
@@ -747,8 +747,8 @@ class KBThermo:
         .. math::
             \hat{S}^{nn}(0) = \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
         """
-        return np.nansum(self.A_inv_matrix.value, axis=(2,1))
-    
+        return np.nansum(self.A_inv_matrix.value, axis=(2, 1))
+
     @register_property("s0_kappa", "")
     def s0_kappa(self) -> ThermoProperty:
         r"""ThermoProperty: Contribution from isothermal compressibility to density-density fluctuations structure factor as q :math:`\rightarrow` 0.
@@ -766,7 +766,7 @@ class KBThermo:
             * self.isothermal_compressibility.value
             / self.state.volume_bar("m^3/mol")
         )
-    
+
     @register_property("s0_x", "")
     def s0_x(self) -> ThermoProperty:
         r"""ThermoProperty: Contribution from concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
@@ -779,8 +779,13 @@ class KBThermo:
             \hat{S}_{ij}^x(0) = \sum_{i=1}^{n-1} \sum_{j=1}^{n-1} \hat{S}^{cc}(0) + \sum_{i=1}^{n-1} \hat{S}^{nc}(0) + \hat{S}^{nn}(0) - \hat{S}^{\kappa_T}(0)
 
         """
-        return np.nansum(self.s0_cc.value, axis=(2,1)) + np.nansum(self.s0_nc.value, axis=1) + self.s0_nn.value - self.s0_kappa.value
-    
+        return (
+            np.nansum(self.s0_cc.value, axis=(2, 1))
+            + np.nansum(self.s0_nc.value, axis=1)
+            + self.s0_nn.value
+            - self.s0_kappa.value
+        )
+
     @register_property("s0_cc_e", "")
     def s0_cc_e(self) -> ThermoProperty:
         r"""ThermoProperty: Contribution from concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
@@ -792,10 +797,10 @@ class KBThermo:
         .. math::
             \hat{S}^{cc,e}(0) = \sum_{i=1}^{n-1}\sum_{j=1}^{n-1} \left( Z_i - Z_n \right) \left( Z_j - Z_n \right) \hat{S}^{cc}(0)
         """
-        dz_sq = self._delta_z[:,np.newaxis] * self._delta_z[np.newaxis,:]
-        t1 = dz_sq[np.newaxis,:,:] * self.s0_cc.value
-        return np.nansum(t1, axis=(2,1))
-    
+        dz_sq = self._delta_z[:, np.newaxis] * self._delta_z[np.newaxis, :]
+        t1 = dz_sq[np.newaxis, :, :] * self.s0_cc.value
+        return np.nansum(t1, axis=(2, 1))
+
     @register_property("s0_nc_e", "")
     def s0_nc_e(self) -> ThermoProperty:
         r"""ThermoProperty: Contribution from number-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
@@ -807,7 +812,7 @@ class KBThermo:
         .. math::
             \hat{S}^{nc,e}(0) = 2 \bar{Z} \sum_{i=1}^{n-1} \left( Z_i - Z_n \right)  \hat{S}^{nc}(0)
         """
-        t1 = self._delta_z[np.newaxis,:] * self.s0_nc.value
+        t1 = self._delta_z[np.newaxis, :] * self.s0_nc.value
         return 2 * self._zbar * np.nansum(t1, axis=1)
 
     @register_property("s0_nn_e", "")
@@ -822,8 +827,7 @@ class KBThermo:
             \hat{S}^{nn,e}(0) = \bar{Z}^2 \hat{S}^{nn}(0)
         """
         return self._zbar**2 * self.s0_nn.value
-    
-    
+
     @register_property("s0_kappa_e", "")
     def s0_kappa_e(self) -> ThermoProperty:
         r"""ThermoProperty: Contribution from isothermal compressibility to density-density fluctuations electron density structure factor as q :math:`\rightarrow` 0.
@@ -836,7 +840,7 @@ class KBThermo:
             \hat{S}^{\kappa_T,e}(0) = \bar{Z}^2 \hat{S}^{\kappa_T}(0)
         """
         return self._zbar**2 * self.s0_kappa.value
-    
+
     @register_property("s0_x_e", "")
     def s0_x_e(self) -> ThermoProperty:
         r"""ThermoProperty: Contribution from concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
@@ -850,7 +854,6 @@ class KBThermo:
         """
         return self.s0_cc_e.value + self.s0_nc_e.value + self.s0_nn_e.value - self.s0_kappa_e.value
 
-    
     @register_property("s0_e", "")
     def s0_e(self) -> ThermoProperty:
         r"""ThermoProperty: Electron density structure factor as q :math:`\rightarrow` 0 for the entire mixture.
@@ -861,11 +864,11 @@ class KBThermo:
 
         .. math::
             \hat{S}^{e}(0) = \sum_{i=1}^n \sum_{j=1}^n Z_i Z_j A_{ij}^{-1}
-                           
+
         """
         ne = self.state.n_electrons
-        ne_sq = ne[:,np.newaxis] * ne[np.newaxis,:]
-        return np.nansum(ne_sq * self.A_inv_matrix.value, axis=(2,1))
+        ne_sq = ne[:, np.newaxis] * ne[np.newaxis, :]
+        return np.nansum(ne_sq * self.A_inv_matrix.value, axis=(2, 1))
 
     def _calculate_i0_from_s0e(self, s0_elec) -> NDArray[np.float64]:
         r"""Calculates x-ray scattering intensity from electron density contribution of structure factor."""
@@ -874,7 +877,6 @@ class KBThermo:
         N_A = float(self.state.ureg("N_A").to("1/mol").magnitude)
         return re**2 * (1 / vbar) * N_A * s0_elec
 
-    
     @register_property("i0_cc", "1/cm")
     def i0_cc(self) -> ThermoProperty:
         r"""ThermoProperty:  Contribution from concentration-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
@@ -887,7 +889,7 @@ class KBThermo:
             I^{cc}(0) = r_e^2 \rho N_A \hat{S}^{cc,e}(0)
         """
         return self._calculate_i0_from_s0e(self.s0_cc_e.value)
-    
+
     @register_property("i0_nc", "1/cm")
     def i0_nc(self) -> ThermoProperty:
         r"""ThermoProperty:  Contribution from number-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
@@ -900,7 +902,7 @@ class KBThermo:
             I^{nc}(0) = r_e^2 \rho N_A \hat{S}^{nc,e}(0)
         """
         return self._calculate_i0_from_s0e(self.s0_nc_e.value)
-    
+
     @register_property("i0_nn", "1/cm")
     def i0_nn(self) -> ThermoProperty:
         r"""ThermoProperty:  Contribution from number-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
@@ -913,7 +915,7 @@ class KBThermo:
             I^{nn}(0) = r_e^2 \rho N_A \hat{S}^{nn,e}(0)
         """
         return self._calculate_i0_from_s0e(self.s0_nn_e.value)
-    
+
     @register_property("i0_kappa", "1/cm")
     def i0_kappa(self) -> ThermoProperty:
         r"""ThermoProperty:  Contribution from isothermal compressibility to density-density fluctuations x-ray intensity as q :math:`\rightarrow` 0.
@@ -926,7 +928,7 @@ class KBThermo:
             I^{\kappa_T}(0) = r_e^2 \rho N_A \hat{S}^{\kappa_T,e}(0)
         """
         return self._calculate_i0_from_s0e(self.s0_kappa_e.value)
-    
+
     @register_property("i0_x", "1/cm")
     def i0_x(self) -> ThermoProperty:
         r"""ThermoProperty:  Contribution from concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
@@ -939,7 +941,7 @@ class KBThermo:
             I^{x}(0) = r_e^2 \rho N_A \hat{S}^{x,e}(0)
         """
         return self._calculate_i0_from_s0e(self.s0_x_e.value)
-    
+
     @register_property("i0", "1/cm")
     def i0(self) -> ThermoProperty:
         r"""ThermoProperty: X-ray intensity as q :math:`\rightarrow` 0 for entire mixture.
@@ -952,7 +954,6 @@ class KBThermo:
             I(0) = r_e^2 \rho N_A \hat{S}^e
         """
         return self._calculate_i0_from_s0e(self.s0_e.value)
-    
 
     def computed_properties(self) -> list[ThermoProperty]:
         """

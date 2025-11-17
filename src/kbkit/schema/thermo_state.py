@@ -13,6 +13,7 @@ class ThermoState:
     This dataclass aggregates all computed thermodynamic and state properties from a KBPipeline run.
     Each attribute is a `ThermoProperty` instance, providing the value, units, and metadata for a specific property.
     """
+
     # from KBThermo
     kbis: ThermoProperty
     A_inv_matrix: ThermoProperty
@@ -72,7 +73,6 @@ class ThermoState:
     volume_bar: ThermoProperty
     volume_mix: ThermoProperty
     excess_volume: ThermoProperty
-
 
     def to_dict(self) -> dict:
         """Convert the ThermoState dataclass to a dictionary."""

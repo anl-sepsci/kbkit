@@ -78,12 +78,11 @@ if PUBLISH:
     if not dist_file.exists():
         print("Building source distribution...")
         try:
-            subprocess.run([
-                "conda", "run", "-n", "kbkit-dev",
-                "python3", "-m", "build",
-                "--sdist",
-                "--outdir", str(DIST_DIR)
-            ], check=True, shell=True)
+            subprocess.run(
+                ["conda", "run", "-n", "kbkit-dev", "python3", "-m", "build", "--sdist", "--outdir", str(DIST_DIR)],
+                check=True,
+                shell=True,
+            )
         except subprocess.CalledProcessError as e:
             print(f"Build failed with error: {e}")
 
@@ -128,9 +127,9 @@ if PUBLISH:
         subprocess.run(["git", "commit", "-m", f"'Updated version to v{VERSION}'"], check=True)
         subprocess.run(["git", "push", "origin", "main"], check=True)
         print(f"Pushed updates to version: v{VERSION}")
-    except:
-        pass 
-    
+    except subprocess.CalledProcessError:
+        print("Skipped GitHub push to main.")
+
     # --- Git Tag and Push ---
     tag_name = f"v{VERSION}"
     # list existing tags

@@ -3,7 +3,6 @@
 from dataclasses import fields
 from functools import cached_property
 from typing import Any, Union
-import os
 
 import numpy as np
 from numpy.typing import NDArray
@@ -126,7 +125,6 @@ class KBPipeline:
         The pipeline's progress is logged using the logger initialized within
         :class:`~kbkit.core.system_loader.SystemLoader`.
         """
-
         loader = SystemLoader(verbose=self.verbose)
         self.logger = loader.logger
 
