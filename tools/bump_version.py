@@ -77,10 +77,15 @@ if PUBLISH:
     dist_file = DIST_DIR / f"kbkit-{VERSION}.tar.gz"
     if not dist_file.exists():
         print("Building source distribution...")
-        subprocess.run(
-            ["conda", "run", "-n", "kbkit-dev", "python3", "-m", "build", "--sdist", "--outdir", str(DIST_DIR)],
-            check=True,
-        )
+        try:
+            subprocess.run([
+                "conda", "run", "-n", "kbkit-dev",
+                "python3", "-m", "build",
+                "--sdist",
+                "--outdir", str(DIST_DIR)
+            ], check=True, shell=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Build failed with error: {e}")
 
     if not dist_file.exists():
         print(f"Distribution file not found: {dist_file}", file=sys.stderr)

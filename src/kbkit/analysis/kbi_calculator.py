@@ -2,6 +2,7 @@
 
 import numpy as np
 from numpy.typing import NDArray
+from itertools import product
 
 from kbkit.analysis.kb_integrator import KBIntegrator
 from kbkit.analysis.system_state import SystemState
@@ -66,12 +67,19 @@ class KBICalculator:
         np.ndarray
             A 3D numpy array representing the final KBI matrix.
         """
-        if apply_electrolyte_correction:
-            self.state.config.logger.info("Computing KBI matrix with electrolyte correction...")
-            return self.compute_electrolyte_corrected_kbi_matrix()
+        # calculate kbis for each unique molecule in topology file
+        kbis = self.compute_raw_kbi_matrix()
+        # check if any electrolytes are present
+        electrolyte_chk = True if any("." in x for x in self.state.unique_molecules) else False
+        # correct for electrolytes if present
+        if apply_electrolyte_correction and electrolyte_chk:
+            return self.compute_electrolyte_corrected_kbi_matrix(kbis)
+        # correct matrix to unique molecules --> assumes no electrolytes
+        elif not electrolyte_chk:
+            return self._convert_unique_molecules(kbis) 
+        # return raw kbi matrix if electrolytes are detected but user doesn't want corrected kbi matrix
         else:
-            self.state.config.logger.info("Computing raw KBI matrix...")
-            return self.compute_raw_kbi_matrix()
+            return kbis
 
     def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
         r"""
@@ -181,6 +189,18 @@ class KBICalculator:
             )
         )
 
+    def _convert_unique_molecules(self, kbi_matrix):
+        r"""Convert KBI matrix to shape of unique molecules."""
+        new_kbis = np.full((self.state.n_sys, self.state.n_comp, self.state.n_comp), fill_value=np.nan)
+
+        for i, moli in enumerate(self.state.unique_molecules):
+            ii = self.state._get_mol_idx(moli, self.state.top_molecules)
+            for j, molj in enumerate(self.state.unique_molecules):
+                jj = self.state._get_mol_idx(molj, self.state.top_molecules)
+                new_kbis[:, i, j] = kbi_matrix[:, ii, jj]
+
+        return new_kbis
+
     def get_metadata(self, system: str, mol_pair: tuple[str, str]) -> KBIMetadata | None:
         """
         Retrieve metadata for a specific system and molecular pair.
@@ -202,7 +222,7 @@ class KBICalculator:
                 return meta
         return None
 
-    def compute_electrolyte_corrected_kbi_matrix(self) -> NDArray[np.float64]:
+    def compute_electrolyte_corrected_kbi_matrix(self, kbi_matrix) -> NDArray[np.float64]:
         r"""
         Apply electrolyte correction to the input KBI matrix.
 
@@ -232,7 +252,6 @@ class KBICalculator:
             * :math:`G_{ij}` are the raw KBIs between molecule types :math:`i` and :math:`j`
         """
         # This method first computes the raw matrix then corrects it
-        kbi_matrix = self.compute_raw_kbi_matrix()
         salt_pairs = self.state.salt_pairs
         top_molecules = self.state.top_molecules
         unique_molecules = self.state.unique_molecules

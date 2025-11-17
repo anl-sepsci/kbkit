@@ -3,6 +3,7 @@
 from dataclasses import fields
 from functools import cached_property
 from typing import Any, Union
+import os
 
 import numpy as np
 from numpy.typing import NDArray
@@ -58,7 +59,7 @@ class KBPipeline:
         SystemConfig object for SystemState analysis.
     state: SystemState
         SystemState object for systems as a function of composition at single temperature.
-    kbi_calc: KBICalculator
+    kbi_calculator: KBICalculator
         KBICalculator object for performing KBI calculations.
     thermo: KBThermo
         KBThermo object for computing thermodynamic properties from KBIs.
@@ -115,24 +116,17 @@ class KBPipeline:
         2.  Building the system state using :class:`~kbkit.analysis.system_state.SystemState`.
         3.  Initializing the KBI calculator using :class:`~kbkit.calculators.kbi_calculator.KBICalculator`.
         4.  Computing the KBI matrix.
-        5.  Creating the thermodynamic model using :class:`~kbkit.analysis.kb_thermo.KBThermo`.
-        6.  Generating :class:`~kbkit.schema.thermo_property.ThermoProperty` objects.
-        7.  Mapping properties into a structured thermodynamic state.
+        5.  Creating the thermodynamic state using :class:`~kbkit.analysis.kb_thermo.KBThermo`.
 
         This is the primary entry point for running the entire KBI-based
         thermodynamic analysis.
-
-        Returns
-        -------
-        None
-            The results of the pipeline are stored in the `results` attribute
-            of this object. Use :meth:`results` to access them.
 
         Notes
         -----
         The pipeline's progress is logged using the logger initialized within
         :class:`~kbkit.core.system_loader.SystemLoader`.
         """
+
         loader = SystemLoader(verbose=self.verbose)
         self.logger = loader.logger
 
@@ -153,14 +147,14 @@ class KBPipeline:
         self.state = SystemState(self.config)
 
         self.logger.info("Initializing KBICalculator")
-        self.kbi_calc = KBICalculator(
+        self.kbi_calculator = KBICalculator(
             state=self.state,
             use_fixed_r=self.use_fixed_r,
             ignore_convergence_errors=self.ignore_convergence_errors,
             rdf_convergence_threshold=self.rdf_convergence_threshold,
         )
         self.logger.info("Calculating KBIs")
-        kbi_matrix = self.kbi_calc.run()
+        kbi_matrix = self.kbi_calculator.run(apply_electrolyte_correction=True)
 
         self.logger.info("Creating KBThermo...")
         self.thermo = KBThermo(
@@ -170,34 +164,32 @@ class KBPipeline:
             gamma_polynomial_degree=self.gamma_polynomial_degree,
         )
 
+        self.logger.info("Pipeline sucessfully built!")
+
+    @cached_property
+    def thermo_state(self) -> ThermoState:
+        """:class:`~kbkit.schema.thermo_state.ThermoState` object containing all computed thermodynamic properties, in :class:`~kbkit.schema.thermo_property.ThermoProperty` objects."""
         self.logger.info("Generating ThermoProperty objects...")
         self.properties = self._compute_properties()
 
         self.logger.info("Mapping ThermoProperty obejcts into ThermoState...")
-        self.thermo_state = self._build_thermo_state(self.properties)
-
-        self.logger.info("Pipeline sucessfully built!")
+        return self._build_thermo_state(self.properties)
 
     @cached_property
     def results(self) -> dict[Any, Any]:
-        """ThermoState object containing all computed thermodynamic properties."""
-        if not hasattr(self, "_results"):
-            self.run()  # no attribute detected, run the pipeline
-            self._results = self.thermo_state.to_dict()
-        return self._results
+        """Dictionary of :class:`~kbkit.schema.thermo_state.ThermoState` with mapped names and values."""
+        return self.thermo_state.to_dict()
 
     def get(self, name: str) -> Union[list[str], NDArray[np.float64]]:
-        r"""Extract the property value from ThermoState object."""
-        if not hasattr(self, "thermo_state"):
-            self.run()
+        r"""Extract the property value from :class:`~kbkit.schema.thermo_state.ThermoState`."""
         return self.thermo_state.get(name).value
 
     def _compute_properties(self) -> list[ThermoProperty]:
-        """Compute ThermoProperties for all attributes of interest."""
+        """Compute :class:`~kbkit.schema.thermo_property.ThermoProperty` for all attributes of interest."""
         return self.thermo.computed_properties() + self.state.computed_properties()
 
     def _build_thermo_state(self, props: list[ThermoProperty]) -> ThermoState:
-        """Build a ThermoState object for easy property access."""
+        """Build a :class:`~kbkit.schema.thermo_state.ThermoState` object for easy property access."""
         prop_map = {p.name: p for p in props}
         state_kwargs = {}
         for field in fields(ThermoState):
@@ -213,7 +205,7 @@ class KBPipeline:
         ----------
         name: str
             Property to convert units for.
-        target_units: str
+        units: str
             Desired units of the property.
 
         Returns
@@ -224,14 +216,14 @@ class KBPipeline:
         meta = self.thermo_state.get(name)
 
         value = meta.value
-        units = meta.units
-        if len(units) == 0:
+        initial_units = meta.units
+        if len(initial_units) == 0:
             raise ValueError("This is a unitlesss property!")
         elif isinstance(value, dict):
             raise TypeError("Could not convert values from type dict. Values must be list or np.ndarray.")
 
         try:
-            converted = self.state.Q_(value, units).to(units)
+            converted = self.state.Q_(value, initial_units).to(units)
             return np.asarray(converted.magnitude)
         except Exception as e:
             raise ValueError(f"Could not convert units from {units} to {units}") from e

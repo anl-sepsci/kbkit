@@ -220,6 +220,32 @@ class SystemState:
             1D volume array as a function of composition.
         """
         return np.array([meta.props.get("volume", units=units) for meta in self.config.registry])
+    
+    def molar_volume_map(self, units: str = "nm^3 / molecule") -> dict[str, NDArray[np.float64]]:
+        """Molar volumes of mapped to molecule name (for pure components).
+
+        Parameters
+        ----------
+        units: str
+            Molar volume units (default: nm^3/molecule)
+
+        Returns
+        -------
+        dict[str, np.ndarray]
+            Dictionary mapping molar volumes to corresponding molecule
+        """
+        vol_unit, N_unit = units.split("/")
+        volumes = self.volume(vol_unit)
+        # make dict in same order as pure molecules
+        volumes_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
+        for i, meta in enumerate(self.config.registry):
+            top = meta.props.topology
+            # only for pure systems
+            if meta.kind == "pure":
+                N = self.Q_(top.total_molecules, "molecule").to(N_unit).magnitude
+                volumes_map[".".join(top.molecules)] = volumes[i] / N
+        
+        return volumes_map
 
     def molar_volume(self, units: str = "nm^3 / molecule") -> NDArray[np.float64]:
         """Molar volumes of pure components.
@@ -234,18 +260,7 @@ class SystemState:
         np.ndarray
             1D array for each unique molecule.
         """
-        vol_unit, N_unit = units.split("/")
-        volumes = self.volume(vol_unit)
-        # make dict in same order as pure molecules
-        volumes_map: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
-        for i, meta in enumerate(self.config.registry):
-            top = meta.props.topology
-            # only for pure systems
-            if meta.kind == "pure":
-                N = self.Q_(top.total_molecules, "molecule").to(N_unit).magnitude
-                volumes_map[".".join(top.molecules)] = volumes[i] / N
-
-        return np.fromiter(volumes_map.values(), dtype=np.float64)
+        return np.fromiter(self.molar_volume_map(units).values(), dtype=np.float64)
 
     def enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
         """Enthalpy of each simulation.
@@ -470,29 +485,44 @@ class SystemState:
         """
         properties = []
         properties.append(ThermoProperty(name="top_molecules", value=self.top_molecules, units=""))
-        properties.append(ThermoProperty(name="molecules", value=self.unique_molecules, units=""))
+        properties.append(ThermoProperty(name="salt_pairs", value=self.salt_pairs, units=""))
+        properties.append(ThermoProperty(name="unique_molecules", value=self.unique_molecules, units=""))
+        properties.append(ThermoProperty(name="total_molecules", value=self.total_molecules, units="molecule"))
+        properties.append(ThermoProperty(name="molecule_info", value=self.molecule_info, units=""))
+        properties.append(ThermoProperty(name="molecule_counts", value=self.molecule_counts, units="molecule"))
+        properties.append(ThermoProperty(name="pure_molecules", value=self.pure_molecules, units=""))
+        properties.append(ThermoProperty(name="pure_mol_fr", value=self.pure_mol_fr, units=""))
+        properties.append(ThermoProperty(name="electron_map", value=self.top_electron_map, units="electron/molecule"))
+        properties.append(ThermoProperty(name="n_electrons", value=self.n_electrons, units="electron/molecule"))
+        properties.append(ThermoProperty(name="electron_bar", value=self.electron_bar, units="electron/molecule"))
         properties.append(ThermoProperty(name="mol_fr", value=self.mol_fr, units=""))
         properties.append(ThermoProperty(name="temperature", value=self.temperature(units="K"), units="K"))
         properties.append(ThermoProperty(name="volume", value=self.volume(units="nm^3"), units="nm^3"))
+        properties.append(ThermoProperty(name="molar_volume_map", value=self.molar_volume_map(units="cm^3/mol"), units="cm^3/mol"))
+        properties.append(
+            ThermoProperty(name="molar_volume", value=self.molar_volume(units="cm^3/mol"), units="cm^3/mol")
+        )
+        properties.append(
+            ThermoProperty(name="enthalpy", value=self.enthalpy(units="kJ/mol"), units="kJ/mol")
+        )
+        properties.append(
+            ThermoProperty(name="heat_capacity", value=self.heat_capacity(units="kJ/mol/K"), units="kJ/mol/K")
+        )
         properties.append(
             ThermoProperty(
                 name="isothermal_compressibility", value=self.isothermal_compressibility(units="1/kPa"), units="1/kPa"
             )
         )
         properties.append(
-            ThermoProperty(name="heat_capacity", value=self.heat_capacity(units="kJ/mol/K"), units="kJ/mol/K")
+            ThermoProperty(name="pure_enthalpy", value=self.pure_enthalpy(units="kJ/mol"), units="kJ/mol")
         )
+        properties.append(
+            ThermoProperty(name="ideal_enthalpy", value=self.ideal_enthalpy(units="kJ/mol"), units="kJ/mol")
+        )
+        properties.append(ThermoProperty(name="h_mix", value=self.h_mix(units="kJ/mol"), units="kJ/mol"))
+        properties.append(ThermoProperty(name="volume_bar", value=self.volume_bar(units="cm^3/mol"), units="cm^3/mol"))
+        properties.append(ThermoProperty(name="volume_mix", value=self.volume_mix(units="cm^3/mol"), units="cm^3/mol"))
         properties.append(
             ThermoProperty(name="excess_volume", value=self.excess_volume(units="cm^3/mol"), units="cm^3/mol")
         )
-        properties.append(
-            ThermoProperty(name="molar_volume", value=self.molar_volume(units="cm^3/mol"), units="cm^3/mol")
-        )
-        molar_volume = dict(zip(self.pure_molecules, self.molar_volume(units="cm^3/mol"), strict=False))
-        properties.append(ThermoProperty(name="molar_volume_map", value=molar_volume, units="cm^3/mol"))
-        properties.append(ThermoProperty(name="n_electrons", value=self.n_electrons, units="electron/molecule"))
-        properties.append(ThermoProperty(name="electron_map", value=self.top_electron_map, units="electron/molecule"))
-        properties.append(ThermoProperty(name="h_mix", value=self.h_mix(units="kJ/mol"), units="kJ/mol"))
-        properties.append(ThermoProperty(name="volume_bar", value=self.volume_bar(units="nm^3/molecule"), units="nm^3"))
-        properties.append(ThermoProperty(name="molecule_info", value=self.molecule_info, units="molecule"))
         return properties

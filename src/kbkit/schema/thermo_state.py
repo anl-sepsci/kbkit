@@ -12,89 +12,8 @@ class ThermoState:
 
     This dataclass aggregates all computed thermodynamic and state properties from a KBPipeline run.
     Each attribute is a `ThermoProperty` instance, providing the value, units, and metadata for a specific property.
-
-    Attributes
-    ----------
-    kbis : ThermoProperty
-        Kirkwood-Buff integrals for each system.
-    A_inv_matrix : ThermoProperty
-        Inverse of the Helmholtz stability matrix.
-    A_matrix : ThermoProperty
-        Helmholtz stability matrix.
-    l_stability : ThermoProperty
-        Stability array for the mixture.
-    dmui_dxj : ThermoProperty
-        Chemical potential derivatives with respect to mol fraction.
-    dmui_dnj : ThermoProperty
-        Chemical potential derivatives with respect to molecule count.
-    dmui_dxi : ThermoProperty
-        Chemical potential derivatives with respect to own mol fraction.
-    isothermal_compressibility : ThermoProperty
-        Isothermal compressibility of the mixture.
-    hessian : ThermoProperty
-        Hessian matrix of Gibbs mixing free energy.
-    det_hessian : ThermoProperty
-        Determinant of the Hessian matrix.
-    dlngammas_dxs : ThermoProperty
-        Derivatives of activity coefficients with respect to composition.
-    lngammas : ThermoProperty
-        Activity coefficients as a function of composition.
-    ge : ThermoProperty
-        Gibbs excess free energy.
-    gid : ThermoProperty
-        Gibbs ideal free energy.
-    gm : ThermoProperty
-        Gibbs mixing free energy.
-    se : ThermoProperty
-        Excess entropy.
-    i0 : ThermoProperty
-        X-ray intensity as q → 0.
-    s0_ij: ThermoProperty
-        Partial structure factor between molecules i,j as q → 0.
-    s0_e : ThermoProperty
-        Electron density structure factor as q → 0.
-    s0_x_e : ThermoProperty
-        Concentration-concentration contribution to electron density structure factor.
-    s0_xp_e : ThermoProperty
-        Concentration-density contribution to electron density structure factor.
-    s0_p_e : ThermoProperty
-        Density-density contribution to electron density structure factor.
-    s0_x : ThermoProperty
-        Concentration-concentration contribution to structure factor.
-    s0_xp : ThermoProperty
-        Concentration-density contribution to structure factor.
-    s0_p : ThermoProperty
-        Density-density contribution to structure factor.
-    top_molecules: ThermoProperty
-        Molecules present in topology files.
-    molecules : ThermoProperty
-        List of molecule names in the system.
-    mol_fr : ThermoProperty
-        Mole fractions for each component.
-    temperature : ThermoProperty
-        System temperature.
-    volume : ThermoProperty
-        System volume.
-    heat_capacity: ThermoProperty
-        Heat capacity of the system.
-    molar_volume : ThermoProperty
-        Molar volume of the system.
-    molar_volume_map: ThermoProperty
-        Dictionary of molar volumes mapped to their molecule name.
-    n_electrons : ThermoProperty
-        Number of electrons in the system.
-    electron_map: ThermoProperty
-        Electron numbers mapped to their molecule name.
-    h_mix : ThermoProperty
-        Enthalpy of mixing.
-    volume_bar : ThermoProperty
-        Average volume per molecule.
-    molecule_rho : ThermoProperty
-        Number density for each molecule type.
-    molecule_info : ThermoProperty
-        Count of each molecule type in the system.
     """
-
+    # from KBThermo
     kbis: ThermoProperty
     A_inv_matrix: ThermoProperty
     A_matrix: ThermoProperty
@@ -110,28 +29,50 @@ class ThermoState:
     gid: ThermoProperty
     gm: ThermoProperty
     se: ThermoProperty
-    i0: ThermoProperty
-    i0_x: ThermoProperty
-    i0_p: ThermoProperty
-    s0_e: ThermoProperty
-    s0_x_e: ThermoProperty
-    s0_p_e: ThermoProperty
     s0_x: ThermoProperty
-    s0_p: ThermoProperty
+    s0_kappa: ThermoProperty
+    s0_cc: ThermoProperty
+    s0_nc: ThermoProperty
+    s0_nn: ThermoProperty
+    s0_x_e: ThermoProperty
+    s0_kappa_e: ThermoProperty
+    s0_cc_e: ThermoProperty
+    s0_nc_e: ThermoProperty
+    s0_nn_e: ThermoProperty
+    s0_e: ThermoProperty
+    i0_x: ThermoProperty
+    i0_kappa: ThermoProperty
+    i0_cc: ThermoProperty
+    i0_nc: ThermoProperty
+    i0_nn: ThermoProperty
+    i0: ThermoProperty
+    # from SystemState
     top_molecules: ThermoProperty
-    molecules: ThermoProperty
+    salt_pairs: ThermoProperty
+    unique_molecules: ThermoProperty
+    total_molecules: ThermoProperty
+    molecule_info: ThermoProperty
+    molecule_counts: ThermoProperty
+    pure_molecules: ThermoProperty
+    pure_mol_fr: ThermoProperty
+    electron_map: ThermoProperty
+    n_electrons: ThermoProperty
+    electron_bar: ThermoProperty
     mol_fr: ThermoProperty
     temperature: ThermoProperty
     volume: ThermoProperty
-    isothermal_compressibility: ThermoProperty
-    heat_capacity: ThermoProperty
-    molar_volume: ThermoProperty
     molar_volume_map: ThermoProperty
-    n_electrons: ThermoProperty
-    electron_map: ThermoProperty
+    molar_volume: ThermoProperty
+    enthalpy: ThermoProperty
+    heat_capacity: ThermoProperty
+    isothermal_compressibility: ThermoProperty
+    pure_enthalpy: ThermoProperty
+    ideal_enthalpy: ThermoProperty
     h_mix: ThermoProperty
     volume_bar: ThermoProperty
-    molecule_info: ThermoProperty
+    volume_mix: ThermoProperty
+    excess_volume: ThermoProperty
+
 
     def to_dict(self) -> dict:
         """Convert the ThermoState dataclass to a dictionary."""
