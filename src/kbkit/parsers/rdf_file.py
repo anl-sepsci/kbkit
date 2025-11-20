@@ -39,7 +39,7 @@ class RDFParser:
         self.is_converged = self.convergence_check(convergence_threshold=convergence_threshold)
         # optionally fix rmin to max possible value
         if use_fixed_rmin:
-            self._rmin = self.rmax - 0.5
+            self._rmin = self.rmax - 1
 
     def _read(self) -> None:
         """Read RDF file and extracts radial distances (r) and g(r) values.
@@ -47,7 +47,6 @@ class RDFParser:
         The file is expected to have two columns: r and g(r).
         It filters out noise from the tail of the RDF curve.
         """
-        # Load RDF data
         try:
             r, g = np.loadtxt(self.rdf_file, comments=["@", "#"], unpack=True)
         except FileNotFoundError as e:
@@ -110,7 +109,17 @@ class RDFParser:
     def r_mask(self) -> NDArray[np.bool]:
         """np.ndarray: Boolean mask for radial distances within the range [rmin, rmax]."""
         return (self.r >= self.rmin) & (self.r <= self.rmax)
-
+    
+    @property
+    def r_fit(self) -> NDArray[np.float64]:
+        """np.ndarray: Radial distances within the range [rmin, rmax]."""
+        return self.r[self.r_mask]
+    
+    @property
+    def g_fit(self) -> NDArray[np.float64]:
+        """np.ndarray: g(r) values within the range [rmin, rmax]."""
+        return self.g[self.r_mask]
+    
     def convergence_check(
         self,
         convergence_threshold: float = 5e-3,
@@ -165,7 +174,7 @@ class RDFParser:
             f"in system {self.rdf_file.parent.parent.name}; "
             f"slope (thresh={convergence_threshold:.4g}) {slope:.4g}, "
         )
-        self.rmin = self.rmax - 0.2  # reset rmin to max possible safe value
+        self.rmin = self.rmax - 0.5  # reset rmin to max possible safe value
         return False
 
     def plot(
@@ -174,7 +183,7 @@ class RDFParser:
         ylim: tuple[float, float] = (0.99, 1.01),
         line: bool = False,
         save_dir: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Plot RDF with an inset showing a zoomed-in view of the specified region.
 
@@ -190,8 +199,8 @@ class RDFParser:
             Directory to save the plot. If None, the plot is displayed but not saved. Default is None.
         """
         # set up main fig/axes
-        fig, main_ax = plt.subplots()
-        main_ax.set_box_aspect(0.6)
+        fig, main_ax = plt.subplots(figsize=(6,6))
+        main_ax.set_box_aspect(0.8)
         inset_ax = main_ax.inset_axes(
             (0.65, 0.12, 0.3, 0.3),  # x, y, width, height
             xlim=xlim,
@@ -209,12 +218,11 @@ class RDFParser:
 
         # add zoom leaders
         main_ax.indicate_inset_zoom(inset_ax, edgecolor="black")
-        main_ax.set_xlabel("r / nm")
-        main_ax.set_ylabel("g(r)")
+        main_ax.set_xlabel(r"$r$ [$nm$]")
+        main_ax.set_ylabel(r"$g(r)$")
         if save_dir is not None:
             rdf_name = str(self.rdf_file.name).strip(".xvg")
             plt.savefig(os.path.join(save_dir, rdf_name + ".png"))
-        return fig, main_ax
 
     @staticmethod
     def extract_molecules(text: str, mol_list: list[str]) -> list[str]:

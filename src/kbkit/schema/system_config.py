@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from kbkit.core.system_registry import SystemRegistry
+from kbkit.systems.system_registry import SystemRegistry
 
 
 @dataclass

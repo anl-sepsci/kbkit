@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kbkit.core.system_properties import SystemProperties
+from kbkit.systems.system_properties import SystemProperties
 
 
 @dataclass

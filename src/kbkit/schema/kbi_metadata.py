@@ -42,8 +42,7 @@ class KBIMetadata:
     r: NDArray[np.float64]
     g: NDArray[np.float64]
     rkbi: NDArray[np.float64]
-    lam: NDArray[np.float64]
-    lam_rkbi: NDArray[np.float64]
-    lam_fit: NDArray[np.float64]
-    lam_rkbi_fit: NDArray[np.floating[Any]]
+    r_rkbi: NDArray[np.float64]
+    r_fit: NDArray[np.float64]
+    r_rkbi_fit: NDArray[np.floating[Any]]
     kbi: float

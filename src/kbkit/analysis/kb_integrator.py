@@ -13,9 +13,11 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.core.system_properties import SystemProperties
+from kbkit.systems.system_properties import SystemProperties
 from kbkit.parsers.rdf_file import RDFParser
+from kbkit.config.mplstyle import load_mplstyle
 
+load_mplstyle()
 
 class KBIntegrator:
     """
@@ -52,23 +54,7 @@ class KBIntegrator:
         )
         self.system_properties = system_properties
 
-    @property
-    def mol_j(self) -> str:
-        """str: Molecule j to be used in RDF integration for coordination number calculation."""
-        if not hasattr(self, "_mol_j"):
-            raise AttributeError("Molecule mol_j has not been defined!")
-        if len(self._mol_j) == 0:
-            raise ValueError("Molecule j cannot be empty str!")
-        return self._mol_j
-
-    @mol_j.setter
-    def mol_j(self, value: str) -> None:
-        """Set molecule j and validate molecule present in RDF molecules."""
-        # validate molecule j in rdf molecules
-        if value not in self.rdf_molecules:
-            raise ValueError(f"Molecule '{value}' not in rdf molecules '{self.rdf_molecules}'.")
-        self._mol_j = value
-
+   
     def box_volume(self) -> float:
         """Return the volume of the system box in nm^3."""
         vol = self.system_properties.get("volume", units="nm^3")
@@ -94,19 +80,51 @@ class KBIntegrator:
                 f"Number of molecules detected in RDF calculation is '{len(molecules)}', expected 2. Check that filname is appropriately named."
             )
         return molecules
+    
+    @property
+    def _mol_j(self) -> str:
+        """Returns second molecule in `rdf_molecules` as default options."""
+        return self.rdf_molecules[1]
 
     def kronecker_delta(self) -> int:
         """Return the Kronecker delta between molecules in RDF, i.e., determines if molecules :math:`i,j` are the same (returns True)."""
         return int(self.rdf_molecules[0] == self.rdf_molecules[1])
+    
+    def _validate_molecule(self, mol: str) -> None:
+        """Validate molecule to be used in RDF integration for coordination number calculation."""
+        if len(mol) == 0:
+            raise ValueError(f"Molecule '{mol}' cannot be empty str!")
+        elif mol not in self.rdf_molecules:
+            raise ValueError(f"Molecule '{mol}' not in rdf molecules '{self.rdf_molecules}'.")
 
-    @property
-    def n_j(self) -> int:
-        """int: Number of molecule :math:`j` in the system."""
-        return self.system_properties.topology.molecule_count[self.mol_j]
+    def n_j(self, mol_j: str = "") -> int:
+        r"""Number of molecule :math:`j` in the system.
+        
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
-    def gv_corrected_rdf(self) -> NDArray[np.float64]:
+        Returns
+        -------
+        int
+            Number of molecules :math:`j` in the system.
+        """
+        if len(mol_j) == 0:
+            mol_j = self._mol_j
+        # validate molecule
+        self._validate_molecule(mol_j)
+        # compute molecule number
+        return self.system_properties.topology.molecule_count[mol_j]
+
+    def gv_corrected_rdf(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
         Compute the corrected pair distribution function, accounting for finite-size effects in the simulation box, based on the approach by `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_.
+
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
         Returns
         -------
@@ -118,33 +136,34 @@ class KBIntegrator:
         The correction is calculated as
 
         .. math::
-            v_r = 1 - \frac{\frac{4}{3} \pi r^3}{V}
+            f(r) = 1 - \frac{\frac{4}{3} \pi r^3}{\langle V \rangle}
 
         .. math::
-            \rho_j = \frac{N_j}{V}
+            \rho_j = \frac{N_j}{\langle V \rangle}
 
         .. math::
-            \Delta N_j = \int_0^r 4 \pi r^2 \rho_j \bigl(g(r) - 1 \bigr) \, dr
+            \Delta N_j(r) = \rho_j \int_0^{r_{max}} 4 \pi r^2 \bigl(g(r) - 1 \bigr) dr
 
         .. math::
-            g_{GV}(r) = g(r) \cdot \frac{N_j v_r}{N_j v_r - \Delta N_j - \delta_{ij}}
+            g^{Ganguly}(r) = g(r) \left[ \frac{N_j f(r)}{N_j f(r) - \Delta N_j(r) - \delta_{ij}} \right]
 
 
         where:
          - :math:`r` is the distance
-         - :math:`V` is the box volume
+         - :math:`\langle V \rangle` is the box volume
          - :math:`N_j` is the number of particles of type \( j \)
          - :math:`g(r)` is the raw radial distribution function
          - :math:`\delta_{ij}` is a kronecker delta
 
         .. note::
-            The cumulative integral :math:`\Delta N_j` is approximated numerically using the trapezoidal rule.
+            The cumulative integral :math:`\Delta N_j(r)` is approximated numerically using the trapezoidal rule.
         """
         # calculate the reduced volume
         vr = 1 - ((4 / 3) * np.pi * self.rdf.r**3 / self.box_volume())
 
-        # get the number density for molecule j
-        rho_j = self.n_j / self.box_volume()
+        # get the number density for Molecule :math:`j`
+        Nj = self.n_j(mol_j)
+        rho_j = Nj / self.box_volume()
 
         # function to integrate over
         f = 4.0 * np.pi * self.rdf.r**2 * rho_j * (self.rdf.g - 1)
@@ -152,12 +171,12 @@ class KBIntegrator:
         Delta_Nj = np.append(Delta_Nj, Delta_Nj[-1])
 
         # correct g(r) with GV correction
-        g_gv = self.rdf.g * self.n_j * vr / (self.n_j * vr - Delta_Nj - self.kronecker_delta())
+        g_gv = self.rdf.g * (Nj * vr / (Nj * vr - Delta_Nj - self.kronecker_delta()))
         return np.asarray(g_gv)  # make sure that an array is returned
 
     def window(self) -> NDArray[np.float64]:
         r"""
-        Apply cubic correction (or window weight) to the radial distribution function, which is useful for ensuring that the integral converges properly at larger distances, based on the method described by `Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_.
+        Applying the window weight to the radial distribution function, which is useful for ensuring that the integral converges properly at larger distances, based on the method described by `Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_.
 
         Returns
         -------
@@ -166,21 +185,25 @@ class KBIntegrator:
 
         Notes
         -----
-        The windowed weight is defined as:
+        The windowed weight, :math:`\omega(r)`, is defined as:
 
         .. math::
-            w(r) = 4 \pi r^2 \left(1 - \left(\frac{r}{r_{max}}\right)^3\right)
+            \omega(r) = \left[1 - \left(\frac{r}{r_{max}}\right)^3\right]
 
         where:
             - :math:`r` is the radial distance
-            - :math:`r_{max}` is the maximum radial distance in the RDF
+            - :math:`r_{max}` is the maximum radial distance of :math:`r`
         """
-        w = 4 * np.pi * self.rdf.r**2 * (1 - (self.rdf.r / self.rdf.rmax) ** 3)
-        return np.asarray(w)
+        return np.asarray(1 - (self.rdf.r / self.rdf.rmax) ** 3)
 
-    def h(self) -> NDArray[np.float64]:
+    def h(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
         Calculate correlation function h(r) from the corrected g(r) values.
+
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
         Returns
         -------
@@ -192,14 +215,19 @@ class KBIntegrator:
         The correlation function is defined as:
 
         .. math::
-            h(r) = g_{GV}(r) - 1
+            h(r) = g^{Ganguly}(r) - 1
 
         """
-        return self.gv_corrected_rdf() - 1
+        return self.gv_corrected_rdf(mol_j) - 1
 
-    def running_kbi(self) -> NDArray[np.float64]:
+    def rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
-        Compute KBI as a function of radial distance between molecules :math:`i` and :math:`j`.
+        Compute KBI as a function of radial distance between molecules :math:`i` and :math:`j`, i.e., running KBI (RKBI).
+
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
         Returns
         -------
@@ -211,115 +239,157 @@ class KBIntegrator:
         The KBI is computed using the formula:
 
         .. math::
-            G_{ij}(r) = \int_0^r h(r) w(r) dr
+            G_{ij}^R = \int_0^R 4 \pi r^2 \omega(r) h(r) dr
 
         where:
             - :math:`h(r)` is the correlation function
-            - :math:`w(r)` is the window function
+            - :math:`\omega(r)` is the window function
             - :math:`r` is the radial distance
 
         .. note::
             The integration is performed using the trapezoidal rule.
         """
-        rkbi_arr = cumulative_trapezoid(self.window() * self.h(), self.rdf.r, initial=0)
+        rkbi_arr = cumulative_trapezoid(4*np.pi*self.rdf.r**2 * self.window() * self.h(mol_j), self.rdf.r, initial=0)
         return np.asarray(rkbi_arr)
+        
 
-    def lambda_ratio(self) -> NDArray[np.float64]:
-        r"""
-        Calculate length ratio (:math:`\lambda`) of the system based on the radial distances and the box volume.
-
+    def r_rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
+        r"""Product of r and KBI values from 0 \to R
+        
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+            
         Returns
         -------
         np.ndarray
-            Length ratio as a numpy array corresponding to distances :math:`r` from the RDF.
-
-        Notes
-        -----
-        The length ratio is defined as:
-
-        .. math::
-            \lambda = \left(\frac{\frac{4}{3} \pi r^3}{V}\right)^{1/3}
-
-        where:
-            - :math:`r` is the radial distance
-            - :math:`V` is the box volume
+            R x running KBI corresponding to distances :math:`r` from the RDF.
         """
-        Vr = (4 / 3) * np.pi * self.rdf.r**3 / self.box_volume()
-        return Vr ** (1 / 3)
+        return self.rdf.r * self.rkbi(mol_j)
+    
+    def r_rkbi_fit(self, mol_j: str = "") -> NDArray[np.float64]:
+        r"""Compute the of r and KBI values from 0 \to R in the range of [rmin, rmax].
+        
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+            
+        Returns
+        -------
+        np.ndarray
+            R x running KBI corresponding to distances :math:`r_{min} \to r_{max}` from the RDF.
+        """
+        return self.r_rkbi(mol_j)[self.rdf.r_mask]
 
-    def fit_kbi_inf(self) -> NDArray[np.float64]:
+    def compute_kbi_limit_fit(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
-        Fit a linear model to the product of the length ratio and the KBI values for extrapolation to thermodynamic limit.
+        Fit a linear regression to the product of r and the KBI values for extrapolation to thermodynamic limit.
+
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
         Returns
         -------
         tuple
             Tuple containing the slope and intercept of the linear fit, which represents the KBI at infinite distance.
 
+        Notes
+        -----
+        The KBI in thermodynamic limit, :math:`G_{ij}^\infty`, is calculated according to:
+
+        .. math::
+            R G_{ij}^R = R G_{ij}^\infty + F_{ij}^\infty
+
+        where :math:`F_{ij}^\infty` is a finite-size surface offset.
 
         .. note::
-            The KBI at infinite distance is estimated by fitting a linear model to the product of the length ratio and the KBI values, using only the radial distances that are within the specified range (rmin to rmax).
+            The KBI at infinite distance is estimated by fitting a linear model to the product of r and the KBI values, using only the radial distances that are within the specified range (rmin to rmax).
         """
-        # get x and y values to fit thermodynamic correction
-        lam = self.lambda_ratio()  # characteristic length
-        lam_kbi = lam * self.running_kbi()  # length x KBI (r)
-
         # fit linear regression to masked values
-        fit_params = np.polyfit(lam[self.rdf.r_mask], lam_kbi[self.rdf.r_mask], 1)
-        return fit_params  # return fit
+        return np.polyfit(self.rdf.r_fit, self.r_rkbi_fit(mol_j), 1)
 
-    def compute_kbi_inf(self, mol_j: str = "") -> float:
+    def compute_kbi_limit(self, mol_j: str = "") -> float:
         r"""
-        Compute KBI in thermodynamic limit as :math:`V \rightarrow \\infty` .
+        Compute KBI in thermodynamic limit.
 
         Parameters
         ----------
-        mol_j: str
-            Molecule to use for RDF integration for coordination number calculation.
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
         Returns
         -------
         float
-            KBI in the thermodynamic limit, which is the slope of the linear fit to the product
-            of the length ratio and the KBI values.
+            KBI in the thermodynamic limit, G_{ij}^\infty.
         """
-        # set mol_j
-        if len(mol_j) > 0:
-            self.mol_j = mol_j
+        return float(self.compute_kbi_limit_fit(mol_j)[0])
 
-        return float(self.fit_kbi_inf()[0])
+    def plot_integrand(self, mol_j: str = "", save_dir: Optional[str] = None) -> None:
+        """
+        Plot RDF and integrand for running KBI calculation. Includes demonstrating the effect of damping on the integrand.
 
-    def plot(self, save_dir: Optional[str] = None):
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+        save_dir: str, optional
+            Directory to save the plot. If not provided, the plot will be displayed but not saved
+        """
+        label = "-".join(self.rdf_molecules)
+        A = 4 * np.pi * self.rdf.r**2
+        integrand_gv = A * self.h(mol_j)
+        integrand_damp = self.window() * integrand_gv
+
+        fig, ax = plt.subplots(1, 2, figsize=(7.5,3.5), sharex=True)
+        ax[0].plot(self.rdf.r, self.rdf.g, label=label)
+        ax[0].set_xlabel(r"$r$ [$nm$]")
+        ax[0].set_ylabel(r"$g(r)$")
+        ax[0].legend()
+
+        ax[1].plot(self.rdf.r, integrand_gv, label="undamped")
+        ax[1].plot(self.rdf.r, integrand_damp, c="darkgray", ls="--", label="damped")
+        ax[1].set_xlabel(r"$R$ [$nm$]")
+        ax[1].set_ylabel(r"$4 \pi r^2 \ [g(r) - 1]$")
+        ax[1].legend()
+
+        if save_dir is not None:
+            mols = "_".join(self.rdf_molecules)
+            plt.savefig(os.path.join(save_dir, f"kbi_integrand_{mols}.png"))
+        plt.show()
+
+    def plot_extrapolation(self, mol_j: str = "",  save_dir: Optional[str] = None):
         """Plot RDF and the running KBI fit to thermodynamic limit.
 
         Parameters
         ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
         save_dir : str, optional
-            Directory to save the plot. If not provided, the plot will be displayed but not saved
+            Directory to save the plot. If not provided, the plot will be displayed but not saved.
         """
-        # get running kbi
-        rkbi = self.running_kbi()
-        # parameters for thermo-limit extrapolation
-        lam = self.lambda_ratio()
-        lam_rkbi = lam * rkbi
-        # fits to thermo limit
-        fit_params = self.fit_kbi_inf()
-        lam_fit = lam[self.rdf.r_mask]
-        lam_rkbi_fit = np.polyval(fit_params, lam_fit)
+        label = "-".join(self.rdf_molecules)
 
-        fig, ax = plt.subplots(1, 2, figsize=(9, 4))
-        ax[0].plot(self.rdf.r, rkbi)
-        ax[0].set_xlabel("r / nm")
-        ax[0].set_ylabel("G$_{ij}$ / nm$^3$")
-        ax[1].plot(lam, lam_rkbi)
-        ax[1].plot(lam_fit, lam_rkbi_fit, ls="--", c="k", label=f"KBI: {fit_params[0]:.2g} nm$^3$")
-        ax[1].set_xlabel(r"$\lambda$")
-        ax[1].set_ylabel(r"$\lambda$ G$_{ij}$ / nm$^3$")
-        fig.suptitle(
-            f"KBI Analysis for system: {os.path.basename(self.system_properties.system_path)} {self.rdf_molecules[0]}-{self.rdf_molecules[1]}"
-        )
+        fig, ax = plt.subplots(1, 3, figsize=(12, 3.6), sharex=True)
+        ax[0].plot(self.rdf.r, self.rdf.g, label=label)
+        ax[0].set_xlabel(r"$r$ [$nm$]")
+        ax[0].set_ylabel(r"$g(r)$")
+        ax[0].legend()
+
+        ax[1].plot(self.rdf.r, self.rkbi(mol_j))
+        ax[1].set_xlabel(r"$R$ [$nm$]")
+        ax[1].set_ylabel(r"$G_{{ij}}^R$ [$nm^3$]")
+
+        ax[2].plot(self.rdf.r, self.r_rkbi(mol_j))
+        kbi_inf = self.compute_kbi_limit(mol_j)
+        ax[2].plot(self.rdf.r_fit, self.r_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=f"G_{{ij}}^\infty={kbi_inf:.3f}")
+        ax[2].set_xlabel(r"$R$ [$nm$]")
+        ax[2].set_ylabel(r"$R \ G_{{ij}}^R$ [$nm^4$]")
+
         if save_dir is not None:
-            rdf_name = str(self.rdf.rdf_file.name).strip(".xvg")
-            plt.savefig(os.path.join(save_dir, rdf_name + ".png"))
+            mols = "_".join(self.rdf_molecules)
+            plt.savefig(os.path.join(save_dir, f"kbi_extrapolation_{mols}.png"))
         plt.show()
-        return fig, ax

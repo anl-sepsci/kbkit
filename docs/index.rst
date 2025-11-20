@@ -10,11 +10,11 @@ Check out our `latest release <https://github.com/aperoutka/kbkit/releases>`_ on
 
     kbkit.analysis
     kbkit.calculators
-    kbkit.core
     kbkit.parsers
     kbkit.schema
+    kbkit.systems
     kbkit.utils
-    kbkit.viz.plotter
+    kbkit.workflow
 
 
 Installation

@@ -79,9 +79,9 @@ if PUBLISH:
         print("Building source distribution...")
         try:
             subprocess.run(
-                ["conda", "run", "-n", "kbkit-dev", "python3", "-m", "build", "--sdist", "--outdir", str(DIST_DIR)],
-                check=True,
+                f"conda run -n kbkit-dev python -m build --sdist --outdir {DIST_DIR}",
                 shell=True,
+                check=True,
             )
         except subprocess.CalledProcessError as e:
             print(f"Build failed with error: {e}")

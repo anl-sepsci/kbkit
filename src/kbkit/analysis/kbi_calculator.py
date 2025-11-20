@@ -73,9 +73,6 @@ class KBICalculator:
         # correct for electrolytes if present
         if apply_electrolyte_correction and electrolyte_chk:
             return self.compute_electrolyte_corrected_kbi_matrix(kbis)
-        # correct matrix to unique molecules --> assumes no electrolytes
-        elif not electrolyte_chk:
-            return self._convert_unique_molecules(kbis)
         # return raw kbi matrix if electrolytes are detected but user doesn't want corrected kbi matrix
         else:
             return kbis
@@ -138,8 +135,8 @@ class KBICalculator:
 
                 # if convergence is met, store kbi value
                 if integrator.rdf.is_converged:
-                    kbis[s, i, j] = integrator.compute_kbi_inf(mol_j=mol_j)
-                    kbis[s, j, i] = integrator.compute_kbi_inf(mol_j=mol_i)
+                    kbis[s, i, j] = integrator.compute_kbi_limit(mol_j=mol_j)
+                    kbis[s, j, i] = integrator.compute_kbi_limit(mol_j=mol_i)
                 # override convergence check to skip system if not converged
                 else:  # for not converged rdf
                     msg = f"RDF for system '{meta.name}' and pair {integrator.rdf_molecules} did not converge."
@@ -179,26 +176,13 @@ class KBICalculator:
                 mols=tuple(integrator.rdf_molecules),
                 r=integrator.rdf.r,
                 g=integrator.rdf.g,
-                rkbi=(rkbi := integrator.running_kbi()),
-                lam=(lam := integrator.lambda_ratio()),
-                lam_rkbi=rkbi * lam,
-                lam_fit=(lam_fit := lam[integrator.rdf.r_mask]),
-                lam_rkbi_fit=np.polyval(integrator.fit_kbi_inf(), lam_fit),
-                kbi=integrator.compute_kbi_inf(),
+                rkbi=(integrator.rkbi()),
+                r_rkbi=(integrator.r_rkbi()),
+                r_fit=(rfit := integrator.rdf.r_fit),
+                r_rkbi_fit=np.polyval(integrator.compute_kbi_limit_fit(), rfit),
+                kbi=integrator.compute_kbi_limit(),
             )
         )
-
-    def _convert_unique_molecules(self, kbi_matrix):
-        r"""Convert KBI matrix to shape of unique molecules."""
-        new_kbis = np.full((self.state.n_sys, self.state.n_comp, self.state.n_comp), fill_value=np.nan)
-
-        for i, moli in enumerate(self.state.unique_molecules):
-            ii = self.state._get_mol_idx(moli, self.state.top_molecules)
-            for j, molj in enumerate(self.state.unique_molecules):
-                jj = self.state._get_mol_idx(molj, self.state.top_molecules)
-                new_kbis[:, i, j] = kbi_matrix[:, ii, jj]
-
-        return new_kbis
 
     def get_metadata(self, system: str, mol_pair: tuple[str, str]) -> KBIMetadata | None:
         """
@@ -261,12 +245,9 @@ class KBICalculator:
         if len(salt_pairs) == 0:
             return kbi_matrix
 
-        n_sys = kbi_matrix.shape[0]
-        n_comp = len(unique_molecules)
-
         # create new kbi-matrix
         adj = len(salt_pairs) - len(top_molecules)
-        kbi_el = np.full((n_sys, n_comp + adj, n_comp + adj), fill_value=np.nan)
+        kbi_el = np.full((self.state.n_sys, self.state.n_comp + adj, self.state.n_comp + adj), fill_value=np.nan)
 
         for cat, an in salt_pairs:
             # get index of anion and cation in topology molecules
