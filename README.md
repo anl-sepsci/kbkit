@@ -95,7 +95,8 @@ kbi_dir/
 
 ## Examples
 
-Below are several examples on various ways to implement **KBKit**.
+Below are several examples on various ways to implement **KBKit**. 
+A complete example for the ethanol/water binary along with the corresponding GROMACS files is provided in examples.
 
 ### Calculating Kirkwood-Buff integrals on a single RDF
 
@@ -110,7 +111,7 @@ integrator = KBIntegrator(rdf_file)
 rkbi = integrator.rkbi()
 
 # calculate KBI in thermodynamic limit
-kbi = integrator.compute_kbi_limit(mol_j="mol2")
+kbi_limit = integrator.kbi_limit(mol_j="mol2")
 
 # visualize KBI integration and extrapolation
 integrator.plot_extrapolation()
@@ -148,7 +149,7 @@ pipe.convert_units("ge", "kcal/mol")
 ### Create plots for thermodynamic properties from pipeline
 
 ```python
-from kbkit.viz import Plotter
+from kbkit.workflow import Plotter
 
 # Map molecule IDs (as present in .top files) to names for figures
 molecule_map = {
