@@ -1,6 +1,6 @@
 """kbkit core for running entire workflow."""
 
-from kbkit.workflow.plotter import Plotter
 from kbkit.workflow.kb_pipeline import KBPipeline
+from kbkit.workflow.plotter import Plotter
 
-__all__ = ["Plotter", "KBPipeline"]
+__all__ = ["KBPipeline", "Plotter"]

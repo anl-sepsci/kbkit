@@ -13,11 +13,12 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.systems.system_properties import SystemProperties
-from kbkit.parsers.rdf_file import RDFParser
 from kbkit.config.mplstyle import load_mplstyle
+from kbkit.parsers.rdf_file import RDFParser
+from kbkit.systems.system_properties import SystemProperties
 
 load_mplstyle()
+
 
 class KBIntegrator:
     """
@@ -54,7 +55,6 @@ class KBIntegrator:
         )
         self.system_properties = system_properties
 
-   
     def box_volume(self) -> float:
         """Return the volume of the system box in nm^3."""
         vol = self.system_properties.get("volume", units="nm^3")
@@ -80,7 +80,7 @@ class KBIntegrator:
                 f"Number of molecules detected in RDF calculation is '{len(molecules)}', expected 2. Check that filname is appropriately named."
             )
         return molecules
-    
+
     @property
     def _mol_j(self) -> str:
         """Returns second molecule in `rdf_molecules` as default options."""
@@ -89,7 +89,7 @@ class KBIntegrator:
     def kronecker_delta(self) -> int:
         """Return the Kronecker delta between molecules in RDF, i.e., determines if molecules :math:`i,j` are the same (returns True)."""
         return int(self.rdf_molecules[0] == self.rdf_molecules[1])
-    
+
     def _validate_molecule(self, mol: str) -> None:
         """Validate molecule to be used in RDF integration for coordination number calculation."""
         if len(mol) == 0:
@@ -99,7 +99,7 @@ class KBIntegrator:
 
     def n_j(self, mol_j: str = "") -> int:
         r"""Number of molecule :math:`j` in the system.
-        
+
         Parameters
         ----------
         mol_j: str, optional
@@ -249,33 +249,34 @@ class KBIntegrator:
         .. note::
             The integration is performed using the trapezoidal rule.
         """
-        rkbi_arr = cumulative_trapezoid(4*np.pi*self.rdf.r**2 * self.damp_factor() * self.h(mol_j), self.rdf.r, initial=0)
+        rkbi_arr = cumulative_trapezoid(
+            4 * np.pi * self.rdf.r**2 * self.damp_factor() * self.h(mol_j), self.rdf.r, initial=0
+        )
         return np.asarray(rkbi_arr)
-        
 
     def scaled_rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
-        r"""Product of R and KBI values from 0 \to R
-        
+        r"""Product of R and KBI values from 0 \to R.
+
         Parameters
         ----------
         mol_j: str, optional
             Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
-            
+
         Returns
         -------
         np.ndarray
             R x running KBI corresponding to distances :math:`r` from the RDF.
         """
         return self.rdf.r * self.rkbi(mol_j)
-    
+
     def scaled_rkbi_fit(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""Compute the product of R and KBI values from :math:`0 \rightarrow R` in the range of [:math:`r_{min}`, :math:`r_{max}`].
-        
+
         Parameters
         ----------
         mol_j: str, optional
             Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
-            
+
         Returns
         -------
         np.ndarray
@@ -344,7 +345,7 @@ class KBIntegrator:
         integrand_gv = A * self.h(mol_j)
         integrand_damp = self.damp_factor() * integrand_gv
 
-        fig, ax = plt.subplots(1, 2, figsize=(7.5,3.5), sharex=True)
+        fig, ax = plt.subplots(1, 2, figsize=(7.5, 3.5), sharex=True)
         ax[0].plot(self.rdf.r, self.rdf.g, label=label)
         ax[0].set_xlabel(r"$r$ [$nm$]")
         ax[0].set_ylabel(r"$g(r)$")
@@ -361,7 +362,7 @@ class KBIntegrator:
             plt.savefig(os.path.join(save_dir, f"kbi_integrand_{mols}.png"))
         plt.show()
 
-    def plot_extrapolation(self, mol_j: str = "",  save_dir: Optional[str] = None):
+    def plot_extrapolation(self, mol_j: str = "", save_dir: Optional[str] = None):
         """Plot RDF and the running KBI fit to thermodynamic limit.
 
         Parameters
@@ -384,8 +385,10 @@ class KBIntegrator:
         ax[1].set_ylabel(r"$G_{{ij}}^R$ [$nm^3$]")
 
         ax[2].plot(self.rdf.r, self.scaled_rkbi(mol_j))
-        kbi_inf = self.compute_kbi_limit(mol_j)
-        ax[2].plot(self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=f"G_{{ij}}^\infty={kbi_inf:.3f}")
+        kbi_inf = self.kbi_limit(mol_j)
+        ax[2].plot(
+            self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=rf"G_{{ij}}^\infty={kbi_inf:.3f}"
+        )
         ax[2].set_xlabel(r"$R$ [$nm$]")
         ax[2].set_ylabel(r"$R \ G_{{ij}}^R$ [$nm^4$]")
 

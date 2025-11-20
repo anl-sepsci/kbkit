@@ -358,7 +358,7 @@ class SystemState:
         return self.pure_mol_fr @ self.pure_enthalpy(units)
 
     def h_mix(self, units: str = "kJ/mol") -> NDArray[np.float64]:
-        """Enthalpy of mixing as a function of composition.
+        r"""Enthalpy of mixing as a function of composition.
 
         Parameters
         ----------

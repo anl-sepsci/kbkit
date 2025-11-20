@@ -7,10 +7,10 @@ from pathlib import Path
 
 import numpy as np
 
-from kbkit.systems.system_properties import SystemProperties
-from kbkit.systems.system_registry import SystemRegistry
 from kbkit.schema.system_config import SystemConfig
 from kbkit.schema.system_metadata import SystemMetadata
+from kbkit.systems.system_properties import SystemProperties
+from kbkit.systems.system_registry import SystemRegistry
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 

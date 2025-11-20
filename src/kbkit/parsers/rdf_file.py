@@ -109,17 +109,17 @@ class RDFParser:
     def r_mask(self) -> NDArray[np.bool]:
         """np.ndarray: Boolean mask for radial distances within the range [rmin, rmax]."""
         return (self.r >= self.rmin) & (self.r <= self.rmax)
-    
+
     @property
     def r_fit(self) -> NDArray[np.float64]:
         """np.ndarray: Radial distances within the range [rmin, rmax]."""
         return self.r[self.r_mask]
-    
+
     @property
     def g_fit(self) -> NDArray[np.float64]:
         """np.ndarray: g(r) values within the range [rmin, rmax]."""
         return self.g[self.r_mask]
-    
+
     def convergence_check(
         self,
         convergence_threshold: float = 5e-3,
@@ -199,7 +199,7 @@ class RDFParser:
             Directory to save the plot. If None, the plot is displayed but not saved. Default is None.
         """
         # set up main fig/axes
-        fig, main_ax = plt.subplots(figsize=(6,6))
+        fig, main_ax = plt.subplots(figsize=(6, 6))
         main_ax.set_box_aspect(0.8)
         inset_ax = main_ax.inset_axes(
             (0.65, 0.12, 0.3, 0.3),  # x, y, width, height

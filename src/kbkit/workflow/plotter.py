@@ -10,9 +10,9 @@ from matplotlib.ticker import MultipleLocator
 from numpy.typing import NDArray
 
 from kbkit.config.mplstyle import load_mplstyle
-from kbkit.workflow.kb_pipeline import KBPipeline
 from kbkit.schema.plot_spec import PlotSpec
 from kbkit.utils.format import format_unit_str
+from kbkit.workflow.kb_pipeline import KBPipeline
 
 load_mplstyle()
 warnings.filterwarnings("ignore")
@@ -228,12 +228,7 @@ class Plotter:
         ax[0].set_ylabel("g(r)")
         ax[1].set_ylabel(f"G$_{{ij}}^R$ [{format_unit_str(units)}]")
         ax[2].set_ylabel(f"$R$ $G_{{ij}}^R$ [$nm$ {format_unit_str(units)}]")
-        ax[0].legend(
-            loc="best",
-            ncol=1,
-            fontsize="small",
-            frameon=True
-        )
+        ax[0].legend(loc="best", ncol=1, fontsize="small", frameon=True)
         plt.savefig(os.path.join(self.sys_dir, f"{system}_rdfs_kbis.png"))
         if show:
             plt.show()
@@ -281,21 +276,14 @@ class Plotter:
             for meta in meta_list:
                 mol_i, mol_j = meta.mols
                 color = color_dict.get(mol_i, {})[mol_j]
-                kbi = self._convert_kbi(meta.kbi)
+                kbi = self._convert_kbi(meta.kbi_limit)
                 label = f"{self.molecule_map[mol_i]}-{self.molecule_map[mol_j]}"
                 line = ax.scatter(self.pipe.state.mol_fr[s, self._x_idx], kbi, c=color, marker="o", lw=1.8, label=label)
                 if meta.mols not in legend_info:
                     legend_info[label] = line
         lines = list(legend_info.values())
         labels = list(legend_info.keys())
-        ax.legend(
-            lines,
-            labels,
-            loc="best",
-            ncol=1,
-            fontsize="small",
-            frameon=True
-        )
+        ax.legend(lines, labels, loc="best", ncol=1, fontsize="small", frameon=True)
         ax.set_xlim(-0.05, 1.05)
         ax.set_xticks(ticks=np.arange(0, 1.1, 0.1))
         ax.set_xlabel(f"x$_{{{self.molecule_map[self.x_mol]}}}$")
@@ -418,12 +406,7 @@ class Plotter:
         if spec.multi and spec.y_series:
             for y_data, color, mk, label in spec.y_series:
                 ax.scatter(spec.x_data, y_data, c=color, marker=mk, label=label)
-            ax.legend(
-                loc="best",
-                ncol=1,
-                fontsize="small",
-                frameon=True
-            )
+            ax.legend(loc="best", ncol=1, fontsize="small", frameon=True)
 
         elif spec.y_data is not None:
             if spec.y_data.ndim == 1:
@@ -438,12 +421,7 @@ class Plotter:
                     if spec.fits is not None and spec.xfit is not None:
                         ax.plot(spec.xfit, spec.fits[mol], c=colors[i], lw=2)
 
-                ax.legend(
-                    loc="best",
-                    ncol=1,
-                    fontsize="small",
-                    frameon=True
-                )
+                ax.legend(loc="best", ncol=1, fontsize="small", frameon=True)
 
         ax.set_xlabel(
             f"x$_{{{self.molecule_map[self.x_mol]}}}$" if self.pipe.state.n_comp == BINARY_SYSTEM else "x$_i$"

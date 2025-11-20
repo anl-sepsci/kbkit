@@ -26,4 +26,3 @@ class KBIMetadata:
     scaled_rkbi_fit: NDArray[np.floating[Any]]
     scaled_rkbi_est: NDArray[np.floating[Any]]
     kbi_limit: float
-    

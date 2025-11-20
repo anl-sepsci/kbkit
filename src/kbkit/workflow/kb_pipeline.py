@@ -10,9 +10,9 @@ from numpy.typing import NDArray
 from kbkit.analysis.kb_thermo import KBThermo
 from kbkit.analysis.kbi_calculator import KBICalculator
 from kbkit.analysis.system_state import SystemState
-from kbkit.systems.system_loader import SystemLoader
 from kbkit.schema.thermo_property import ThermoProperty
 from kbkit.schema.thermo_state import ThermoState
+from kbkit.systems.system_loader import SystemLoader
 
 
 class KBPipeline:

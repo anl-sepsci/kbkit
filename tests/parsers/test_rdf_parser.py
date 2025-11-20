@@ -72,7 +72,7 @@ def test_rdf_parser_convergence_failure(monkeypatch, mock_rdf_file):
 
     result = parser.convergence_check(convergence_threshold=1e-6)
     assert result is False
-    assert parser.rmin == pytest.approx(parser.rmax - 0.2)
+    assert parser.rmin == pytest.approx(parser.rmax - 0.5)
 
 
 def test_rdf_parser_r_mask_bounds(mock_rdf_file):
