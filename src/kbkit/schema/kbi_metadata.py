@@ -12,27 +12,6 @@ class KBIMetadata:
     """
     Container for Kirkwood-Buff integral (KBI) analysis results for a molecular pair.
 
-    Attributes
-    ----------
-    mols : tuple[str, str]
-        Pair of molecule names (e.g., ("Na+", "Cl-")).
-    r : NDArray[np.float64]
-        Radial distance array (in nanometers).
-    g : NDArray[np.float64]
-        Radial distribution function (RDF) values.
-    rkbi : NDArray[np.float64]
-        Cumulative KBI integral over r.
-    lam : NDArray[np.float64]
-        Lambda integral values over r.
-    lam_rkbi : NDArray[np.float64]
-        Lambda-weighted KBI values.
-    lam_fit : NDArray[np.float64]
-        Fitted lambda integral curve.
-    lam_rkbi_fit : NDArray[np.float64]
-        Fitted lambda-weighted KBI curve.
-    kbi : float
-        Final Kirkwood-Buff integral value for the molecular pair.
-
     Notes
     -----
     - All arrays are assumed to be aligned over the same radial grid `r`.
@@ -42,7 +21,9 @@ class KBIMetadata:
     r: NDArray[np.float64]
     g: NDArray[np.float64]
     rkbi: NDArray[np.float64]
-    r_rkbi: NDArray[np.float64]
+    scaled_rkbi: NDArray[np.float64]
     r_fit: NDArray[np.float64]
-    r_rkbi_fit: NDArray[np.floating[Any]]
-    kbi: float
+    scaled_rkbi_fit: NDArray[np.floating[Any]]
+    scaled_rkbi_est: NDArray[np.floating[Any]]
+    kbi_limit: float
+    

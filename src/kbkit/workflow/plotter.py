@@ -201,8 +201,8 @@ class Plotter:
             color = color_dict.get(mol_i, {})[mol_j]
 
             rkbi = self._convert_kbi(meta.rkbi)
-            r_rkbi = self._convert_kbi(meta.r_rkbi)
-            r_rkbi_fit = self._convert_kbi(meta.r_rkbi_fit)
+            scaled_rkbi = self._convert_kbi(meta.scaled_rkbi)
+            scaled_rkbi_est = self._convert_kbi(meta.scaled_rkbi_est)
 
             label = f"{self.molecule_map[mol_i]}-{self.molecule_map[mol_j]}"
             ax[0].plot(meta.r, meta.g, lw=2.5, c=color, alpha=alpha, label=label)
@@ -215,12 +215,12 @@ class Plotter:
             )
             ax[2].plot(
                 meta.r,
-                r_rkbi,
+                scaled_rkbi,
                 lw=2.5,
                 c=color,
                 alpha=alpha,
             )
-            ax[2].plot(meta.r_fit, r_rkbi_fit, ls="--", lw=3, c="k")
+            ax[2].plot(meta.r_fit, scaled_rkbi_est, ls="--", lw=3, c="k")
 
         ax[0].set_xlabel(r"$r$ [$nm$]")
         ax[1].set_xlabel(r"$R$ [$nm$]")

@@ -689,7 +689,7 @@ class KBThermo:
         Partial structure factor, :math:`\hat{S}_{ij}(0)`, is calculated via:
 
         .. math::
-            \hat{S}_{ij}(0) = \frac{A_{ij}^{-1}}{(x_i x_j)^{(1/2)}}
+            \hat{S}_{ij}(0) = \frac{A_{ij}^{-1}}{(x_i x_j)^{1/2}}
         """
         xi = self.state.mol_fr[:, :, np.newaxis]
         xj = self.state.mol_fr[:, np.newaxis, :]
@@ -701,10 +701,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{cc}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{CC}(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{cc}(0) = A_{ij}^{-1} - x_i \sum_{k=1}^n A_{kj}^{-1} - x_j \sum_{k=1}^n A_{ki}^{-1} + x_i x_j \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
+            \hat{S}_{CC}(0) = A_{ij}^{-1} - x_i \sum_{k=1}^n A_{kj}^{-1} - x_j \sum_{k=1}^n A_{ki}^{-1} + x_i x_j \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
 
         for i and j from 1 to n-1.
         """
@@ -724,10 +724,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{nc}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{NC}(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{nc}(0) = \sum_{k=1}^n A_{ik}^{-1}  - x_i \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
+            \hat{S}_{NC}(0) = \sum_{k=1}^n A_{ik}^{-1}  - x_i \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
 
         for i from 1 to n-1.
         """
@@ -743,10 +743,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{nn}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{NN}(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{nn}(0) = \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
+            \hat{S}_{NN}(0) = \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
         """
         return np.nansum(self.A_inv_matrix.value, axis=(2, 1))
 
@@ -756,10 +756,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{\kappa_T}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{\kappa_T}(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{\kappa_T}(0) = \frac{RT \kappa_T}{\bar{V}}
+            \hat{S}_{\kappa_T}(0) = \frac{RT \kappa_T}{\bar{V}}
         """
         return (
             self.gas_constant
@@ -774,10 +774,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{ij}^x(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_x(0)`, is calcuted via:
 
         .. math::
-            \hat{S}_{ij}^x(0) = \sum_{i=1}^{n-1} \sum_{j=1}^{n-1} \hat{S}^{cc}(0) + \sum_{i=1}^{n-1} \hat{S}^{nc}(0) + \hat{S}^{nn}(0) - \hat{S}^{\kappa_T}(0)
+            \hat{S}_x(0) = \sum_{i=1}^{n-1} \sum_{j=1}^{n-1} \hat{S}_{CC}(0) + \sum_{i=1}^{n-1} \hat{S}_{NC}(0) + \hat{S}_{NN}(0) - \hat{S}_{\kappa_T}(0)
 
         """
         return (
@@ -793,10 +793,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{cc,e}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{CC}^e(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{cc,e}(0) = \sum_{i=1}^{n-1}\sum_{j=1}^{n-1} \left( Z_i - Z_n \right) \left( Z_j - Z_n \right) \hat{S}^{cc}(0)
+            \hat{S}_{CC}^e(0) = \sum_{i=1}^{n-1}\sum_{j=1}^{n-1} \left( Z_i - Z_n \right) \left( Z_j - Z_n \right) \hat{S}_{CC}(0)
         """
         dz_sq = self._delta_z[:, np.newaxis] * self._delta_z[np.newaxis, :]
         t1 = dz_sq[np.newaxis, :, :] * self.s0_cc.value
@@ -808,10 +808,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{nc,e}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{NC}^e(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{nc,e}(0) = 2 \bar{Z} \sum_{i=1}^{n-1} \left( Z_i - Z_n \right)  \hat{S}^{nc}(0)
+            \hat{S}_{NC}^e(0) = 2 \bar{Z} \sum_{i=1}^{n-1} \left( Z_i - Z_n \right)  \hat{S}_{NC}(0)
         """
         dz_sign = np.sign(self._delta_z)
         t1 = self._delta_z[np.newaxis, :] * dz_sign[np.newaxis, :] * self.s0_nc.value
@@ -823,10 +823,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{nn,e}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{NN}^e(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{nn,e}(0) = \bar{Z}^2 \hat{S}^{nn}(0)
+            \hat{S}_{NN}^e(0) = \bar{Z}^2 \hat{S}_{NN}(0)
         """
         return self._zbar**2 * self.s0_nn.value
 
@@ -836,10 +836,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{\kappa_T,e}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{\kappa_T}^e(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{\kappa_T,e}(0) = \bar{Z}^2 \hat{S}^{\kappa_T}(0)
+            \hat{S}_{\kappa_T}^e(0) = \bar{Z}^2 \hat{S}_{\kappa_T}(0)
         """
         return self._zbar**2 * self.s0_kappa.value
 
@@ -849,10 +849,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{x,e}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_x^e(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{x,e}(0) = \hat{S}^{cc,e}(0) + \hat{S}^{nc,e}(0) + \hat{S}^{nn,e}(0) - \hat{S}^{\kappa_T,e}(0)
+            \hat{S}_x^e(0) = \hat{S}_{CC}^e(0) + \hat{S}_{NC}^e(0) + \hat{S}_{NN}^e(0) - \hat{S}_{\kappa_T}^e(0)
         """
         return self.s0_cc_e.value + self.s0_nc_e.value + self.s0_nn_e.value - self.s0_kappa_e.value
 
@@ -885,10 +885,10 @@ class KBThermo:
 
         Notes
         -----
-        X-ray intensity, :math:`I^{cc}(0)`, is calcuted via:
+        X-ray intensity, :math:`I_{CC}(0)`, is calcuted via:
 
         .. math::
-            I^{cc}(0) = r_e^2 \rho N_A \hat{S}^{cc,e}(0)
+            I_{CC}(0) = r_e^2 \rho N_A \hat{S}_{CC}^e(0)
         """
         return self._calculate_i0_from_s0e(self.s0_cc_e.value)
 
@@ -898,10 +898,10 @@ class KBThermo:
 
         Notes
         -----
-        X-ray intensity, :math:`I^{nc}(0)`, is calcuted via:
+        X-ray intensity, :math:`I_{NC}(0)`, is calcuted via:
 
         .. math::
-            I^{nc}(0) = r_e^2 \rho N_A \hat{S}^{nc,e}(0)
+            I_{NC}(0) = r_e^2 \rho N_A \hat{S}_{NC}^e(0)
         """
         return self._calculate_i0_from_s0e(self.s0_nc_e.value)
 
@@ -911,10 +911,10 @@ class KBThermo:
 
         Notes
         -----
-        X-ray intensity, :math:`I^{nn}(0)`, is calcuted via:
+        X-ray intensity, :math:`I_{NN}(0)`, is calcuted via:
 
         .. math::
-            I^{nn}(0) = r_e^2 \rho N_A \hat{S}^{nn,e}(0)
+            I_{NN}(0) = r_e^2 \rho N_A \hat{S}_{NN}^e(0)
         """
         return self._calculate_i0_from_s0e(self.s0_nn_e.value)
 
@@ -924,10 +924,10 @@ class KBThermo:
 
         Notes
         -----
-        X-ray intensity, :math:`I^{\kappa_T}(0)`, is calcuted via:
+        X-ray intensity, :math:`I_{\kappa_T}(0)`, is calcuted via:
 
         .. math::
-            I^{\kappa_T}(0) = r_e^2 \rho N_A \hat{S}^{\kappa_T,e}(0)
+            I_{\kappa_T}(0) = r_e^2 \rho N_A \hat{S}_{\kappa_T}^e(0)
         """
         return self._calculate_i0_from_s0e(self.s0_kappa_e.value)
 
@@ -937,10 +937,10 @@ class KBThermo:
 
         Notes
         -----
-        X-ray intensity, :math:`I^{x}(0)`, is calcuted via:
+        X-ray intensity, :math:`I_{x}(0)`, is calcuted via:
 
         .. math::
-            I^{x}(0) = r_e^2 \rho N_A \hat{S}^{x,e}(0)
+            I_{x}(0) = r_e^2 \rho N_A \hat{S}_x^e(0)
         """
         return self._calculate_i0_from_s0e(self.s0_x_e.value)
 

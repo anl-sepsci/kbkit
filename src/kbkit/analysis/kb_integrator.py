@@ -117,9 +117,9 @@ class KBIntegrator:
         # compute molecule number
         return self.system_properties.topology.molecule_count[mol_j]
 
-    def gv_corrected_rdf(self, mol_j: str = "") -> NDArray[np.float64]:
+    def ganguly_corrected_rdf(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
-        Compute the corrected pair distribution function, accounting for finite-size effects in the simulation box, based on the approach by `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_.
+        Compute the corrected radial distribution function, accounting for finite-size effects in the simulation box, based on the approach by `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_.
 
         Parameters
         ----------
@@ -136,6 +136,9 @@ class KBIntegrator:
         The correction is calculated as
 
         .. math::
+            g^{Ganguly}(r) = g(r) \left[ \frac{N_j f(r)}{N_j f(r) - \Delta N_j(r) - \delta_{ij}} \right]
+
+        .. math::
             f(r) = 1 - \frac{\frac{4}{3} \pi r^3}{\langle V \rangle}
 
         .. math::
@@ -143,9 +146,6 @@ class KBIntegrator:
 
         .. math::
             \Delta N_j(r) = \rho_j \int_0^{r_{max}} 4 \pi r^2 \bigl(g(r) - 1 \bigr) dr
-
-        .. math::
-            g^{Ganguly}(r) = g(r) \left[ \frac{N_j f(r)}{N_j f(r) - \Delta N_j(r) - \delta_{ij}} \right]
 
 
         where:
@@ -174,18 +174,18 @@ class KBIntegrator:
         g_gv = self.rdf.g * (Nj * vr / (Nj * vr - Delta_Nj - self.kronecker_delta()))
         return np.asarray(g_gv)  # make sure that an array is returned
 
-    def window(self) -> NDArray[np.float64]:
+    def damp_factor(self) -> NDArray[np.float64]:
         r"""
-        Applying the window weight to the radial distribution function, which is useful for ensuring that the integral converges properly at larger distances, based on the method described by `Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_.
+        Damp the radial distribution function, which is useful for ensuring that the integral converges properly at larger distances, based on the method described by `Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_.
 
         Returns
         -------
         np.ndarray
-            Windowed weight for the RDF
+           Damping factor for the RDF
 
         Notes
         -----
-        The windowed weight, :math:`\omega(r)`, is defined as:
+        The damping factor, :math:`\omega(r)`, is defined as:
 
         .. math::
             \omega(r) = \left[1 - \left(\frac{r}{r_{max}}\right)^3\right]
@@ -218,7 +218,7 @@ class KBIntegrator:
             h(r) = g^{Ganguly}(r) - 1
 
         """
-        return self.gv_corrected_rdf(mol_j) - 1
+        return self.ganguly_corrected_rdf(mol_j) - 1
 
     def rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
@@ -243,18 +243,18 @@ class KBIntegrator:
 
         where:
             - :math:`h(r)` is the correlation function
-            - :math:`\omega(r)` is the window function
+            - :math:`\omega(r)` is the damp factor
             - :math:`r` is the radial distance
 
         .. note::
             The integration is performed using the trapezoidal rule.
         """
-        rkbi_arr = cumulative_trapezoid(4*np.pi*self.rdf.r**2 * self.window() * self.h(mol_j), self.rdf.r, initial=0)
+        rkbi_arr = cumulative_trapezoid(4*np.pi*self.rdf.r**2 * self.damp_factor() * self.h(mol_j), self.rdf.r, initial=0)
         return np.asarray(rkbi_arr)
         
 
-    def r_rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
-        r"""Product of r and KBI values from 0 \to R
+    def scaled_rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
+        r"""Product of R and KBI values from 0 \to R
         
         Parameters
         ----------
@@ -268,8 +268,8 @@ class KBIntegrator:
         """
         return self.rdf.r * self.rkbi(mol_j)
     
-    def r_rkbi_fit(self, mol_j: str = "") -> NDArray[np.float64]:
-        r"""Compute the of r and KBI values from 0 \to R in the range of [rmin, rmax].
+    def scaled_rkbi_fit(self, mol_j: str = "") -> NDArray[np.float64]:
+        r"""Compute the product of R and KBI values from :math:`0 \rightarrow R` in the range of [:math:`r_{min}`, :math:`r_{max}`].
         
         Parameters
         ----------
@@ -279,13 +279,13 @@ class KBIntegrator:
         Returns
         -------
         np.ndarray
-            R x running KBI corresponding to distances :math:`r_{min} \to r_{max}` from the RDF.
+            R x running KBI corresponding to distances :math:`r_{min} \rightarrow r_{max}` from the RDF.
         """
-        return self.r_rkbi(mol_j)[self.rdf.r_mask]
+        return self.scaled_rkbi(mol_j)[self.rdf.r_mask]
 
-    def compute_kbi_limit_fit(self, mol_j: str = "") -> NDArray[np.float64]:
+    def fit_limit_params(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
-        Fit a linear regression to the product of r and the KBI values for extrapolation to thermodynamic limit.
+        Fit a linear regression to the product of R and the running KBI values for extrapolation to thermodynamic limit.
 
         Parameters
         ----------
@@ -295,7 +295,7 @@ class KBIntegrator:
         Returns
         -------
         tuple
-            Tuple containing the slope and intercept of the linear fit, which represents the KBI at infinite distance.
+            Tuple containing the slope and intercept of the linear fit, which represents the KBI and surface term in the thermodynamic limit, respectfully.
 
         Notes
         -----
@@ -307,12 +307,12 @@ class KBIntegrator:
         where :math:`F_{ij}^\infty` is a finite-size surface offset.
 
         .. note::
-            The KBI at infinite distance is estimated by fitting a linear model to the product of r and the KBI values, using only the radial distances that are within the specified range (rmin to rmax).
+            The KBI at infinite distance is estimated by fitting a linear model to the product of r and the KBI values, using only the radial distances that are within the specified range [:math:`r_{min}, r_{max}`].
         """
         # fit linear regression to masked values
-        return np.polyfit(self.rdf.r_fit, self.r_rkbi_fit(mol_j), 1)
+        return np.polyfit(self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), 1)
 
-    def compute_kbi_limit(self, mol_j: str = "") -> float:
+    def kbi_limit(self, mol_j: str = "") -> float:
         r"""
         Compute KBI in thermodynamic limit.
 
@@ -326,7 +326,7 @@ class KBIntegrator:
         float
             KBI in the thermodynamic limit, G_{ij}^\infty.
         """
-        return float(self.compute_kbi_limit_fit(mol_j)[0])
+        return float(self.fit_limit_params(mol_j)[0])
 
     def plot_integrand(self, mol_j: str = "", save_dir: Optional[str] = None) -> None:
         """
@@ -342,7 +342,7 @@ class KBIntegrator:
         label = "-".join(self.rdf_molecules)
         A = 4 * np.pi * self.rdf.r**2
         integrand_gv = A * self.h(mol_j)
-        integrand_damp = self.window() * integrand_gv
+        integrand_damp = self.damp_factor() * integrand_gv
 
         fig, ax = plt.subplots(1, 2, figsize=(7.5,3.5), sharex=True)
         ax[0].plot(self.rdf.r, self.rdf.g, label=label)
@@ -383,9 +383,9 @@ class KBIntegrator:
         ax[1].set_xlabel(r"$R$ [$nm$]")
         ax[1].set_ylabel(r"$G_{{ij}}^R$ [$nm^3$]")
 
-        ax[2].plot(self.rdf.r, self.r_rkbi(mol_j))
+        ax[2].plot(self.rdf.r, self.scaled_rkbi(mol_j))
         kbi_inf = self.compute_kbi_limit(mol_j)
-        ax[2].plot(self.rdf.r_fit, self.r_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=f"G_{{ij}}^\infty={kbi_inf:.3f}")
+        ax[2].plot(self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=f"G_{{ij}}^\infty={kbi_inf:.3f}")
         ax[2].set_xlabel(r"$R$ [$nm$]")
         ax[2].set_ylabel(r"$R \ G_{{ij}}^R$ [$nm^4$]")
 

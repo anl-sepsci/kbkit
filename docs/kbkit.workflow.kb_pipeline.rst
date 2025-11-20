@@ -1,7 +1,7 @@
 Kirkwood-Buff Pipeline
 ========================
 
-.. automodule:: kbkit.core.kb_pipeline
+.. automodule:: kbkit.workflow.kb_pipeline
    :members:
    :undoc-members:
    :show-inheritance:

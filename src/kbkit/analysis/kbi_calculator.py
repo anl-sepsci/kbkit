@@ -135,8 +135,8 @@ class KBICalculator:
 
                 # if convergence is met, store kbi value
                 if integrator.rdf.is_converged:
-                    kbis[s, i, j] = integrator.compute_kbi_limit(mol_j=mol_j)
-                    kbis[s, j, i] = integrator.compute_kbi_limit(mol_j=mol_i)
+                    kbis[s, i, j] = integrator.kbi_limit(mol_j=mol_j)
+                    kbis[s, j, i] = integrator.kbi_limit(mol_j=mol_i)
                 # override convergence check to skip system if not converged
                 else:  # for not converged rdf
                     msg = f"RDF for system '{meta.name}' and pair {integrator.rdf_molecules} did not converge."
@@ -177,10 +177,11 @@ class KBICalculator:
                 r=integrator.rdf.r,
                 g=integrator.rdf.g,
                 rkbi=(integrator.rkbi()),
-                r_rkbi=(integrator.r_rkbi()),
+                scaled_rkbi=(integrator.scaled_rkbi()),
                 r_fit=(rfit := integrator.rdf.r_fit),
-                r_rkbi_fit=np.polyval(integrator.compute_kbi_limit_fit(), rfit),
-                kbi=integrator.compute_kbi_limit(),
+                scaled_rkbi_fit=integrator.scaled_rkbi_fit(),
+                scaled_rkbi_est=np.polyval(integrator.fit_limit_params(), rfit),
+                kbi_limit=integrator.kbi_limit(),
             )
         )
 
