@@ -91,7 +91,7 @@ if PUBLISH:
         sys.exit(1)
 
     print(f"Uploading {dist_file.name} to PyPI...")
-    subprocess.run(["conda", "run", "-n", "kbkit-dev", "python", "-m", "twine", "upload", str(dist_file)], check=True)
+    subprocess.run([f"conda run -n kbkit-dev python -m twine upload {str(dist_file)}"], check=True, shell=True)
 
     # Add a delay to allow PyPI to process the upload
     print("Waiting 10 seconds for PyPI to process the upload...")

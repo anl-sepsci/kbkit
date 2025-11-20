@@ -359,7 +359,7 @@ class KBIntegrator:
 
         if save_dir is not None:
             mols = "_".join(self.rdf_molecules)
-            plt.savefig(os.path.join(save_dir, f"kbi_integrand_{mols}.png"))
+            fig.savefig(os.path.join(save_dir, f"kbi_integrand_{mols}.png"))
         plt.show()
 
     def plot_extrapolation(self, mol_j: str = "", save_dir: Optional[str] = None):
@@ -394,5 +394,5 @@ class KBIntegrator:
 
         if save_dir is not None:
             mols = "_".join(self.rdf_molecules)
-            plt.savefig(os.path.join(save_dir, f"kbi_extrapolation_{mols}.png"))
+            fig.savefig(os.path.join(save_dir, f"kbi_extrapolation_{mols}.png"))
         plt.show()
