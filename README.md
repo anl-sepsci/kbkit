@@ -59,7 +59,7 @@ make help
 
 ## File Organization
 
-For running `kbkit.core.KBPipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
+For running `kbkit.workflow.KBPipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
 
 * NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
 
@@ -110,16 +110,16 @@ integrator = KBIntegrator(rdf_file)
 rkbi = integrator.rkbi()
 
 # calculate KBI in thermodynamic limit
-kbi = integrator.integrate(mol_j="mol2")
+kbi = integrator.compute_kbi_limit(mol_j="mol2")
 
 # visualize KBI integration and extrapolation
-integrator.plot()
+integrator.plot_extrapolation()
 ```
 
 ### Run an automated pipeline for batch analysis
 
 ```python
-from kbkit.core import KBPipeline
+from kbkit.workflow import KBPipeline
 
 # Set up and run the pipeline
 pipe = KBPipeline(
