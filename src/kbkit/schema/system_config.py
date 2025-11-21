@@ -3,9 +3,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-
-from kbkit.systems.system_registry import SystemRegistry
-
+from typing import Optional
 
 @dataclass
 class SystemConfig:
@@ -14,25 +12,6 @@ class SystemConfig:
 
     Encapsulates the environment required to discover, register, and analyze molecular systems
     across base and pure directories. Serves as a semantic anchor for ensemble-specific workflows.
-
-    Attributes
-    ----------
-    base_path : Path
-        Path to the directory containing mixed or ensemble systems.
-    pure_path : Path
-        Path to the directory containing pure component systems.
-    ensemble : str
-        Name or identifier for the ensemble (e.g., "NaCl_water").
-    cations : list[str]
-        List of cation species included in the ensemble.
-    anions : list[str]
-        List of anion species included in the ensemble.
-    registry : SystemRegistry
-        Registry object used to discover and organize system metadata.
-    logger : logging.Logger
-        Logger instance for structured diagnostics and workflow tracing.
-    molecules : list[str]
-        Full list of molecular species present in the ensemble.
 
     Notes
     -----
@@ -46,6 +25,6 @@ class SystemConfig:
     ensemble: str
     cations: list[str]
     anions: list[str]
-    registry: SystemRegistry
     logger: logging.Logger
     molecules: list[str]
+    registry: Optional[object] = None

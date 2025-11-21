@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from kbkit.systems.system_properties import SystemProperties
+from kbkit.systems.properties import SystemProperties
 
 
 # Sample minimal .gro content (properly formatted for MDAnalysis)

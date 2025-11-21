@@ -1,7 +1,7 @@
 System Properties
 ==================
 
-.. automodule:: kbkit.systems.system_properties
+.. automodule:: kbkit.systems.properties
    :members:
    :undoc-members:
    :show-inheritance:

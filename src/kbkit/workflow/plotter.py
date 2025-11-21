@@ -12,7 +12,6 @@ from numpy.typing import NDArray
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.schema.plot_spec import PlotSpec
 from kbkit.utils.format import format_unit_str
-from kbkit.workflow.kb_pipeline import KBPipeline
 
 load_mplstyle()
 warnings.filterwarnings("ignore")
@@ -39,7 +38,7 @@ class Plotter:
 
     def __init__(
         self,
-        pipeline: KBPipeline,
+        pipeline,
         molecule_map: dict[str, str],
         x_mol: str = "",
         save_dir: str | None = None,

@@ -3,8 +3,8 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.analysis.kb_integrator import KBIntegrator
-from kbkit.analysis.system_state import SystemState
+from kbkit.analysis.integrator import KBIntegrator
+from kbkit.systems.state import SystemState
 from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.utils.file_resolver import FileResolver
 

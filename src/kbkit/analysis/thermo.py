@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.analysis.system_state import SystemState
+from kbkit.systems.state import SystemState
 from kbkit.schema.thermo_property import ThermoProperty, register_property
 
 # Suppress only the specific RuntimeWarning from numpy.linalg

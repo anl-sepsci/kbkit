@@ -1,7 +1,7 @@
 Kirkwood-Buff Thermodynamics
 ====================================
 
-.. automodule:: kbkit.analysis.kb_thermo
+.. automodule:: kbkit.analysis.thermo
    :members:
    :undoc-members:
    :show-inheritance:

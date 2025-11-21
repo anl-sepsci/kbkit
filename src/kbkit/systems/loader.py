@@ -9,8 +9,8 @@ import numpy as np
 
 from kbkit.schema.system_config import SystemConfig
 from kbkit.schema.system_metadata import SystemMetadata
-from kbkit.systems.system_properties import SystemProperties
-from kbkit.systems.system_registry import SystemRegistry
+from kbkit.systems.properties import SystemProperties
+from kbkit.systems.registry import SystemRegistry
 from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
@@ -116,9 +116,9 @@ class SystemLoader:
             ensemble=ensemble,
             cations=cations or [],
             anions=anions or [],
-            registry=SystemRegistry(sorted_metadata),
             logger=self.logger,
             molecules=molecules,
+            registry=SystemRegistry(sorted_metadata)
         )
 
     def _find_base_path(self) -> Path:

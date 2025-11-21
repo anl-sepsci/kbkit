@@ -1,7 +1,7 @@
 System State
 ==============
 
-.. automodule:: kbkit.analysis.system_state
+.. automodule:: kbkit.analysis.state
    :members:
    :undoc-members:
    :show-inheritance:

@@ -7,15 +7,16 @@ from typing import Any, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.analysis.kb_thermo import KBThermo
-from kbkit.analysis.kbi_calculator import KBICalculator
-from kbkit.analysis.system_state import SystemState
+from kbkit.analysis.thermo import KBThermo
+from kbkit.analysis.calculator import KBICalculator
+from kbkit.systems.state import SystemState
 from kbkit.schema.thermo_property import ThermoProperty
 from kbkit.schema.thermo_state import ThermoState
-from kbkit.systems.system_loader import SystemLoader
+from kbkit.systems.loader import SystemLoader
+from kbkit.workflow.plotter import Plotter
 
 
-class KBPipeline:
+class Pipeline:
     """
     A pipeline for performing Kirkwood-Buff analysis of molecular simulations.
 
@@ -111,11 +112,11 @@ class KBPipeline:
 
         This method orchestrates the entire process, including:
 
-        1.  Loading system configurations using :class:`~kbkit.core.system_loader.SystemLoader`.
-        2.  Building the system state using :class:`~kbkit.analysis.system_state.SystemState`.
-        3.  Initializing the KBI calculator using :class:`~kbkit.calculators.kbi_calculator.KBICalculator`.
+        1.  Loading system configurations using :class:`~kbkit.systems.loader.SystemLoader`.
+        2.  Building the system state using :class:`~kbkit.systems.state.SystemState`.
+        3.  Initializing the KBI calculator using :class:`~kbkit.analysis.calculator.KBICalculator`.
         4.  Computing the KBI matrix.
-        5.  Creating the thermodynamic state using :class:`~kbkit.analysis.kb_thermo.KBThermo`.
+        5.  Creating the thermodynamic state using :class:`~kbkit.analysis.thermo.KBThermo`.
 
         This is the primary entry point for running the entire KBI-based
         thermodynamic analysis.
@@ -123,7 +124,7 @@ class KBPipeline:
         Notes
         -----
         The pipeline's progress is logged using the logger initialized within
-        :class:`~kbkit.core.system_loader.SystemLoader`.
+        :class:`~kbkit.core.loader.SystemLoader`.
         """
         loader = SystemLoader(verbose=self.verbose)
         self.logger = loader.logger
@@ -229,3 +230,18 @@ class KBPipeline:
     def available_properties(self) -> list[str]:
         """Get list of available thermodynamic properties from `KBThermo` and `SystemState`."""
         return list(self.thermo_state.to_dict().keys())
+    
+
+    def plot(self, molecule_map: dict[str, str], x_mol: str = "") -> None:
+        """Initialize Plotter object and make all figures for KB analysis.
+        
+        Parameters
+        ----------
+        molecule_map: dict[str,str]
+            Dictionary mapping molecule name from simulation to name for figure labeling.
+        x_mol: str
+            Molecule to be used for x-axis.
+        """
+        self.plotter = Plotter(self, molecule_map=molecule_map, x_mol=x_mol)
+        self.plotter.make_figures()
+

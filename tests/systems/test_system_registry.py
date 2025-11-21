@@ -17,7 +17,7 @@ Tests focus on reproducibility, discoverability, and contributor-friendly diagno
 import pytest
 
 from kbkit.schema.system_metadata import SystemMetadata
-from kbkit.systems.system_registry import SystemRegistry
+from kbkit.systems.registry import SystemRegistry
 
 # Constants used to avoid magic values in assertions
 NUM_PURE_SYSTEMS = 2

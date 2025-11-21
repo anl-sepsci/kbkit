@@ -1,7 +1,7 @@
 System Loader
 ====================================
 
-.. automodule:: kbkit.systems.system_loader
+.. automodule:: kbkit.systems.loader
    :members:
    :undoc-members:
    :show-inheritance:

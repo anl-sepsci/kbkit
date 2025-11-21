@@ -18,7 +18,7 @@ import pytest
 
 from kbkit.schema.system_config import SystemConfig
 from kbkit.schema.system_metadata import SystemMetadata
-from kbkit.systems.system_loader import SystemLoader
+from kbkit.systems.loader import SystemLoader
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def test_loader_initialization(loader):
     assert loader.verbose is False
 
 
-@patch("kbkit.systems.system_loader.validate_path", side_effect=lambda x: Path(x))
+@patch("kbkit.systems.loader.validate_path", side_effect=lambda x: Path(x))
 def test_find_base_path(mock_validate, loader):
     """
     Test default base path discovery using `_find_base_path()`.
@@ -56,7 +56,7 @@ def test_find_base_path(mock_validate, loader):
     assert base == Path.cwd()
 
 
-@patch("kbkit.systems.system_loader.validate_path", side_effect=lambda x: Path(x))
+@patch("kbkit.systems.loader.validate_path", side_effect=lambda x: Path(x))
 def test_find_pure_path_fallback(mock_validate, loader, tmp_path):
     """
     Test fallback behavior when no pure component directory is found.
@@ -67,8 +67,8 @@ def test_find_pure_path_fallback(mock_validate, loader, tmp_path):
     assert result == tmp_path
 
 
-@patch("kbkit.systems.system_loader.SystemProperties")
-@patch("kbkit.systems.system_loader.validate_path", side_effect=lambda x: Path(x))
+@patch("kbkit.systems.loader.SystemProperties")
+@patch("kbkit.systems.loader.validate_path", side_effect=lambda x: Path(x))
 def test_get_metadata(mock_validate, mock_props, loader, tmp_path):
     """
     Test metadata extraction for a system directory.
@@ -83,7 +83,7 @@ def test_get_metadata(mock_validate, mock_props, loader, tmp_path):
     assert meta.path == tmp_path / "water"
 
 
-@patch("kbkit.systems.system_loader.validate_path", side_effect=lambda x: Path(x))
+@patch("kbkit.systems.loader.validate_path", side_effect=lambda x: Path(x))
 def test_find_systems_filters_top_files(mock_validate, loader, tmp_path):
     """
     Test system discovery filters directories containing .top files.
@@ -129,7 +129,7 @@ def test_sort_systems_by_mol_fraction(loader):
     assert sorted_meta == [meta1, meta2]
 
 
-@patch("kbkit.systems.system_loader.replace")
+@patch("kbkit.systems.loader.replace")
 def test_update_metadata_rdf_success(mock_replace, loader, tmp_path):
     """
     Test RDF path update when RDF subdirectory is found.

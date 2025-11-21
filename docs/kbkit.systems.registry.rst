@@ -1,7 +1,7 @@
 System Registry
 ====================================
 
-.. automodule:: kbkit.systems.system_registry
+.. automodule:: kbkit.systems.registry
    :members:
    :undoc-members:
    :show-inheritance:

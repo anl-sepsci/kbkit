@@ -15,7 +15,7 @@ from scipy.integrate import cumulative_trapezoid
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.parsers.rdf_file import RDFParser
-from kbkit.systems.system_properties import SystemProperties
+from kbkit.systems.properties import SystemProperties
 
 load_mplstyle()
 

@@ -2,9 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-
-from kbkit.systems.system_properties import SystemProperties
-
+from typing import Optional
 
 @dataclass
 class SystemMetadata:
@@ -40,7 +38,7 @@ class SystemMetadata:
     name: str
     kind: str
     path: Path
-    props: SystemProperties
+    props: Optional[object] = None
     rdf_path: Path = field(default_factory=Path)
     tags: list[str] = field(default_factory=list)
 
