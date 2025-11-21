@@ -93,7 +93,7 @@ ignore_missing_imports = true
 
 
 [tool.pytest.ini_options]
-pythonpath = ["kbkit"]
+pythonpath = ["src"]
 testpaths = ["src/kbkit", "tests"]
 addopts = "--doctest-modules"
 doctest_optionflags = "NORMALIZE_WHITESPACE"
@@ -111,4 +111,4 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["kbkit"]
+packages = ["src/kbkit"]
