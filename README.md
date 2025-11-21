@@ -59,7 +59,8 @@ make help
 
 ## File Organization
 
-For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
+For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. 
+This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
 
 * NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
 
@@ -101,8 +102,9 @@ See examples for a more complete example on the ethanol/water binary system.
 ### Calculating Kirkwood-Buff integrals on a single RDF
 
 ```python
-from kbkit.analysis import KBIntegrator
 import os
+from kbkit.analysis import KBIntegrator
+from kbkit.systems import SystemProperties
 
 syspath = "./examples/test_data/ethanol_water_26C/sys_405"
 rdf_path = os.path.join(sys_path, "kbi_rdf_files_gmx25", "rdf_ETHOL_SPCEW.xvg")
@@ -156,8 +158,8 @@ pipe.plot(
 ### Parse GROMACS files
 
 ```python
-from kbkit.parsers import TopFileParser, EdrFileParser, GroFileParser
 import os
+from kbkit.parsers import TopFileParser, EdrFileParser, GroFileParser
 
 syspath = "./examples/test_data/ethanol_water_26C/sys_405"
 top_file = os.path.join(syspath, "sys_405.top")
