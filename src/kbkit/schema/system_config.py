@@ -3,7 +3,11 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from kbkit.systems.registry import SystemRegistry
+
 
 @dataclass
 class SystemConfig:
@@ -27,4 +31,4 @@ class SystemConfig:
     anions: list[str]
     logger: logging.Logger
     molecules: list[str]
-    registry: Optional[object] = None
+    registry: "SystemRegistry"  # not Optional

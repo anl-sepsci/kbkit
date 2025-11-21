@@ -6,8 +6,8 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.systems.state import SystemState
 from kbkit.schema.thermo_property import ThermoProperty, register_property
+from kbkit.systems.state import SystemState
 
 # Suppress only the specific RuntimeWarning from numpy.linalg
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="numpy.linalg")

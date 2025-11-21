@@ -118,7 +118,7 @@ class SystemLoader:
             anions=anions or [],
             logger=self.logger,
             molecules=molecules,
-            registry=SystemRegistry(sorted_metadata)
+            registry=SystemRegistry(sorted_metadata),
         )
 
     def _find_base_path(self) -> Path:
@@ -199,12 +199,7 @@ class SystemLoader:
             kind = "pure"
         kind = "pure" if kind.lower() == "pure" else "mixture"
 
-        return SystemMetadata(
-            name=system,
-            path=system_path,
-            props=prop,
-            kind=kind,
-        )
+        return SystemMetadata(name=system, path=system_path, kind=kind, props=prop)
 
     def _find_systems(self, path: str | Path, pattern: str = "*") -> list[str]:
         """

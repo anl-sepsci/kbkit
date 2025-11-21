@@ -7,12 +7,12 @@ from typing import Any, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from kbkit.analysis.thermo import KBThermo
 from kbkit.analysis.calculator import KBICalculator
-from kbkit.systems.state import SystemState
+from kbkit.analysis.thermo import KBThermo
 from kbkit.schema.thermo_property import ThermoProperty
 from kbkit.schema.thermo_state import ThermoState
 from kbkit.systems.loader import SystemLoader
+from kbkit.systems.state import SystemState
 from kbkit.workflow.plotter import Plotter
 
 
@@ -230,11 +230,10 @@ class Pipeline:
     def available_properties(self) -> list[str]:
         """Get list of available thermodynamic properties from `KBThermo` and `SystemState`."""
         return list(self.thermo_state.to_dict().keys())
-    
 
     def plot(self, molecule_map: dict[str, str], x_mol: str = "") -> None:
         """Initialize Plotter object and make all figures for KB analysis.
-        
+
         Parameters
         ----------
         molecule_map: dict[str,str]
@@ -244,4 +243,3 @@ class Pipeline:
         """
         self.plotter = Plotter(self, molecule_map=molecule_map, x_mol=x_mol)
         self.plotter.make_figures()
-
