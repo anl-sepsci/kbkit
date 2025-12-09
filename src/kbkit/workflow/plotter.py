@@ -341,16 +341,16 @@ class Plotter:
 
         elif prop in ["mixing", "excess"]:
             y_series_list = [
-                (self.pipe.state.h_mix(), "violet", "s", r"$\Delta H_{mix}$"),
-                (-self.pipe.state.temperature() * self.property_map["se"], "limegreen", "o", r"$-TS^E$"),
+                (self.pipe.state.mixture_enthalpy(), "violet", "s", r"$\Delta H_{mix}$"),
+                (-self.pipe.state.temperature() * self.property_map["s_ex"], "limegreen", "o", r"$-TS^E$"),
             ]
             if prop == "mixing":
                 y_series_list += [
-                    (self.property_map["gid"], "darkorange", "<", r"$G^{id}$"),
-                    (self.property_map["gm"], "mediumblue", "^", r"$\Delta G_{mix}$"),
+                    (self.property_map["g_id"], "darkorange", "<", r"$G^{id}$"),
+                    (self.property_map["g_mix"], "mediumblue", "^", r"$\Delta G_{mix}$"),
                 ]
             else:
-                y_series_list.append((self.property_map["ge"], "mediumblue", "^", r"$G^E$"))
+                y_series_list.append((self.property_map["g_ex"], "mediumblue", "^", r"$G^E$"))
 
             return PlotSpec(
                 x_data=self.pipe.state.mol_fr[:, self._x_idx],
@@ -362,14 +362,14 @@ class Plotter:
                 multi=True,
             )
 
-        elif prop in ["i0", "det_h"]:
+        elif prop in ["i0", "hessian_determinant"]:
             return PlotSpec(
                 x_data=self.pipe.state.mol_fr[:, self._x_idx],
-                y_data=self.property_map["i0"] if prop == "i0" else self.property_map["det_hessian"],
+                y_data=self.property_map["i0"] if prop == "i0" else self.property_map["hessian_determinant"],
                 ylabel=f"I$_0$ [{format_unit_str('cm^{-1}')}]"
                 if prop == "i0"
                 else f"$|H_{{ij}}|$ [{format_unit_str('kJ/mol')}]",
-                filename=f"saxs_{'I0' if prop == 'i0' else 'det_hessian'}.png",
+                filename=f"saxs_{'I0' if prop == 'i0' else 'hessian_determinant'}.png",
                 multi=False,
             )
 
@@ -511,12 +511,12 @@ class Plotter:
             "dlngammas_fits",
             "excess",
             "mixing",
-            "gm",
-            "ge",
-            "hmix",
-            "se",
+            "g_mix",
+            "g_ex",
+            "h_mix",
+            "s_ex",
             "i0",
-            "det_h",
+            "hessian_determinant",
         ]
         return properties
 
@@ -546,12 +546,12 @@ class Plotter:
                 - '`dlngammas_fits`': Fit of polynomial function to activity coefficient derivative.
                 - '`excess`': (Binary systems only) Excess thermodynamic properties as a function of composition.
                 - '`mixing`': (Binary systems only) Mixing thermodynamic properties as a function of composition.
-                - '`gm`': Gibbs free energy of mixing.
-                - '`ge`': Gibbs excess free energy.
-                - '`hmix`': Mixing enthalpy.
-                - '`se`': Excess entropy.
+                - '`g_mix`': Gibbs free energy of mixing.
+                - '`g_ex`': Gibbs excess free energy.
+                - '`h_mix`': Mixing enthalpy.
+                - '`s_ex`': Excess entropy.
                 - '`i0`': SAXS intensity as q :math:`\rightarrow` 0.
-                - '`det_h`': Determinant of Hessian.
+                - '`hessian_determinant`': Determinant of Hessian.
         system: str, optional
             System to plot for RDF/KBI analysis of specific system (default None).
         cmap: str, otpional
@@ -563,9 +563,14 @@ class Plotter:
         show: bool, optional
             Display figure (default True).
         """
-        prop_key = prop.lower()
-        if prop_key not in self.available_properties():
-            raise ValueError(f"Property {prop_key} not valid.")
+        # get prop key
+        prop_key = ""
+        for p in self.available_properties():
+            if (prop.lower().startswith(p)) or (p.startswith(prop.lower())):
+                prop_key = p 
+                break
+        if len(prop_key) == 0:
+            raise ValueError(f"Property {prop_key} not valid. Options include: {self.available_properties()}")
 
         if system:
             # plot system kbis
@@ -587,7 +592,7 @@ class Plotter:
             spec = self._get_plot_spec(prop_key)
             return self._render_binary_plot(spec, marker=marker, ylim=ylim, cmap=cmap, show=show)
 
-        elif self.pipe.state.n_comp == TERNARY_SYSTEM and prop_key in {"gm", "ge", "hmix", "se", "i0", "det_h"}:
+        elif self.pipe.state.n_comp == TERNARY_SYSTEM and prop_key in {"g_mix", "g_ex", "h_mix", "s_ex", "i0", "hessian_determinant"}:
             return self._render_ternary_plot(property_name=prop_key, cmap=cmap, show=show)
 
         elif self.pipe.state.n_comp > TERNARY_SYSTEM:
@@ -603,7 +608,7 @@ class Plotter:
         self.plot_kbis(units="cm^3/mol", show=False)
 
         # create figures for properties independent of component number
-        for thermo_prop in ["lngammas", "dlngammas", "i0", "det_h"]:
+        for thermo_prop in ["lngammas", "dlngammas", "i0", "hessian_determinant"]:
             self.plot(prop=thermo_prop, show=False)
 
         # plot polynomial fits to activity coefficient derivatives if polynomial integration is performed
@@ -618,7 +623,7 @@ class Plotter:
 
         # for ternary system plot individual energy contributions on separate figure
         elif self.pipe.state.n_comp == TERNARY_SYSTEM:
-            for thermo_prop in ["ge", "gm", "hmix", "se"]:
+            for thermo_prop in ["g_ex", "g_mix", "h_mix", "s_ex"]:
                 self.plot(prop=thermo_prop, show=False)
 
         else:

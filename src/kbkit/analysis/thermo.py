@@ -87,7 +87,7 @@ class KBThermo:
             A_{ij}^{-1} = \rho x_i x_j G_{ij} + x_i \delta_{i,j}
 
         where:
-            - :math:`\rho` is the average mixture density.
+            - :math:`\rho` is the mixture number density.
             - :math:`G_{ij}` is the KBI for the pair of molecules.
             - :math:`x_i` is the mol fraction of molecule :math:`i`.
             - :math:`\delta_{i,j}` is the Kronecker delta for molecules :math:`i,j`.
@@ -96,9 +96,9 @@ class KBThermo:
         mfr_3d_sq = (
             self.state.mol_fr[:, :, np.newaxis] * self.state.mol_fr[:, np.newaxis, :]
         )  # compute square of 3d array
-        rho_bar = self.state.rho_bar("molecule/nm^3")[:, np.newaxis, np.newaxis]  # compute mixture number density
+        rho = self.state.mixture_number_density("molecule/nm^3")[:, np.newaxis, np.newaxis]  # compute mixture number density
         Aij_inv = (
-            mfr_3d * self.kronecker_delta()[np.newaxis, :] + rho_bar * mfr_3d_sq * self.kbi_matrix.value
+            mfr_3d * self.kronecker_delta()[np.newaxis, :] + rho * mfr_3d_sq * self.kbi_matrix.value
         )  # inverse of
         return Aij_inv
 
@@ -195,7 +195,7 @@ class KBThermo:
             - :math:`A_{ij}` is the stability matrix (see :meth:`A_matrix`).
         """
         RT = self.gas_constant * self.state.temperature()
-        RTkT = self.state.volume_bar("m^3/mol") / self.l_stability.value
+        RTkT = self.state.ideal_molar_volume("m^3/mol") / self.l_stability.value
         return RTkT / RT
 
     def _subtract_nth_elements(self, matrix: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -231,8 +231,8 @@ class KBThermo:
         """
         return self._subtract_nth_elements(self.dmui_dxj.value)
 
-    @register_property("det_hessian", "kJ/mol")
-    def det_hessian(self) -> NDArray[np.float64]:
+    @register_property("hessian_determinant", "kJ/mol")
+    def hessian_determinant(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Determinant of the Hessian, :math:`|\mathbf{H}|`, of Gibbs free energy of mixing.
 
@@ -251,28 +251,7 @@ class KBThermo:
         """
         return np.asarray([np.linalg.det(block) for block in self.hessian.value])
 
-    @register_property("dmui_dnj", "kJ/mol")
-    def dmui_dnj(self) -> NDArray[np.float64]:
-        r"""
-        ThermoProperty: Chemical potential derivatives of molecule :math:`i` with respect to the number of residues of molecule :math:`j`.
 
-        Returns
-        -------
-        np.ndarray
-            A 3D matrix with shape ``(n_sys, n_comp, n_comp)``,
-            where ``n_sys`` is the number of systems and ``n_comp`` is the number of unique components.
-
-        Notes
-        -----
-        Elements in the matrix are calculated for molecules :math:`i,j`, using the formula:
-
-        .. math::
-           \left(\frac{\partial \mu_i}{\partial n_j}\right)_{T,P,n_k} = \frac{1}{n_T} \left(\frac{\partial \mu_i}{\partial x_j}\right)_{T,P,x_k}
-
-        where:
-            - :math:`n_T` is the total number of molecules present.
-        """
-        return self.dmui_dxj.value / self.state.total_molecules[:, np.newaxis, np.newaxis]
 
     def _set_pure_to_zero(self, array: NDArray[np.float64]) -> NDArray[np.float64]:
         """Set value of array to zero where value is pure component."""
@@ -297,12 +276,12 @@ class KBThermo:
         * For components ``i = 1, \ldots, n-1``:
 
         .. math::
-            \left(\frac{\partial \mu_i}{\partial x_i}\right) = \mathrm{diag}\left(M_{ij} - M_{i,n}\right)_{j=1}^{n-1}
+            \left(\frac{\partial \mu_i}{\partial x_i}\right) = \mathrm{diag}\left(\frac{\partial \mu_i}{\partial x_j} - \frac{\partial \mu_i}{\partial x_n}\right)_{j=1}^{n-1}
 
         This is implemented as:
 
         .. math::
-            dmui\_dxi[:, :-1] = \mathrm{diag}\left(M_{ij} - M_{i,n}\right)
+            dmui\_dxi[:, :-1] = \mathrm{diag}\left(\frac{\partial \mu_i}{\partial x_j} - \frac{\partial \mu_i}{\partial x_n}\right)
 
         * For the last component ``n`` (by Gibbs-Duhem):
 
@@ -340,13 +319,12 @@ class KBThermo:
         Activity coefficient derivatives, :math:`\frac{\partial \gamma_i}{\partial x_i}` are calculated as follows:
 
         .. math::
-            \frac{\partial \ln{\gamma_i}}{\partial x_i} = \frac{1}{k_b T}\left(\frac{\partial \mu_i}{\partial x_i}\right) - \frac{1}{x_i}
+            \frac{\partial \ln{\gamma_i}}{\partial x_i} = \frac{1}{R T}\left(\frac{\partial \mu_i}{\partial x_i}\right) - \frac{1}{x_i}
 
         where:
             - :math:`\mu_i` is the chemical potential of molecule :math:`i`
             - :math:`\gamma_i` is the activity coefficient of molecule :math:`i`
             - :math:`x_i` is the mol fraction of molecule :math:`i`
-            - :math:`k_b` is the Boltzmann constant
         """
         # Compute derivative of ln(gamma) with respect to composition
         factor = 1 / (self.gas_constant * self.state.temperature()[:, np.newaxis])
@@ -604,8 +582,8 @@ class KBThermo:
         except Exception as e:
             raise Exception(f"Could not perform numerical integration for {mol}. Details: {e}.") from e
 
-    @register_property("ge", "kJ/mol")
-    def ge(self) -> NDArray[np.float64]:
+    @register_property("g_ex", "kJ/mol")
+    def g_ex(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Gibbs excess energy from activity coefficients.
 
@@ -624,14 +602,38 @@ class KBThermo:
         # where any system contains a pure component, set excess to zero
         ge[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return ge
+    
+    @register_property("h_mix", "kJ/mol")
+    def h_mix(self) -> NDArray[np.float64]:
+        r"""
+        ThermoProperty: Enthalpy of mixing from pure component simulations.
 
-    @register_property("se", "kJ/mol/K")
-    def se(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Excess entropy from mixing enthalpy and Gibbs excess energy."""
-        return (self.state.h_mix("kJ/mol") - self.ge.value) / self.state.temperature("K")
+        See Also
+        --------
+        :meth:`~kbkit.systems.state.mixture_enthalpy` for calculation from simulation properties.
+        """
+        return self.state.mixture_enthalpy(units="kJ/mol")
 
-    @register_property("gid", "kJ/mol")
-    def gid(self) -> NDArray[np.float64]:
+    @register_property("s_ex", "kJ/mol/K")
+    def s_ex(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Excess entropy from mixing enthalpy and Gibbs excess energy.
+        
+        Notes
+        -----
+        Excess entropy, :math:`S^E`, is calculated according to:
+
+        .. math::
+            \frac{S^E} = \frac{\Delta H_{mix} - G^E}{T}
+
+        where:
+            - :math:`x_i` is mol fraction of molecule :math:`i`
+        """
+        se = (self.state.mixture_enthalpy("kJ/mol") - self.g_ex.value) / self.state.temperature("K")
+        se[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
+        return se
+
+    @register_property("g_id", "kJ/mol")
+    def g_id(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Ideal free energy calculated from mol fractions.
 
@@ -654,8 +656,8 @@ class KBThermo:
         gid[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return gid
 
-    @register_property("gm", "kJ/mol")
-    def gm(self) -> NDArray[np.float64]:
+    @register_property("g_mix", "kJ/mol")
+    def g_mix(self) -> NDArray[np.float64]:
         r"""
         ThermoProperty: Gibbs mixing free energy calculated from excess and ideal contributions.
 
@@ -666,19 +668,17 @@ class KBThermo:
         .. math::
             \Delta G_{mix} = G^E + G^{id}
         """
-        gm = self.ge.value + self.gid.value
-        gm[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
-        return gm
+        return self.g_ex.value + self.g_id.value
 
     @property
     def _delta_z(self) -> NDArray[np.float64]:
         r"""Calculate the difference in electrons."""
-        return self.state.n_electrons[:-1] - self.state.n_electrons[-1]
+        return self.state.unique_electrons[:-1] - self.state.unique_electrons[-1]
 
     @property
     def _zbar(self) -> NDArray[np.float64]:
         r"""Calculate the linear combination of electrons for each system."""
-        return self.state.electron_bar
+        return self.state.total_electrons
 
     @register_property("s0_ij", "")
     def s0_ij(self) -> NDArray[np.float64]:
@@ -765,7 +765,7 @@ class KBThermo:
             self.gas_constant
             * self.state.temperature()
             * self.isothermal_compressibility.value
-            / self.state.volume_bar("m^3/mol")
+            / self.state.ideal_molar_volume("m^3/mol")
         )
 
     @register_property("s0_x", "")
@@ -868,14 +868,14 @@ class KBThermo:
             \hat{S}^{e}(0) = \sum_{i=1}^n \sum_{j=1}^n Z_i Z_j A_{ij}^{-1}
 
         """
-        ne = self.state.n_electrons
+        ne = self.state.unique_electrons
         ne_sq = ne[:, np.newaxis] * ne[np.newaxis, :]
         return np.nansum(ne_sq * self.A_inv_matrix.value, axis=(2, 1))
 
     def _calculate_i0_from_s0e(self, s0_elec) -> NDArray[np.float64]:
         r"""Calculates x-ray scattering intensity from electron density contribution of structure factor."""
         re = float(self.state.ureg("re").to("cm").magnitude)
-        vbar = self.state.volume_bar(units="cm^3/mol")
+        vbar = self.state.ideal_molar_volume(units="cm^3/mol")
         N_A = float(self.state.ureg("N_A").to("1/mol").magnitude)
         return re**2 * (1 / vbar) * N_A * s0_elec
 

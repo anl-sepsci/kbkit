@@ -3,6 +3,7 @@
 from dataclasses import fields
 from functools import cached_property
 from typing import Any, Union
+import os
 
 import numpy as np
 from numpy.typing import NDArray
@@ -115,7 +116,7 @@ class Pipeline:
         1.  Loading system configurations using :class:`~kbkit.systems.loader.SystemLoader`.
         2.  Building the system state using :class:`~kbkit.systems.state.SystemState`.
         3.  Initializing the KBI calculator using :class:`~kbkit.analysis.calculator.KBICalculator`.
-        4.  Computing the KBI matrix.
+        4.  Computing the KBI matrix. (Applies all of the corrections.)
         5.  Creating the thermodynamic state using :class:`~kbkit.analysis.thermo.KBThermo`.
 
         This is the primary entry point for running the entire KBI-based
@@ -205,7 +206,7 @@ class Pipeline:
         Try to load previously computed pipeline results with robust error handling.
 
         Returns:
-            A dictionary of loaded data if successful, otherwise None.
+            A dictionary of loaded data if successful, otherwise an empty dictionary.
         """
         file_path_npz = os.path.join(base_path, "kb_analysis", "pipeline_results.npz")
         loaded_data = None

@@ -20,16 +20,16 @@ class ThermoState:
     A_matrix: ThermoProperty
     l_stability: ThermoProperty
     dmui_dxj: ThermoProperty
-    dmui_dnj: ThermoProperty
     dmui_dxi: ThermoProperty
     hessian: ThermoProperty
-    det_hessian: ThermoProperty
+    hessian_determinant: ThermoProperty
     dlngammas_dxs: ThermoProperty
     lngammas: ThermoProperty
-    ge: ThermoProperty
-    gid: ThermoProperty
-    gm: ThermoProperty
-    se: ThermoProperty
+    h_mix: ThermoProperty
+    g_ex: ThermoProperty
+    g_id: ThermoProperty
+    g_mix: ThermoProperty
+    s_ex: ThermoProperty
     s0_x: ThermoProperty
     s0_kappa: ThermoProperty
     s0_cc: ThermoProperty
@@ -47,6 +47,7 @@ class ThermoState:
     i0_nc: ThermoProperty
     i0_nn: ThermoProperty
     i0: ThermoProperty
+
     # from SystemState
     top_molecules: ThermoProperty
     salt_pairs: ThermoProperty
@@ -57,22 +58,23 @@ class ThermoState:
     pure_molecules: ThermoProperty
     pure_mol_fr: ThermoProperty
     electron_map: ThermoProperty
-    n_electrons: ThermoProperty
-    electron_bar: ThermoProperty
+    unique_electrons: ThermoProperty
+    total_electrons: ThermoProperty
     mol_fr: ThermoProperty
     temperature: ThermoProperty
     volume: ThermoProperty
     molar_volume_map: ThermoProperty
-    molar_volume: ThermoProperty
+    pure_molar_volume: ThermoProperty
     enthalpy: ThermoProperty
     heat_capacity: ThermoProperty
     isothermal_compressibility: ThermoProperty
     pure_enthalpy: ThermoProperty
     ideal_enthalpy: ThermoProperty
-    h_mix: ThermoProperty
-    volume_bar: ThermoProperty
-    volume_mix: ThermoProperty
-    excess_volume: ThermoProperty
+    mixture_enthalpy: ThermoProperty
+    ideal_molar_volume: ThermoProperty
+    mixture_molar_volume: ThermoProperty
+    excess_molar_volume: ThermoProperty
+    mixture_number_density: ThermoProperty
 
     def to_dict(self) -> dict:
         """Convert the ThermoState dataclass to a dictionary."""

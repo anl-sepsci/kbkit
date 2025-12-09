@@ -96,12 +96,12 @@ class SystemState:
 
     @property
     def n_comp(self) -> int:
-        """int: Total number of meth:`unique_molecules`."""
+        """int: Total number of :meth:`unique_molecules`."""
         return len(self.unique_molecules)
 
     @cached_property
     def total_molecules(self) -> NDArray[np.float64]:
-        """np.ndarray: Total molecule count for each system."""
+        """np.ndarray: Total number of molecules, :math:`N_T`, in each system."""
         return np.array([meta.props.topology.total_molecules for meta in self.config.registry])
 
     @cached_property
@@ -142,7 +142,7 @@ class SystemState:
 
     @cached_property
     def pure_mol_fr(self) -> NDArray[np.float64]:
-        """np.ndarray: Mol fraction array mapped to meth:`pure_molecules`."""
+        """np.ndarray: Mol fraction array mapped to :meth:`pure_molecules`."""
         arr = np.zeros((self.n_sys, len(self.pure_molecules)))
         for i, mol in enumerate(self.pure_molecules):
             mol_split = mol.split(".")
@@ -170,8 +170,8 @@ class SystemState:
         return uniq_elec_map
 
     @cached_property
-    def n_electrons(self) -> NDArray[np.float64]:
-        """np.ndarray: Number of electrons mapped to meth:`unique_molecules`."""
+    def unique_electrons(self) -> NDArray[np.float64]:
+        r"""np.ndarray: Number of electrons, :math:`Z_i`, mapped to :meth:`unique_molecules`."""
         elec_map: dict[str, float] = dict.fromkeys(self.unique_molecules, 0)
         for mol_ls in self.unique_molecules:
             mols = mol_ls.split(".")
@@ -182,17 +182,17 @@ class SystemState:
         return elec_mapped
 
     @cached_property
-    def electron_bar(self) -> NDArray[np.float64]:
-        """np.ndarray: Linear combination of electron numbers and mol fractions mapped to meth:`unique_molecules`."""
-        return self.mol_fr @ self.n_electrons
+    def total_electrons(self) -> NDArray[np.float64]:
+        r"""np.ndarray: Linear combination of electron numbers and mol fractions, :math:`\bar{Z} = \sum_i x_i Z_i`, mapped to :meth:`unique_molecules`."""
+        return self.mol_fr @ self.unique_electrons
 
     @cached_property
     def mol_fr(self) -> NDArray[np.float64]:
-        """np.ndarray: Mol fraction of meth:`unique_molecules` in registry."""
+        """np.ndarray: Mol fraction of :meth:`unique_molecules` in registry."""
         return self.molecule_counts / self.molecule_counts.sum(axis=1)[:, np.newaxis]
 
     def temperature(self, units: str = "K") -> NDArray[np.float64]:
-        """Temperature of each simulation.
+        r"""Temperature, :math:`\left \langle T \right \rangle`, of each simulation.
 
         Parameters
         ----------
@@ -207,7 +207,7 @@ class SystemState:
         return np.array([meta.props.get("temperature", units=units) for meta in self.config.registry])
 
     def volume(self, units: str = "nm^3") -> NDArray[np.float64]:
-        """Volume of each simulation.
+        r"""Volume, :math:`\left \langle V \right \rangle`, of each simulation.
 
         Parameters
         ----------
@@ -221,8 +221,129 @@ class SystemState:
         """
         return np.array([meta.props.get("volume", units=units) for meta in self.config.registry])
 
+    def enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
+        r"""Enthalpy, :math:`H`, of each simulation.
+
+        Parameters
+        ----------
+        units: str
+            Enthalpy units (default: kJ/mol)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of system enthalpies as a function of composition.
+        """
+        return np.array([meta.props.get("enthalpy", units=units) for meta in self.config.registry])
+
+    def heat_capacity(self, units: str = "kJ/mol/K") -> NDArray[np.float64]:
+        r"""Heat capacity, :math:`c_p`, of each simulation.
+
+        Parameters
+        ----------
+        units: str
+            Heat capacity units (default: kJ/mol/K)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of system heat capacities as a function of composition.
+        """
+        return np.array([meta.props.get("heat_capacity", units=units) for meta in self.config.registry])
+
+    def isothermal_compressibility(self, units: str = "1/kPa") -> NDArray[np.float64]:
+        r"""Isothermal compressiblity, :math:`\kappa_T`, of each simulation.
+
+        Parameters
+        ----------
+        units: str
+            Isothermal compressiblity units (default: 1/kPa)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of system isothermal compressiblities as a function of composition.
+        """
+        return np.array([meta.props.get("isothermal_compressibility", units=units) for meta in self.config.registry])
+
+    def pure_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
+        """Pure component enthalpies, :math:`H_i`, mapped to :meth:`pure_molecules` array.
+
+        Parameters
+        ----------
+        units: str
+            Enthalpy units (default: kJ/mol)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of enthalpies for pure components.
+        """
+        enth: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
+        for meta in self.config.registry:
+            if meta.kind == "pure":
+                value = meta.props.get("enthalpy", units=units, std=False)
+                # make sure value is float
+                if isinstance(value, tuple):
+                    value = value[0]
+                mols = ".".join(meta.props.topology.molecules)
+                enth[mols] = float(value)
+        return np.fromiter(enth.values(), dtype=np.float64)
+
+    def ideal_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
+        r"""Ideal enthalpy, :math:`H^{id}`, as a function of composition.
+
+        Parameters
+        ----------
+        units: str
+            Enthalpy units (default: kJ/mol)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of ideal enthalpies as a function of composition.
+
+        Notes
+        -----
+        Ideal enthalpy, :math:`H^{id}`, is calculated via:
+
+        .. math::
+            H^{id} = \sum_{i=1}^n x_i H_i
+
+        where:
+            - :math:`x_i` is mol fraction of molecule :math:`i`
+            - :math:`H_i` is the pure component enthalpy of molecule :math:`i`
+        """
+        return self.pure_mol_fr @ self.pure_enthalpy(units)
+
+    def mixture_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
+        r"""Enthalpy of mixing, :math:`\Delta H_{mix}`, as a function of composition.
+
+        Parameters
+        ----------
+        units: str
+            Enthalpy units (default: kJ/mol)
+
+        Returns
+        -------
+        np.ndarray
+            1D array of mixing enthalpies as a function of composition.
+
+        Notes
+        -----
+        Mixing enthalpy, :math:`\Delta H_{mix}`, is calculated via:
+
+        .. math::
+            \Delta H_{mix} = H - H^{id}
+
+        where:
+            - :math:`H` is the simulation enthlapy for mixtures
+            - :math:`H^{id}` is ideal enthalpy
+        """
+        return self.enthalpy(units) - self.ideal_enthalpy(units)
+    
     def molar_volume_map(self, units: str = "nm^3 / molecule") -> dict[str, float]:
-        """Molar volumes of mapped to molecule name (for pure components).
+        r"""Molar volumes, :math:`V_i`, of mapped to molecule name (for pure components).
 
         Parameters
         ----------
@@ -247,8 +368,8 @@ class SystemState:
 
         return volumes_map
 
-    def molar_volume(self, units: str = "nm^3 / molecule") -> NDArray[np.float64]:
-        """Molar volumes of pure components.
+    def pure_molar_volume(self, units: str = "nm^3 / molecule") -> NDArray[np.float64]:
+        r"""Molar volumes, :math:`V_i`, of pure components.
 
         Parameters
         ----------
@@ -262,147 +383,9 @@ class SystemState:
         """
         return np.fromiter(self.molar_volume_map(units).values(), dtype=np.float64)
 
-    def enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
-        """Enthalpy of each simulation.
 
-        Parameters
-        ----------
-        units: str
-            Enthalpy units (default: kJ/mol)
-
-        Returns
-        -------
-        np.ndarray
-            1D array of system enthalpies as a function of composition.
-        """
-        return np.array([meta.props.get("enthalpy", units=units) for meta in self.config.registry])
-
-    def heat_capacity(self, units: str = "kJ/mol/K") -> NDArray[np.float64]:
-        """Heat capacity of each simulation.
-
-        Parameters
-        ----------
-        units: str
-            Heat capacity units (default: kJ/mol/K)
-
-        Returns
-        -------
-        np.ndarray
-            1D array of system heat capacities as a function of composition.
-        """
-        return np.array([meta.props.get("heat_capacity", units=units) for meta in self.config.registry])
-
-    def isothermal_compressibility(self, units: str = "1/kPa") -> NDArray[np.float64]:
-        """Isothermal compressiblity of each simulation.
-
-        Parameters
-        ----------
-        units: str
-            Isothermal compressiblity units (default: 1/kPa)
-
-        Returns
-        -------
-        np.ndarray
-            1D array of system isothermal compressiblities as a function of composition.
-        """
-        return np.array([meta.props.get("isothermal_compressibility", units=units) for meta in self.config.registry])
-
-    def pure_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
-        """Pure component enthalpies, mapped to meth:`pure_molecules` array.
-
-        Parameters
-        ----------
-        units: str
-            Enthalpy units (default: kJ/mol)
-
-        Returns
-        -------
-        np.ndarray
-            1D array of enthalpies for pure components.
-        """
-        enth: dict[str, float] = dict.fromkeys(self.pure_molecules, 0)
-        for meta in self.config.registry:
-            if meta.kind == "pure":
-                value = meta.props.get("enthalpy", units=units, std=False)
-                # make sure value is float
-                if isinstance(value, tuple):
-                    value = value[0]
-                mols = ".".join(meta.props.topology.molecules)
-                enth[mols] = float(value)
-        return np.fromiter(enth.values(), dtype=np.float64)
-
-    def ideal_enthalpy(self, units: str = "kJ/mol") -> NDArray[np.float64]:
-        r"""Ideal enthalpy as a function of composition.
-
-        Parameters
-        ----------
-        units: str
-            Enthalpy units (default: kJ/mol)
-
-        Returns
-        -------
-        np.ndarray
-            1D array of ideal enthalpies as a function of composition.
-
-        Notes
-        -----
-        Ideal enthalpy, :math:`H^{id}`, is calculated via:
-
-        .. math::
-            H^{id} = \sum_{i=1}^n x_i H_i
-
-        where:
-            - :math:`x_i` is mol fraction of molecule :math:`i`
-            - :math:`H_i` is the pure component simulation enthalpy of molecule :math:`i`
-        """
-        return self.pure_mol_fr @ self.pure_enthalpy(units)
-
-    def h_mix(self, units: str = "kJ/mol") -> NDArray[np.float64]:
-        r"""Enthalpy of mixing as a function of composition.
-
-        Parameters
-        ----------
-        units: str
-            Enthalpy units (default: kJ/mol)
-
-        Returns
-        -------
-        np.ndarray
-            1D array of mixing enthalpies as a function of composition.
-
-        Notes
-        -----
-        Mixing enthalpy, :math:`\Delta H_{mix}`, is calculated via:
-
-        .. math::
-            \Delta H_{mix} = H - H^{id}
-
-        where:
-            - :math:`H` is the simulation enthlapy for mixtures
-            - :math:`H^{id}` is ideal enthalpy
-        """
-        return self.enthalpy(units) - self.ideal_enthalpy(units)
-
-    def molecule_rho(self, units: str = "molecule/nm^3") -> NDArray[np.float64]:
-        """Compute the number density of each molecule for all compositions, mapped to meth:`unique_molecules`.
-
-        Parameters
-        ----------
-        units: str
-            Number denisty units (default: molecule/nm^3)
-
-        Returns
-        -------
-        np.ndarray
-            2D array of number density of each molecule as a function of composition.
-        """
-        N_units, vol_units = units.split("/")  # get the target units
-        N = self.Q_(self.molecule_counts, "molecule").to(N_units).magnitude
-        V = self.volume(vol_units)[:, np.newaxis]
-        return np.asarray(N / V)
-
-    def volume_bar(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
-        """Ideal molar volume of mixture.
+    def ideal_molar_volume(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
+        r"""Ideal molar volume, :math:`\bar{V}`, of mixture.
 
         Parameters
         ----------
@@ -413,11 +396,22 @@ class SystemState:
         -------
         np.ndarray
             1D array of molar volumes as a function of composition.
-        """
-        return self.pure_mol_fr @ self.molar_volume(units)
 
-    def volume_mix(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
-        """Molar volume of mixture.
+        Notes
+        -----
+        Ideal molar volume, :math: `\bar{V}`, is calculated according to:
+
+        .. math::
+            \bar{V} = \sum_i x_i V_i
+
+        where:
+            - :math:`x_i` is the mole fraction of component `i`
+            - :math:`V_i` is the molar volume of component `i`
+        """
+        return self.pure_mol_fr @ self.pure_molar_volume(units)
+
+    def mixture_molar_volume(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
+        r"""Mixture molar volume, :math:`\Delta V_{mix}`.
 
         Parameters
         ----------
@@ -428,14 +422,25 @@ class SystemState:
         -------
         np.ndarray
             1D array of molar volumes as a function of composition.
+
+        Notes
+        -----
+        Mixture molar volume, :math:`\Delta V_{mix}`, is calculated via:
+
+        .. math::
+            \Delta V_{mix} = \frac{\left \langle V \right \rangle}{N_T}
+
+        where:
+            - :math:`\left \langle V \right \rangle` is the ensemble average volume
+            - :math:`N_T` is total number of molecules present
         """
         vol_unit, N_unit = units.split("/")
         volumes = self.volume(vol_unit)
         molecs = self.Q_(self.total_molecules, "molecule").to(N_unit).magnitude
         return np.asarray(volumes / molecs, dtype=np.float64)
 
-    def excess_volume(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
-        """Excess molar volume of mixture.
+    def excess_molar_volume(self, units: str = "nm^3/molecule") -> NDArray[np.float64]:
+        r"""Excess molar volume, :math:`V^{ex}`.
 
         Parameters
         ----------
@@ -446,11 +451,22 @@ class SystemState:
         -------
         np.ndarray
             1D array of molar volumes as a function of composition.
-        """
-        return self.volume_mix(units) - self.volume_bar(units)
 
-    def rho_bar(self, units: str = "molecule/nm^3") -> NDArray[np.float64]:
-        """Mixture number density.
+        Notes
+        -----
+        Excess molar volume, :math:`V^{ex}`, is calculated via:
+
+        .. math::
+            V^{ex} = \Delta V_{mix} - \bar{V}
+
+        where:
+            - :math:`\Delta V_{mix}` is the mixture molar volume
+            - :math:`\bar{V}` is ideal molar volume
+        """
+        return self.mixture_molar_volume(units) - self.ideal_molar_volume(units)
+    
+    def mixture_number_density(self, units: str = "molecule/nm^3") -> NDArray[np.float64]:
+        r"""Mixture number density, :math:`\rho`.
 
         Parameters
         ----------
@@ -460,25 +476,23 @@ class SystemState:
         Returns
         -------
         np.ndarray
-            1D array of number density as a function of composition.
+            1D array of number densities as a function of composition.
+
+        Notes
+        -----
+        Mixture number density, :math:`\rho`, is calculated via:
+
+        .. math::
+            \rho = \frac{N_T}{\left \langle V \right \rangle}
+
+        where:
+            - :math:`\left \langle V \right \rangle` is the ensemble average volume
+            - :math:`N_T` is total number of molecules present
         """
-        N_units, vol_units = units.split("/")
-        return 1 / self.volume_bar(units=f"{vol_units}/{N_units}")
-
-    def rho_ij(self, units: str = "molecule/nm^3") -> NDArray[np.float64]:
-        """Pairwise number density of molecules, mapped to meth:`unique_molecules`.
-
-        Parameters
-        ----------
-        units: str
-            Number density units (default: molecule/nm^3)
-
-        Returns
-        -------
-        np.ndarray
-            2D array of pairwise mixture number densities as a function of composition.
-        """
-        return self.molecule_rho(units)[:, :, np.newaxis] * self.molecule_rho(units)[:, np.newaxis, :]
+        N_unit, vol_unit = units.split("/")
+        volumes = self.volume(vol_unit)
+        molecs = self.Q_(self.total_molecules, "molecule").to(N_unit).magnitude
+        return np.asarray(molecs/volumes, dtype=np.float64)
 
     def computed_properties(self) -> list[ThermoProperty]:
         """
@@ -501,8 +515,8 @@ class SystemState:
         properties.append(ThermoProperty(name="pure_molecules", value=self.pure_molecules, units=""))
         properties.append(ThermoProperty(name="pure_mol_fr", value=self.pure_mol_fr, units=""))
         properties.append(ThermoProperty(name="electron_map", value=self.top_electron_map, units="electron/molecule"))
-        properties.append(ThermoProperty(name="n_electrons", value=self.n_electrons, units="electron/molecule"))
-        properties.append(ThermoProperty(name="electron_bar", value=self.electron_bar, units="electron/molecule"))
+        properties.append(ThermoProperty(name="unique_electrons", value=self.unique_electrons, units="electron/molecule"))
+        properties.append(ThermoProperty(name="total_electrons", value=self.total_electrons, units="electron/molecule"))
         properties.append(ThermoProperty(name="mol_fr", value=self.mol_fr, units=""))
         properties.append(ThermoProperty(name="temperature", value=self.temperature(units="K"), units="K"))
         properties.append(ThermoProperty(name="volume", value=self.volume(units="nm^3"), units="nm^3"))
@@ -510,7 +524,7 @@ class SystemState:
             ThermoProperty(name="molar_volume_map", value=self.molar_volume_map(units="cm^3/mol"), units="cm^3/mol")
         )
         properties.append(
-            ThermoProperty(name="molar_volume", value=self.molar_volume(units="cm^3/mol"), units="cm^3/mol")
+            ThermoProperty(name="pure_molar_volume", value=self.pure_molar_volume(units="cm^3/mol"), units="cm^3/mol")
         )
         properties.append(ThermoProperty(name="enthalpy", value=self.enthalpy(units="kJ/mol"), units="kJ/mol"))
         properties.append(
@@ -527,10 +541,12 @@ class SystemState:
         properties.append(
             ThermoProperty(name="ideal_enthalpy", value=self.ideal_enthalpy(units="kJ/mol"), units="kJ/mol")
         )
-        properties.append(ThermoProperty(name="h_mix", value=self.h_mix(units="kJ/mol"), units="kJ/mol"))
-        properties.append(ThermoProperty(name="volume_bar", value=self.volume_bar(units="cm^3/mol"), units="cm^3/mol"))
-        properties.append(ThermoProperty(name="volume_mix", value=self.volume_mix(units="cm^3/mol"), units="cm^3/mol"))
+        properties.append(ThermoProperty(name="mixture_enthalpy", value=self.mixture_enthalpy(units="kJ/mol"), units="kJ/mol"))
+        properties.append(ThermoProperty(name="ideal_molar_volume", value=self.ideal_molar_volume(units="cm^3/mol"), units="cm^3/mol"))
+        properties.append(ThermoProperty(name="mixture_molar_volume", value=self.mixture_molar_volume(units="cm^3/mol"), units="cm^3/mol"))
         properties.append(
-            ThermoProperty(name="excess_volume", value=self.excess_volume(units="cm^3/mol"), units="cm^3/mol")
+            ThermoProperty(name="excess_molar_volume", value=self.excess_molar_volume(units="cm^3/mol"), units="cm^3/mol")
         )
+        properties.append(ThermoProperty(name="mixture_number_density", value=self.mixture_number_density(units="molecule/nm^3"), units="molecule/nm^3"))
+
         return properties

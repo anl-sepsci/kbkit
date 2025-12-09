@@ -34,6 +34,12 @@ class KBIntegrator:
         Whether to use a fixed minimum distance (rmin) for analysis (default: False).
     converged_threshold : float, optional
         Value of the slope of RDF tail for the RDF to be considered as converged (default: 0.005).
+    correct_rdf_convergence: bool, optional
+        Whether to correct RDF for excess/depletion, i.e., Ganguly correction (default: True).
+    apply_damping: bool, optional
+        Whether to apply damping function to correlation function, i.e., Kruger correction (default: True).
+    extrapolate_thermodynamic_limit: bool, optional
+        Whether to extrapolate KBI value to the thermodynamic limit (default: True).
 
     Attributes
     ----------
@@ -49,11 +55,17 @@ class KBIntegrator:
         system_properties: SystemProperties,
         use_fixed_rmin: bool = False,
         convergence_threshold: float = 0.005,
+        correct_rdf_convergence: bool = True,
+        apply_damping: bool = True,
+        extrapolate_thermodynamic_limit: bool = True
     ) -> None:
         self.rdf = RDFParser(
             rdf_file=rdf_file, use_fixed_rmin=use_fixed_rmin, convergence_threshold=convergence_threshold
         )
         self.system_properties = system_properties
+        self.correct_rdf_convergence = correct_rdf_convergence
+        self.apply_damping = apply_damping
+        self.extrapolate_thermodynamic_limit = extrapolate_thermodynamic_limit
 
     def box_volume(self) -> float:
         """Return the volume of the system box in nm^3."""
@@ -117,7 +129,7 @@ class KBIntegrator:
         # compute molecule number
         return self.system_properties.topology.molecule_count[mol_j]
 
-    def ganguly_corrected_rdf(self, mol_j: str = "") -> NDArray[np.float64]:
+    def ganguly_correction_factor(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
         Compute the corrected radial distribution function, accounting for finite-size effects in the simulation box, based on the approach by `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_.
 
@@ -171,10 +183,10 @@ class KBIntegrator:
         Delta_Nj = np.append(Delta_Nj, Delta_Nj[-1])
 
         # correct g(r) with GV correction
-        g_gv = self.rdf.g * (Nj * vr / (Nj * vr - Delta_Nj - self.kronecker_delta()))
+        g_gv = (Nj * vr / (Nj * vr - Delta_Nj - self.kronecker_delta()))
         return np.asarray(g_gv)  # make sure that an array is returned
 
-    def damp_factor(self) -> NDArray[np.float64]:
+    def kruger_damping_factor(self) -> NDArray[np.float64]:
         r"""
         Damp the radial distribution function, which is useful for ensuring that the integral converges properly at larger distances, based on the method described by `Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_.
 
@@ -198,7 +210,9 @@ class KBIntegrator:
 
     def h(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
-        Calculate correlation function h(r) from the corrected g(r) values.
+        Calculate correlation function h(r) from g(r). 
+
+        If ``correct_rdf_convergence`` is `True`, Ganguly correction factor is applied.
 
         Parameters
         ----------
@@ -215,14 +229,20 @@ class KBIntegrator:
         The correlation function is defined as:
 
         .. math::
-            h(r) = g^{Ganguly}(r) - 1
+            h(r) = g(r) - 1
 
         """
-        return self.ganguly_corrected_rdf(mol_j) - 1
+        # apply necessary corrections; here is where ganguly is applied
+        if self.correct_rdf_convergence:
+            return self.ganguly_correction_factor(mol_j=mol_j) * self.rdf.g - 1
+        else:
+            return self.rdf.g - 1
 
     def rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
         Compute KBI as a function of radial distance between molecules :math:`i` and :math:`j`, i.e., running KBI (RKBI).
+
+        Takes in the correlation function, and applies Kruger damping function if ``apply_damping`` is set to True.
 
         Parameters
         ----------
@@ -243,15 +263,15 @@ class KBIntegrator:
 
         where:
             - :math:`h(r)` is the correlation function
-            - :math:`\omega(r)` is the damp factor
+            - :math:`\omega(r)` is the damp factor, this is set to 1 if damping is not desired.
             - :math:`r` is the radial distance
 
         .. note::
             The integration is performed using the trapezoidal rule.
         """
-        rkbi_arr = cumulative_trapezoid(
-            4 * np.pi * self.rdf.r**2 * self.damp_factor() * self.h(mol_j), self.rdf.r, initial=0
-        )
+        integrand = 4 * np.pi * self.rdf.r**2 * self.h(mol_j)
+        corrected_integrand = self.kruger_damping_factor() * integrand if self.apply_damping else integrand
+        rkbi_arr = cumulative_trapezoid(corrected_integrand, self.rdf.r, initial=0)
         return np.asarray(rkbi_arr)
 
     def scaled_rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
@@ -312,11 +332,14 @@ class KBIntegrator:
         """
         # fit linear regression to masked values
         return np.polyfit(self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), 1)
+    
+    def compute_kbi(self, mol_j: str = "") -> float:
+        r"""Compute KBI according the specified corrections.
+        
+        If ``extrapolate_thermodynamic_limit`` is set to `True`, extrapolate the KBI to the thermodynamic limit with linear regression.
+        Otherwise, get the average of the tail of the running KBI.
 
-    def kbi_limit(self, mol_j: str = "") -> float:
-        r"""
-        Compute KBI in thermodynamic limit.
-
+        
         Parameters
         ----------
         mol_j: str, optional
@@ -325,9 +348,12 @@ class KBIntegrator:
         Returns
         -------
         float
-            KBI in the thermodynamic limit, G_{ij}^\infty.
+            KBI
         """
-        return float(self.fit_limit_params(mol_j)[0])
+        if self.extrapolate_thermodynamic_limit:
+            return float(self.fit_limit_params(mol_j)[0])
+        else:
+            return self.rkbi(mol_j=mol_j)[self.rdf.r_mask].mean()
 
     def plot_integrand(self, mol_j: str = "", save_dir: Optional[str] = None) -> None:
         """
@@ -342,7 +368,7 @@ class KBIntegrator:
         """
         label = "-".join(self.rdf_molecules)
         A = 4 * np.pi * self.rdf.r**2
-        integrand_gv = A * self.h(mol_j)
+        integrand_gv = A * (self.ganguly_correction_factor(mol_j) * self.rdf.g - 1)
         integrand_damp = self.damp_factor() * integrand_gv
 
         fig, ax = plt.subplots(1, 2, figsize=(7.5, 3.5), sharex=True)

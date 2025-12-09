@@ -26,6 +26,12 @@ class KBICalculator:
         If True, ingnores convergence errors and forces KBI calculations to skip entire systems with non-converged RDFs (default: False).
     rdf_convergence_threshold: float, optional
         Value of the slope of RDF tail for the RDF to be considered as converged (default: 0.005).
+    correct_rdf_convergence: bool, optional
+        Whether to correct RDF for excess/depletion, i.e., Ganguly correction (default: True).
+    apply_damping: bool, optional
+        Whether to apply damping function to correlation function, i.e., Kruger correction (default: True).
+    extrapolate_thermodynamic_limit: bool, optional
+        Whether to extrapolate KBI value to the thermodynamic limit (default: True).
 
     Attributes
     ----------
@@ -39,11 +45,17 @@ class KBICalculator:
         use_fixed_r: bool = False,
         ignore_convergence_errors: bool = False,
         rdf_convergence_threshold: float = 0.005,
+        correct_rdf_convergence: bool = True,
+        apply_damping: bool = True,
+        extrapolate_thermodynamic_limit: bool = True
     ) -> None:
         self.state = state
         self.use_fixed_r = use_fixed_r
         self.ignore_convergence_errors = ignore_convergence_errors
         self.rdf_convergence_threshold = rdf_convergence_threshold
+        self.correct_rdf_convergence = correct_rdf_convergence
+        self.apply_damping = apply_damping
+        self.extrapolate_thermodynamic_limit = extrapolate_thermodynamic_limit
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
 
     def run(self, apply_electrolyte_correction: bool = True) -> NDArray[np.float64]:
@@ -124,6 +136,9 @@ class KBICalculator:
                     system_properties=meta.props,
                     use_fixed_rmin=self.use_fixed_r,
                     convergence_threshold=self.rdf_convergence_threshold,
+                    correct_rdf_convergence=self.correct_rdf_convergence,
+                    apply_damping=self.apply_damping,
+                    extrapolate_thermodynamic_limit=self.extrapolate_thermodynamic_limit
                 )
 
                 # get molecules present in rdf
@@ -135,8 +150,8 @@ class KBICalculator:
 
                 # if convergence is met, store kbi value
                 if integrator.rdf.is_converged:
-                    kbis[s, i, j] = integrator.kbi_limit(mol_j=mol_j)
-                    kbis[s, j, i] = integrator.kbi_limit(mol_j=mol_i)
+                    kbis[s, i, j] = integrator.compute_kbi(mol_j=mol_j)
+                    kbis[s, j, i] = integrator.compute_kbi(mol_j=mol_i)
                 # override convergence check to skip system if not converged
                 else:  # for not converged rdf
                     msg = f"RDF for system '{meta.name}' and pair {integrator.rdf_molecules} did not converge."
