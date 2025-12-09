@@ -196,7 +196,7 @@ class KBICalculator:
                 r_fit=(rfit := integrator.rdf.r_fit),
                 scaled_rkbi_fit=integrator.scaled_rkbi_fit(),
                 scaled_rkbi_est=np.polyval(integrator.fit_limit_params(), rfit),
-                kbi_limit=integrator.kbi_limit(),
+                kbi_limit=integrator.compute_kbi(),
             )
         )
 
