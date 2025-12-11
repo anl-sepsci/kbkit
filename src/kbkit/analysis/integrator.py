@@ -273,6 +273,14 @@ class KBIntegrator:
         corrected_integrand = self.kruger_damping_factor() * integrand if self.apply_damping else integrand
         rkbi_arr = cumulative_trapezoid(corrected_integrand, self.rdf.r, initial=0)
         return np.asarray(rkbi_arr)
+    
+    def _compute_rkbi(self, mol_j: str = "", correct_rdf_convergence: bool = True, apply_damping: bool = True):
+        r"""Enables comparison of various running KBIs."""
+        g = self.ganguly_correction_factor(mol_j=mol_j) * self.rdf.g if correct_rdf_convergence else self.rdf.g 
+        omega = self.kruger_damping_factor() if apply_damping else 1
+        integrand = 4 * np.pi * self.rdf.r**2 * omega * (g - 1)
+        rkbi_arr = cumulative_trapezoid(integrand, self.rdf.r, initial=0)
+        return np.asarray(rkbi_arr)
 
     def scaled_rkbi(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""Product of R and KBI values from 0 \to R.
@@ -354,6 +362,39 @@ class KBIntegrator:
             return float(self.fit_limit_params(mol_j)[0])
         else:
             return self.rkbi(mol_j=mol_j)[self.rdf.r_mask].mean()
+        
+    def plot_rkbis(self, mol_j: str = "", save_dir: Optional[str] = None) -> None:
+        """Plot various types of running KBIs. Includes raw (no corrections), only Ganguly correction, and Ganguly + Kruger correction.
+        
+        Parameters
+        ----------
+        mol_j: str, optional
+            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+        save_dir: str, optional
+            Directory to save the plot. If not provided, the plot will be displayed but not saved
+        """
+        raw_rkbi = self._compute_rkbi(correct_rdf_convergence=False, apply_damping=False)
+        g_rkbi = self._compute_rkbi(correct_rdf_convergence=True, apply_damping=False)
+        gk_rkbi = self._compute_rkbi(correct_rdf_convergence=True, apply_damping=True)
+
+        fig, ax = plt.subplots(figsize=(5,4.5))
+        ax.plot(self.rdf.r, raw_rkbi, c="limegreen", alpha=0.6, lw=3, ls="-", label="no corrections")
+        ax.plot(self.rdf.r, g_rkbi, c="tomato", lw=3, ls="-", label="convergence correction")
+        ax.plot(self.rdf.r, gk_rkbi, c="skyblue", lw=3, ls="-", label="convergence + damping correction")
+        ax.set_xlabel(r"$r$ [$nm$]")
+        ax.set_ylabel(r"$\int_0^R 4 \pi r^2 \ \omega (r) \ [g(r) - 1]$")
+        ax.legend(
+            bbox_to_anchor=(0., 1.02, 1., .102), 
+            loc='lower left', 
+            mode='expand',
+            borderaxespad=0., 
+        )
+
+        if save_dir is not None:
+            mols = "_".join(self.rdf_molecules)
+            fig.savefig(os.path.join(save_dir, f"rkbis_{mols}.png"))
+        plt.show()
+
 
     def plot_integrand(self, mol_j: str = "", save_dir: Optional[str] = None) -> None:
         """
@@ -366,19 +407,18 @@ class KBIntegrator:
         save_dir: str, optional
             Directory to save the plot. If not provided, the plot will be displayed but not saved
         """
-        label = "-".join(self.rdf_molecules)
         A = 4 * np.pi * self.rdf.r**2
         integrand_gv = A * (self.ganguly_correction_factor(mol_j) * self.rdf.g - 1)
-        integrand_damp = self.damp_factor() * integrand_gv
+        integrand_damp = self.kruger_damping_factor() * integrand_gv
 
         fig, ax = plt.subplots(1, 2, figsize=(7.5, 3.5), sharex=True)
-        ax[0].plot(self.rdf.r, self.rdf.g, label=label)
+        ax[0].plot(self.rdf.r, self.rdf.g, c="tomato", label="-".join(self.rdf_molecules))
         ax[0].set_xlabel(r"$r$ [$nm$]")
         ax[0].set_ylabel(r"$g(r)$")
         ax[0].legend()
 
-        ax[1].plot(self.rdf.r, integrand_gv, label="undamped")
-        ax[1].plot(self.rdf.r, integrand_damp, c="darkgray", ls="--", label="damped")
+        ax[1].plot(self.rdf.r, integrand_gv, c="tomato", label="undamped")
+        ax[1].plot(self.rdf.r, integrand_damp, c="k", alpha=0.6, ls="--", label="damped")
         ax[1].set_xlabel(r"$R$ [$nm$]")
         ax[1].set_ylabel(r"$4 \pi r^2 \ [g(r) - 1]$")
         ax[1].legend()
@@ -401,19 +441,19 @@ class KBIntegrator:
         label = "-".join(self.rdf_molecules)
 
         fig, ax = plt.subplots(1, 3, figsize=(12, 3.6), sharex=True)
-        ax[0].plot(self.rdf.r, self.rdf.g, label=label)
+        ax[0].plot(self.rdf.r, self.rdf.g, c="tomato", label=label)
         ax[0].set_xlabel(r"$r$ [$nm$]")
         ax[0].set_ylabel(r"$g(r)$")
         ax[0].legend()
 
-        ax[1].plot(self.rdf.r, self.rkbi(mol_j))
+        ax[1].plot(self.rdf.r, self.rkbi(mol_j), c="tomato")
         ax[1].set_xlabel(r"$R$ [$nm$]")
         ax[1].set_ylabel(r"$G_{{ij}}^R$ [$nm^3$]")
 
-        ax[2].plot(self.rdf.r, self.scaled_rkbi(mol_j))
-        kbi_inf = self.kbi_limit(mol_j)
+        ax[2].plot(self.rdf.r, self.scaled_rkbi(mol_j), c="tomato")
+        kbi_inf = self.fit_limit_params(mol_j)[0]
         ax[2].plot(
-            self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=rf"G_{{ij}}^\infty={kbi_inf:.3f}"
+            self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), c="k", alpha=0.6, ls="--", lw=3, label=rf"G_{{ij}}^\infty={kbi_inf:.3f}"
         )
         ax[2].set_xlabel(r"$R$ [$nm$]")
         ax[2].set_ylabel(r"$R \ G_{{ij}}^R$ [$nm^4$]")
