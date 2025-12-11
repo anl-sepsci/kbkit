@@ -392,7 +392,7 @@ class KBIntegrator:
 
         if save_dir is not None:
             mols = "_".join(self.rdf_molecules)
-            fig.savefig(os.path.join(save_dir, f"rkbis_{mols}.png"))
+            fig.savefig(os.path.join(save_dir, f"rkbis_{mols}.pdf"), dpi=100)
         plt.show()
 
 
@@ -418,14 +418,14 @@ class KBIntegrator:
         ax[0].legend()
 
         ax[1].plot(self.rdf.r, integrand_gv, c="tomato", label="undamped")
-        ax[1].plot(self.rdf.r, integrand_damp, c="k", alpha=0.6, ls="--", label="damped")
+        ax[1].plot(self.rdf.r, integrand_damp, c="k", alpha=0.65, ls="--", label="damped")
         ax[1].set_xlabel(r"$R$ [$nm$]")
         ax[1].set_ylabel(r"$4 \pi r^2 \ [g(r) - 1]$")
         ax[1].legend()
 
         if save_dir is not None:
             mols = "_".join(self.rdf_molecules)
-            fig.savefig(os.path.join(save_dir, f"kbi_integrand_{mols}.png"))
+            fig.savefig(os.path.join(save_dir, f"kbi_integrand_{mols}.pdf"), dpi=100)
         plt.show()
 
     def plot_extrapolation(self, mol_j: str = "", save_dir: Optional[str] = None):
@@ -453,12 +453,12 @@ class KBIntegrator:
         ax[2].plot(self.rdf.r, self.scaled_rkbi(mol_j), c="tomato")
         kbi_inf = self.fit_limit_params(mol_j)[0]
         ax[2].plot(
-            self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), c="k", alpha=0.6, ls="--", lw=3, label=rf"G_{{ij}}^\infty={kbi_inf:.3f}"
+            self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=rf"G_{{ij}}^\infty={kbi_inf:.3f}"
         )
         ax[2].set_xlabel(r"$R$ [$nm$]")
         ax[2].set_ylabel(r"$R \ G_{{ij}}^R$ [$nm^4$]")
 
         if save_dir is not None:
             mols = "_".join(self.rdf_molecules)
-            fig.savefig(os.path.join(save_dir, f"kbi_extrapolation_{mols}.png"))
+            fig.savefig(os.path.join(save_dir, f"kbi_extrapolation_{mols}.pdf"), dpi=100)
         plt.show()

@@ -28,12 +28,14 @@ class Plotter:
     ----------
     pipeline: KBPipeline
         Instance of KBThermo.
-    save_dir: str
-        Location for saving figures.
-    x_mol: str, optional
-        Molecule to use for labeling x-axis in figures for binary systems. Defaults to first element in molecule list.
     molecule_map: dict[str, str], optional.
         Dictionary of molecule ID in topology mapped to molecule names for figure labeling. Defaults to using molecule names in topology.
+    x_mol: str, optional
+        Molecule to use for labeling x-axis in figures for binary systems. Defaults to first element in molecule list.
+    img_type: str, optional
+        Type of image file. Defaults to PDF.
+    save_dir: str, optional
+        Location for saving figures. Defaults to ``base_path`` in Pipeline.
     """
 
     def __init__(
@@ -41,6 +43,7 @@ class Plotter:
         pipeline,
         molecule_map: dict[str, str],
         x_mol: str = "",
+        img_type: str = ".pdf",
         save_dir: str | None = None,
     ) -> None:
         # data pipeline containing results from analysis
@@ -50,11 +53,14 @@ class Plotter:
         self.property_map = self.pipe.results
 
         self.x_mol = x_mol
+        self.molecule_map = molecule_map
+        self.img_type = img_type.lower() if img_type.startswith('.') else f".{img_type.lower()}"
+        if self.img_type not in (".png", ".pdf", ".jpg"):
+            raise ValueError(f"Invalid image type ({self.img_type}) detected! Options include: .pdf, .jpg, .png")
 
         self.base_path = save_dir or self.pipe.config.base_path
         self._setup_folders(str(self.base_path))
 
-        self.molecule_map = molecule_map
 
     def _setup_folders(self, base_path: str) -> None:
         # create folders for figures if they don't exist
@@ -228,7 +234,7 @@ class Plotter:
         ax[1].set_ylabel(f"G$_{{ij}}^R$ [{format_unit_str(units)}]")
         ax[2].set_ylabel(f"$R$ $G_{{ij}}^R$ [$nm$ {format_unit_str(units)}]")
         ax[0].legend(loc="best", ncol=1, fontsize="small", frameon=True)
-        plt.savefig(os.path.join(self.sys_dir, f"{system}_rdfs_kbis.png"))
+        plt.savefig(os.path.join(self.sys_dir, f"{system}_rdfs_kbis.{self.img_type}"))
         if show:
             plt.show()
         else:
@@ -287,7 +293,7 @@ class Plotter:
         ax.set_xticks(ticks=np.arange(0, 1.1, 0.1))
         ax.set_xlabel(f"x$_{{{self.molecule_map[self.x_mol]}}}$")
         ax.set_ylabel(rf"G$_{{ij}}^{{\infty}}$ [{format_unit_str(units)}]")
-        plt.savefig(self.thermo_dir + f"/composition_kbi_{units.replace('^', '').replace('/', '_')}.png")
+        plt.savefig(self.thermo_dir + f"/composition_kbi_{units.replace('^', '').replace('/', '_')}.{self.img_type}")
         if show:
             plt.show()
         else:
@@ -333,7 +339,7 @@ class Plotter:
                 x_data=self.pipe.state.mol_fr,
                 y_data=self.property_map["lngammas"] if "dln" not in prop else self.property_map["dlngammas_dxs"],
                 ylabel=r"$\ln \gamma_{i}$" if "dln" not in prop else r"$\partial \ln(\gamma_{i})$ / $\partial x_{i}$",
-                filename=f"{prop}.png",
+                filename=f"{prop}.{self.img_type}",
                 xfit=xfit,
                 fits=fits,
                 multi=False,
@@ -358,7 +364,7 @@ class Plotter:
                 ylabel=rf"Contributions to $\Delta G_{{mix}}$ [{format_unit_str('kJ/mol')}]"
                 if prop == "mixing"
                 else f"Excess Properties [{format_unit_str('kJ/mol')}]",
-                filename=f"gibbs_{'mixing' if prop == 'mixing' else 'excess'}_contributions.png",
+                filename=f"gibbs_{'mixing' if prop == 'mixing' else 'excess'}_contributions.{self.img_type}",
                 multi=True,
             )
 
@@ -369,7 +375,7 @@ class Plotter:
                 ylabel=f"I$_0$ [{format_unit_str('cm^{-1}')}]"
                 if prop == "i0"
                 else f"$|H_{{ij}}|$ [{format_unit_str('kJ/mol')}]",
-                filename=f"saxs_{'I0' if prop == 'i0' else 'hessian_determinant'}.png",
+                filename=f"saxs_{'I0' if prop == 'i0' else 'hessian_determinant'}.{self.img_type}",
                 multi=False,
             )
 
@@ -494,7 +500,7 @@ class Plotter:
         ax.laxis.set_major_locator(MultipleLocator(0.10))  # type: ignore[attr-defined]
         ax.raxis.set_major_locator(MultipleLocator(0.10))  # type: ignore[attr-defined]
 
-        plt.savefig(os.path.join(self.thermo_dir, f"ternary_{property_name}.png"))
+        plt.savefig(os.path.join(self.thermo_dir, f"ternary_{property_name}.{self.img_type}"))
         if show:
             plt.show()
         else:

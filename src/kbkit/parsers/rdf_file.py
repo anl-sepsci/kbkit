@@ -222,7 +222,7 @@ class RDFParser:
         main_ax.set_ylabel(r"$g(r)$")
         if save_dir is not None:
             rdf_name = str(self.rdf_file.name).strip(".xvg")
-            fig.savefig(os.path.join(save_dir, rdf_name + ".png"))
+            fig.savefig(os.path.join(save_dir, rdf_name + ".pdf"))
 
     @staticmethod
     def extract_molecules(text: str, mol_list: list[str]) -> list[str]:
