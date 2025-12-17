@@ -494,7 +494,7 @@ class SystemState:
         molecs = self.Q_(self.total_molecules, "molecule").to(N_unit).magnitude
         return np.asarray(molecs/volumes, dtype=np.float64)
 
-    def computed_properties(self) -> list[ThermoProperty]:
+    def computed_properties(self) -> dict[str, ThermoProperty]:
         """
         Collects all computed properties from molecular dynamics for current set of systems.
 
@@ -504,49 +504,41 @@ class SystemState:
             A list of `ThermoProperty` instances, containing the name, value, and units of the
             computed property from current set of systems. The units are corresponding to GROMACS
             default units.
-        """
-        properties = []
-        properties.append(ThermoProperty(name="top_molecules", value=self.top_molecules, units=""))
-        properties.append(ThermoProperty(name="salt_pairs", value=self.salt_pairs, units=""))
-        properties.append(ThermoProperty(name="unique_molecules", value=self.unique_molecules, units=""))
-        properties.append(ThermoProperty(name="total_molecules", value=self.total_molecules, units="molecule"))
-        properties.append(ThermoProperty(name="molecule_info", value=self.molecule_info, units=""))
-        properties.append(ThermoProperty(name="molecule_counts", value=self.molecule_counts, units="molecule"))
-        properties.append(ThermoProperty(name="pure_molecules", value=self.pure_molecules, units=""))
-        properties.append(ThermoProperty(name="pure_mol_fr", value=self.pure_mol_fr, units=""))
-        properties.append(ThermoProperty(name="electron_map", value=self.top_electron_map, units="electron/molecule"))
-        properties.append(ThermoProperty(name="unique_electrons", value=self.unique_electrons, units="electron/molecule"))
-        properties.append(ThermoProperty(name="total_electrons", value=self.total_electrons, units="electron/molecule"))
-        properties.append(ThermoProperty(name="mol_fr", value=self.mol_fr, units=""))
-        properties.append(ThermoProperty(name="temperature", value=self.temperature(units="K"), units="K"))
-        properties.append(ThermoProperty(name="volume", value=self.volume(units="nm^3"), units="nm^3"))
-        properties.append(
-            ThermoProperty(name="molar_volume_map", value=self.molar_volume_map(units="cm^3/mol"), units="cm^3/mol")
-        )
-        properties.append(
-            ThermoProperty(name="pure_molar_volume", value=self.pure_molar_volume(units="cm^3/mol"), units="cm^3/mol")
-        )
-        properties.append(ThermoProperty(name="enthalpy", value=self.enthalpy(units="kJ/mol"), units="kJ/mol"))
-        properties.append(
-            ThermoProperty(name="heat_capacity", value=self.heat_capacity(units="kJ/mol/K"), units="kJ/mol/K")
-        )
-        properties.append(
-            ThermoProperty(
-                name="isothermal_compressibility", value=self.isothermal_compressibility(units="1/kPa"), units="1/kPa"
-            )
-        )
-        properties.append(
-            ThermoProperty(name="pure_enthalpy", value=self.pure_enthalpy(units="kJ/mol"), units="kJ/mol")
-        )
-        properties.append(
-            ThermoProperty(name="ideal_enthalpy", value=self.ideal_enthalpy(units="kJ/mol"), units="kJ/mol")
-        )
-        properties.append(ThermoProperty(name="mixture_enthalpy", value=self.mixture_enthalpy(units="kJ/mol"), units="kJ/mol"))
-        properties.append(ThermoProperty(name="ideal_molar_volume", value=self.ideal_molar_volume(units="cm^3/mol"), units="cm^3/mol"))
-        properties.append(ThermoProperty(name="mixture_molar_volume", value=self.mixture_molar_volume(units="cm^3/mol"), units="cm^3/mol"))
-        properties.append(
-            ThermoProperty(name="excess_molar_volume", value=self.excess_molar_volume(units="cm^3/mol"), units="cm^3/mol")
-        )
-        properties.append(ThermoProperty(name="mixture_number_density", value=self.mixture_number_density(units="molecule/nm^3"), units="molecule/nm^3"))
-
-        return properties
+        """     
+        return {
+            "top_molecules": ThermoProperty(name="top_molecules", value=self.top_molecules, units=""),
+            "salt_pairs": ThermoProperty(name="salt_pairs", value=self.salt_pairs, units=""),
+            "unique_molecules": ThermoProperty(name="unique_molecules", value=self.unique_molecules, units=""),
+            "total_molecules": ThermoProperty(name="total_molecules", value=self.total_molecules, units="molecule"),
+            "molecule_info": ThermoProperty(name="molecule_info", value=self.molecule_info, units=""),
+            "molecule_counts": ThermoProperty(name="molecule_counts", value=self.molecule_counts, units="molecule"),
+            "pure_molecules": ThermoProperty(name="pure_molecules", value=self.pure_molecules, units=""),
+            "pure_mol_fr": ThermoProperty(name="pure_mol_fr", value=self.pure_mol_fr, units=""),
+            "electron_map": ThermoProperty(name="electron_map", value=self.top_electron_map, units="electron/molecule"),
+            "unique_electrons": ThermoProperty(name="unique_electrons", value=self.unique_electrons, units="electron/molecule"),
+            "total_electrons": ThermoProperty(name="total_electrons", value=self.total_electrons, units="electron/molecule"),
+            "mol_fr": ThermoProperty(name="mol_fr", value=self.mol_fr, units=""),
+            "temperature": ThermoProperty(name="temperature", value=self.temperature(units="K"), units="K"),
+            "volume": ThermoProperty(name="volume", value=self.volume(units="nm^3"), units="nm^3"),
+            "molar_volume_map": 
+                ThermoProperty(name="molar_volume_map", value=self.molar_volume_map(units="cm^3/mol"), units="cm^3/mol"),
+            "pure_molar_volume": 
+                ThermoProperty(name="pure_molar_volume", value=self.pure_molar_volume(units="cm^3/mol"), units="cm^3/mol"),
+            "enthalpy": ThermoProperty(name="enthalpy", value=self.enthalpy(units="kJ/mol"), units="kJ/mol"),
+            "heat_capacity": 
+                ThermoProperty(name="heat_capacity", value=self.heat_capacity(units="kJ/mol/K"), units="kJ/mol/K"),
+            "isothermal_compressibility_md": 
+                ThermoProperty(
+                    name="isothermal_compressibility_md", value=self.isothermal_compressibility(units="1/kPa"), units="1/kPa"
+                ),
+            "pure_enthalpy": 
+                ThermoProperty(name="pure_enthalpy", value=self.pure_enthalpy(units="kJ/mol"), units="kJ/mol"),
+            "ideal_enthalpy": 
+                ThermoProperty(name="ideal_enthalpy", value=self.ideal_enthalpy(units="kJ/mol"), units="kJ/mol"),
+            "mixture_enthalpy": ThermoProperty(name="mixture_enthalpy", value=self.mixture_enthalpy(units="kJ/mol"), units="kJ/mol"),
+            "ideal_molar_volume": ThermoProperty(name="ideal_molar_volume", value=self.ideal_molar_volume(units="cm^3/mol"), units="cm^3/mol"),
+            "mixture_molar_volume": ThermoProperty(name="mixture_molar_volume", value=self.mixture_molar_volume(units="cm^3/mol"), units="cm^3/mol"),
+            "excess_molar_volume": 
+                ThermoProperty(name="excess_molar_volume", value=self.excess_molar_volume(units="cm^3/mol"), units="cm^3/mol"),
+            "mixture_number_density": ThermoProperty(name="mixture_number_density", value=self.mixture_number_density(units="molecule/nm^3"), units="molecule/nm^3"),
+        }

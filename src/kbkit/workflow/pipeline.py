@@ -10,7 +10,6 @@ from numpy.typing import NDArray
 
 from kbkit.analysis.calculator import KBICalculator
 from kbkit.analysis.thermo import KBThermo
-from kbkit.schema.thermo_property import ThermoProperty
 from kbkit.schema.thermo_state import ThermoState
 from kbkit.systems.loader import SystemLoader
 from kbkit.systems.state import SystemState
@@ -104,9 +103,6 @@ class Pipeline:
         self.gamma_integration_type = gamma_integration_type
         self.gamma_polynomial_degree = gamma_polynomial_degree
 
-        # initialize property attribute
-        self.properties: list[ThermoProperty] = []
-
     def run(self) -> None:
         """
         Executes the full Kirkwood-Buff Integral (KBI) calculation pipeline.
@@ -165,6 +161,69 @@ class Pipeline:
         )
 
         self.logger.info("Pipeline sucessfully built!")
+
+
+    @cached_property
+    def thermo_state(self) -> ThermoState:
+        """:class:`~kbkit.schema.thermo_state.ThermoState` object containing all computed thermodynamic properties, in :class:`~kbkit.schema.thermo_property.ThermoProperty` objects."""
+        self.logger.info("Mapping ThermoProperty obejcts into ThermoState...")
+        return ThermoState.from_sources(self.thermo, self.state.computed_properties())
+
+    @cached_property
+    def results(self) -> dict[str, Any]:
+        """Dictionary of :class:`~kbkit.schema.thermo_state.ThermoState` with mapped names and values."""
+        return self.thermo_state.to_dict()
+
+    def get(self, name: str) -> Union[list[str], NDArray[np.float64]]:
+        r"""Extract the property value from :class:`~kbkit.schema.thermo_state.ThermoState`."""
+        return self.thermo_state.get(name).value
+
+    def convert_units(self, name: str, units: str) -> NDArray[np.float64]:
+        """Get thermodynamic property in desired units.
+
+        Parameters
+        ----------
+        name: str
+            Property to convert units for.
+        units: str
+            Desired units of the property.
+
+        Returns
+        -------
+        np.ndarray
+            Property in converted units.
+        """
+        meta = self.thermo_state.get(name)
+
+        value = meta.value
+        initial_units = meta.units
+        if len(initial_units) == 0:
+            raise ValueError("This is a unitlesss property!")
+        elif isinstance(value, dict):
+            raise TypeError("Could not convert values from type dict. Values must be list or np.ndarray.")
+
+        try:
+            converted = self.state.Q_(value, initial_units).to(units)
+            return np.asarray(converted.magnitude)
+        except Exception as e:
+            raise ValueError(f"Could not convert units from {units} to {units}") from e
+
+    def available_properties(self) -> list[str]:
+        """Get list of available thermodynamic properties from `KBThermo` and `SystemState`."""
+        return list(self.thermo_state.to_dict().keys())
+
+    def plot(self, molecule_map: dict[str, str], x_mol: str = "") -> None:
+        """Initialize Plotter object and make all figures for KB analysis.
+
+        Parameters
+        ----------
+        molecule_map: dict[str,str]
+            Dictionary mapping molecule name from simulation to name for figure labeling.
+        x_mol: str
+            Molecule to be used for x-axis.
+        """
+        self.plotter = Plotter(self, molecule_map=molecule_map, x_mol=x_mol)
+        self.plotter.make_figures()
 
     def save(self) -> None:
         """Save `results` object to `.npz` file with robust error handling."""
@@ -242,82 +301,3 @@ class Pipeline:
         # Return empty dict if any exception occurred
         return {}
 
-
-    @cached_property
-    def thermo_state(self) -> ThermoState:
-        """:class:`~kbkit.schema.thermo_state.ThermoState` object containing all computed thermodynamic properties, in :class:`~kbkit.schema.thermo_property.ThermoProperty` objects."""
-        self.logger.info("Generating ThermoProperty objects...")
-        self.properties = self._compute_properties()
-
-        self.logger.info("Mapping ThermoProperty obejcts into ThermoState...")
-        return self._build_thermo_state(self.properties)
-
-    @cached_property
-    def results(self) -> dict[Any, Any]:
-        """Dictionary of :class:`~kbkit.schema.thermo_state.ThermoState` with mapped names and values."""
-        return self.thermo_state.to_dict()
-
-    def get(self, name: str) -> Union[list[str], NDArray[np.float64]]:
-        r"""Extract the property value from :class:`~kbkit.schema.thermo_state.ThermoState`."""
-        return self.thermo_state.get(name).value
-
-    def _compute_properties(self) -> list[ThermoProperty]:
-        """Compute :class:`~kbkit.schema.thermo_property.ThermoProperty` for all attributes of interest."""
-        return self.thermo.computed_properties() + self.state.computed_properties()
-
-    def _build_thermo_state(self, props: list[ThermoProperty]) -> ThermoState:
-        """Build a :class:`~kbkit.schema.thermo_state.ThermoState` object for easy property access."""
-        prop_map = {p.name: p for p in props}
-        state_kwargs = {}
-        for field in fields(ThermoState):
-            if field.name not in prop_map:
-                raise ValueError(f"Missing ThermoProperty for '{field.name}'.")
-            state_kwargs[field.name] = prop_map[field.name]
-        return ThermoState(**state_kwargs)
-
-    def convert_units(self, name: str, units: str) -> NDArray[np.float64]:
-        """Get thermodynamic property in desired units.
-
-        Parameters
-        ----------
-        name: str
-            Property to convert units for.
-        units: str
-            Desired units of the property.
-
-        Returns
-        -------
-        np.ndarray
-            Property in converted units.
-        """
-        meta = self.thermo_state.get(name)
-
-        value = meta.value
-        initial_units = meta.units
-        if len(initial_units) == 0:
-            raise ValueError("This is a unitlesss property!")
-        elif isinstance(value, dict):
-            raise TypeError("Could not convert values from type dict. Values must be list or np.ndarray.")
-
-        try:
-            converted = self.state.Q_(value, initial_units).to(units)
-            return np.asarray(converted.magnitude)
-        except Exception as e:
-            raise ValueError(f"Could not convert units from {units} to {units}") from e
-
-    def available_properties(self) -> list[str]:
-        """Get list of available thermodynamic properties from `KBThermo` and `SystemState`."""
-        return list(self.thermo_state.to_dict().keys())
-
-    def plot(self, molecule_map: dict[str, str], x_mol: str = "") -> None:
-        """Initialize Plotter object and make all figures for KB analysis.
-
-        Parameters
-        ----------
-        molecule_map: dict[str,str]
-            Dictionary mapping molecule name from simulation to name for figure labeling.
-        x_mol: str
-            Molecule to be used for x-axis.
-        """
-        self.plotter = Plotter(self, molecule_map=molecule_map, x_mol=x_mol)
-        self.plotter.make_figures()

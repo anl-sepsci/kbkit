@@ -54,7 +54,7 @@ class KBThermo:
         self.gamma_integration_type = gamma_integration_type
         self.gamma_polynomial_degree = gamma_polynomial_degree
 
-    @register_property("kbis", "nm^3/molecule")
+    @register_property("kbi_matrix", "nm^3/molecule")
     def kbi_matrix(self) -> NDArray[np.float64]:
         """ThermoProperty: Matrix of KBI values."""
         return self._kbi_matrix
@@ -195,7 +195,7 @@ class KBThermo:
             - :math:`A_{ij}` is the stability matrix (see :meth:`A_matrix`).
         """
         RT = self.gas_constant * self.state.temperature()
-        RTkT = self.state.ideal_molar_volume("m^3/mol") / self.l_stability.value
+        RTkT = self.state.mixture_molar_volume("m^3/mol") / self.l_stability.value
         return RTkT / RT
 
     def _subtract_nth_elements(self, matrix: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -957,21 +957,3 @@ class KBThermo:
         """
         return self._calculate_i0_from_s0e(self.s0_e.value)
 
-    def computed_properties(self) -> list[ThermoProperty]:
-        """
-        Collects all computed thermodynamic properties for the current state.
-
-        Returns
-        -------
-        List[ThermoProperty]
-            A list of `ThermoProperty` instances defined on this object. Each entry contains
-            the name, value, units, and description of a property that has been computed and
-            cached for the current thermodynamic state.
-
-        Notes
-        -----
-        This method inspects the instance for attributes that are instances of `ThermoProperty`,
-        allowing dynamic discovery of all registered quantities. It is useful for exporting,
-        summarizing, or validating the full set of derived thermodynamic results.
-        """
-        return [getattr(self, attr) for attr in dir(self) if isinstance(getattr(self, attr), ThermoProperty)]
