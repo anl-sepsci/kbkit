@@ -116,5 +116,5 @@ def test_rdf_parser_plot(mock_rdf_file, tmp_path):
     parser = RDFParser(mock_rdf_file)
     parser.plot(save_dir=str(tmp_path))
     rdf_name = str(parser.rdf_file.name).strip(".xvg")
-    output_file = tmp_path / f"{rdf_name}.png"
+    output_file = tmp_path / f"{rdf_name}.pdf"
     assert output_file.exists()

@@ -225,21 +225,15 @@ class Pipeline:
         self.plotter = Plotter(self, molecule_map=molecule_map, x_mol=x_mol)
         self.plotter.make_figures()
 
-    def save(self) -> None:
-        """Save `results` object to `.npz` file with robust error handling."""
-        kb_path = os.path.join(self.base_path, "kb_analysis")
+    def save(self, filepath: str) -> None:
+        """Save `results` object to `.npz` file with robust error handling.
         
-        # 1. Error handling for directory creation
-        try:
-            if not os.path.exists(kb_path):
-                os.makedirs(kb_path, exist_ok=True) # Use makedirs to create intermediate dirs if needed
-                print(f"Created directory: {kb_path}")
-        except OSError as e:
-            print(f"ERROR: Failed to create directory {kb_path}.")
-            print(f"Reason: {e.strerror}")
-            return # Exit the function if we can't make the directory
-
-        filepath = os.path.join(kb_path, "pipeline_results.npz")
+        Parameters
+        ----------
+        filepath: str
+            Filepath to save results in.
+        """
+        filepath = str(filepath) if filepath.endswith(".npz") else str(filepath)+".npz"
         
         # 2. Error handling for saving the NPZ file
         try:
@@ -260,39 +254,40 @@ class Pipeline:
             print(f"An unexpected error occurred while saving the NPZ file: {e}")
 
     @staticmethod
-    def load(base_path: str) -> dict[str, Any]:
+    def load(filepath: str) -> dict[str, Any]:
         """
         Try to load previously computed pipeline results with robust error handling.
 
-        Returns:
+        Returns
+        -------
+        dict[str, Any]
             A dictionary of loaded data if successful, otherwise an empty dictionary.
         """
-        file_path_npz = os.path.join(base_path, "kb_analysis", "pipeline_results.npz")
         loaded_data = None
 
         # 1. Check if file exists first
-        if not os.path.exists(file_path_npz):
+        if not os.path.exists(filepath):
             print(f"INFO: Results file not found at '{file_path_npz}'.")
             return {}
         
         # 2. Try to load the file with NumPy
         try:
             # We maintain allow_pickle=True based on your previous interaction to handle object arrays
-            loaded_data_npz = np.load(file_path_npz, allow_pickle=True)
+            loaded_data_npz = np.load(filepath, allow_pickle=True)
             loaded_data = loaded_data_npz.item() # Convert the NpzFile object to a standard Python dictionary
 
-            print(f"Successfully loaded results from {file_path_npz}")
+            print(f"Successfully loaded results from {filepath}")
             return loaded_data
 
         except FileNotFoundError:
             # This should technically be caught by the os.path.exists check, but good practice to keep
-            print(f"ERROR: File was not found: {file_path_npz}")
+            print(f"ERROR: File was not found: {filepath}")
         except PermissionError:
-            print(f"ERROR: Permission denied when trying to read {file_path_npz}.")
+            print(f"ERROR: Permission denied when trying to read {filepath}.")
             print("Check file permissions.")
         except ValueError as e:
             # This catches issues if the file is corrupted or not a valid NPZ format
-            print(f"ERROR: NumPy failed to interpret data in {file_path_npz}.")
+            print(f"ERROR: NumPy failed to interpret data in {filepath}.")
             print(f"Reason: {e}")
         except Exception as e:
             # Catch any other unforeseen issues during the load process
