@@ -235,7 +235,7 @@ class Pipeline:
         """
         filepath = str(filepath) if filepath.endswith(".npz") else str(filepath)+".npz"
         
-        # 2. Error handling for saving the NPZ file
+        # Error handling for saving the NPZ file
         try:
             # Note: The **self.results unpacks a dictionary of arrays to named arguments
             np.savez(filepath, **self.results)
@@ -263,7 +263,7 @@ class Pipeline:
         dict[str, Any]
             A dictionary of loaded data if successful, otherwise an empty dictionary.
         """
-        loaded_data = None
+        filepath = str(filepath)
 
         # 1. Check if file exists first
         if not os.path.exists(filepath):
@@ -274,10 +274,11 @@ class Pipeline:
         try:
             # We maintain allow_pickle=True based on your previous interaction to handle object arrays
             loaded_data_npz = np.load(filepath, allow_pickle=True)
-            loaded_data = loaded_data_npz.item() # Convert the NpzFile object to a standard Python dictionary
-
             print(f"Successfully loaded results from {filepath}")
-            return loaded_data
+            if filepath.endswith(".npz"):
+                return loaded_data_npz
+            else:
+                return loaded_data_npz.item()
 
         except FileNotFoundError:
             # This should technically be caught by the os.path.exists check, but good practice to keep
