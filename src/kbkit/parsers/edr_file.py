@@ -268,7 +268,7 @@ class EdrFileParser:
             output_file = edr.with_name(f"isothermal_compressiblity_{edr.stem}.xvg")
             try:
                 result = subprocess.run(
-                    ["gmx", "energy", "-f", str(edr) "-b", int(start_time), "-o", str(output_file), "-fluct_props",],
+                    ["gmx", "energy", "-f", str(edr), "-b", int(start_time), "-o", str(output_file), "-fluct_props",],
                     input=input_props,
                     text=True,
                     capture_output=True,
