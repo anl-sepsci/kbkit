@@ -187,7 +187,7 @@ class EdrFileParser:
         std = values.std()
         return (float(avg), float(std)) if return_std else float(avg)
 
-    def heat_capacity(self, nmol: int) -> float:
+    def heat_capacity(self, nmol: int, start_time: float = 0) -> float:
         """
         Extract heat capacity from GROMACS energy output.
 
@@ -223,12 +223,13 @@ class EdrFileParser:
                         "energy",
                         "-f",
                         str(edr),
+                        "-b",
+                        int(start_time),
                         "-o",
                         str(output_file),
                         "-nmol",
                         str(nmol),
                         "-fluct_props",
-                        "-driftcorr",
                     ],
                     input=input_props,
                     text=True,
@@ -249,7 +250,7 @@ class EdrFileParser:
 
         return float(np.mean(capacities))
 
-    def isothermal_compressibility(self) -> float:
+    def isothermal_compressibility(self, start_time: float = 0) -> float:
         """
         Extract isothermal compressibility from GROMACS energy output.
 
@@ -267,7 +268,7 @@ class EdrFileParser:
             output_file = edr.with_name(f"isothermal_compressiblity_{edr.stem}.xvg")
             try:
                 result = subprocess.run(
-                    ["gmx", "energy", "-f", str(edr), "-o", str(output_file), "-fluct_props"],
+                    ["gmx", "energy", "-f", str(edr) "-b", int(start_time), "-o", str(output_file), "-fluct_props",],
                     input=input_props,
                     text=True,
                     capture_output=True,

@@ -166,7 +166,7 @@ class SystemProperties:
             avg_converted = self.Q_(result, gmx_units).to(units).magnitude
             return float(avg_converted)
 
-    def _heat_capacity(self, units: str = "") -> float:
+    def _heat_capacity(self, start_time: float = 0, units: str = "") -> float:
         """
         Compute the heat capacity of the system.
 
@@ -183,11 +183,13 @@ class SystemProperties:
         self.logger.debug(f"Calculating heat capacity with units '{units}'")
         prop = resolve_attr_key("heat_capacity", ENERGY_ALIASES)
         gmx_units = get_gmx_unit(prop)
-        cap = self.energy.heat_capacity(nmol=self.topology.total_molecules)
+        start_time = start_time if start_time > 0 else self.start_time
+
+        cap = self.energy.heat_capacity(nmol=self.topology.total_molecules, start_time=start_time)
         units = resolve_units(units, gmx_units)
         return float(self.Q_(cap, gmx_units).to(units).magnitude)
 
-    def _isothermal_compressiblity(self, units: str = "") -> float:
+    def _isothermal_compressiblity(self, start_time: float = 0, units: str = "") -> float:
         """
         Compute the isothermal compressibility of the system.
 
@@ -204,7 +206,9 @@ class SystemProperties:
         self.logger.debug(f"Calculating isothermal compressibility with units '{units}'")
         prop = resolve_attr_key("isothermal_compressibility", ENERGY_ALIASES)
         gmx_units = get_gmx_unit(prop)
-        kappa = self.energy.isothermal_compressibility()
+        start_time = start_time if start_time > 0 else self.start_time
+
+        kappa = self.energy.isothermal_compressibility(start_time=start_time)
         units = resolve_units(units, gmx_units)
         return float(self.Q_(kappa, gmx_units).to(units).magnitude)
 
@@ -267,10 +271,10 @@ class SystemProperties:
         start_time = start_time if start_time > 0 else self.start_time
 
         if name == "heat_capacity":
-            return self._heat_capacity(units=units)
+            return self._heat_capacity(start_time=start_time, units=units)
         elif name == "enthalpy":
             return self._enthalpy(start_time=start_time, units=units)
         elif name == "isothermal_compressibility":
-            return self._isothermal_compressiblity(units=units)
+            return self._isothermal_compressiblity(start_time=start_time, units=units)
 
         return self._get_average_property(name=name, start_time=start_time, units=units, return_std=std)
