@@ -31,9 +31,6 @@ Installation
 .. image:: https://img.shields.io/badge/code%20style-ruff-000000.svg
     :target: https://github.com/astral-sh/ruff
     :alt: Code style: ruff
-.. image:: https://img.shields.io/github/actions/workflow/status/aperoutka/kbkit/build-and-test.yml?branch=main&logo=github-actions
-    :target: https://github.com/aperoutka/kbkit/actions/workflows/build-and-test.yml
-    :alt: GitHub Workflow Status
 .. image:: https://coveralls.io/repos/github/aperoutka/kbkit/badge.svg?branch=main
     :target: https://coveralls.io/github/aperoutka/kbkit?branch=main
     :alt: Coverage Status

@@ -1,4 +1,7 @@
-"""Constructs thermodynamic property matrices from KBIs across multiple systems."""
+"""
+Constructs thermodynamic property matrices from KBIs across multiple systems.
+Includes support for structure factors and corresponding x-ray intensities for small-angle scattering.
+"""
 
 import warnings
 
@@ -89,7 +92,7 @@ class KBThermo:
         where:
             - :math:`\rho` is the mixture number density.
             - :math:`G_{ij}` is the KBI for the pair of molecules.
-            - :math:`x_i` is the mol fraction of molecule :math:`i`.
+            - :math:`x_i` is the mole fraction of molecule :math:`i`.
             - :math:`\delta_{i,j}` is the Kronecker delta for molecules :math:`i,j`.
         """
         mfr_3d = self.state.mol_fr[:, :, np.newaxis]  # reshape mol_fr array to 3d
@@ -131,7 +134,7 @@ class KBThermo:
 
         where:
             - :math:`\mathbf{A}_{mn}` is the Helmholtz stability matrix for molecules :math:`m,n`.
-            - :math:`x_m` is the mol fraction of molecule :math:`m`.
+            - :math:`x_m` is the mole fraction of molecule :math:`m`.
         """
         mfr_3d_sq = self.state.mol_fr[:, :, np.newaxis] * self.state.mol_fr[:, np.newaxis, :]
         l_arr_calc = mfr_3d_sq * self.A_matrix.value
@@ -140,7 +143,7 @@ class KBThermo:
     @register_property("dmui_dxj", "kJ/mol")
     def dmui_dxj(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Chemical potential derivatives, **M**, corresponding to composition fluctuations in Gibbs free energy representation.
+        ThermoProperty: Chemical potential derivatives, **M**, corresponding to composition fluctuations in Gibbs free energy representation (units: kJ/mol).
 
         Returns
         -------
@@ -153,12 +156,11 @@ class KBThermo:
         Elements of **M** are calculated for molecules :math:`i,j`, using the formula:
 
         .. math::
-            \frac{M_{ij}}{RT} = \frac{1}{RT}\left(\frac{\partial \mu_i}{\partial x_j}\right)_{T,P,x_k} = A_{ij} - \frac{\left(\sum_{k=1}^n x_k A_{ik}\right) \left(\sum_{k=1}^n x_k A_{jk}\right)}{l}
+            \frac{M_{ij}}{RT} = \frac{1}{RT}\left(\frac{\partial \mu_i}{\partial x_j}\right)_{T,P,x_k} = A_{ij} - \frac{\left(\sum_{k=1}^n x_k A_{ik}\right) \left(\sum_{k=1}^n x_k A_{jk}\right)}{\sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}}
 
         where:
             - :math:`\mathbf{A}_{ij}` is the Helmholtz stability matrix for molecules :math:`i,j`.
-            - :math:`x_k` is the mol fraction of molecule :math:`k`.
-            - :math:`l` is the stability array (see :meth:`l_stability`).
+            - :math:`x_k` is the mole fraction of molecule :math:`k`.
         """
         A_mat = self.A_matrix.value
         l_arr = self.l_stability.value
@@ -175,7 +177,7 @@ class KBThermo:
     @register_property("isothermal_compressibility", "1/kPa")
     def isothermal_compressibility(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Isothermal compressibility, :math:`\kappa`, of mixture.
+        ThermoProperty: Isothermal compressibility, :math:`\kappa`, of mixture (units: 1/kPa).
 
         Returns
         -------
@@ -188,10 +190,10 @@ class KBThermo:
         Array :math:`\kappa` is computed using the formula:
 
         .. math::
-            RT\kappa = \frac{\bar{V}}{\sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
+            RT\kappa = \frac{1}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
 
         where:
-            - :math:`\bar{V}` is the molar volume of the mixture.
+            - :math:`\rho` is the mixture number density.
             - :math:`A_{ij}` is the stability matrix (see :meth:`A_matrix`).
         """
         RT = self.gas_constant * self.state.temperature()
@@ -210,7 +212,7 @@ class KBThermo:
     @register_property("hessian", "kJ/mol")
     def hessian(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Hessian matrix, **H**, of Gibbs mixing free energy.
+        ThermoProperty: Hessian matrix, **H**, of Gibbs mixing free energy (units: kJ/mol).
 
         Returns
         -------
@@ -234,7 +236,7 @@ class KBThermo:
     @register_property("hessian_determinant", "kJ/mol")
     def hessian_determinant(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Determinant of the Hessian, :math:`|\mathbf{H}|`, of Gibbs free energy of mixing.
+        ThermoProperty: Determinant of the Hessian, :math:`|\mathbf{H}|`, of Gibbs free energy of mixing (units: kJ/mol).
 
         Returns
         -------
@@ -251,8 +253,6 @@ class KBThermo:
         """
         return np.asarray([np.linalg.det(block) for block in self.hessian.value])
 
-
-
     def _set_pure_to_zero(self, array: NDArray[np.float64]) -> NDArray[np.float64]:
         """Set value of array to zero where value is pure component."""
         array[np.where(self.state.mol_fr == 1)] = 0
@@ -261,7 +261,7 @@ class KBThermo:
     @register_property("dmui_dxi", "kJ/mol")
     def dmui_dxi(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Derivative of the chemical potential of each component with respect to its own mol fraction, enforcing thermodynamic consistency.
+        ThermoProperty: Derivative of the chemical potential of each component with respect to its own mole fraction, enforcing thermodynamic consistency (units: kJ/mol).
 
         Returns
         -------
@@ -273,7 +273,7 @@ class KBThermo:
         -----
         For each system, the chemical potential derivative matrix :math:`M_{ij}` is used to construct the derivatives:
 
-        * For components ``i = 1, \ldots, n-1``:
+        * For components :math:`i = 1, \ldots, n-1`:
 
         .. math::
             \left(\frac{\partial \mu_i}{\partial x_i}\right) = \mathrm{diag}\left(\frac{\partial \mu_i}{\partial x_j} - \frac{\partial \mu_i}{\partial x_n}\right)_{j=1}^{n-1}
@@ -288,7 +288,7 @@ class KBThermo:
         .. math::
             \left(\frac{\partial \mu_n}{\partial x_n}\right) = \frac{1}{x_n} \sum_{j=1}^{n-1} x_j \left(\frac{\partial \mu_j}{\partial x_j}\right)
 
-        This ensures the sum of mol fraction derivatives is thermodynamically consistent.
+        This ensures the sum of mole fraction derivatives is thermodynamically consistent.
         """
         mfr = self.state.mol_fr.copy()
         n = self.state.n_comp - 1
@@ -307,7 +307,7 @@ class KBThermo:
     @register_property("dlngammas_dxs", "")
     def dlngammas_dxs(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Derivative of natural logarithm of the activity coefficient of molecule :math:`i` with respect to its mol fraction.
+        ThermoProperty: Derivative of natural logarithm of the activity coefficient of molecule :math:`i` with respect to its own mole fraction.
 
         Returns
         -------
@@ -316,7 +316,7 @@ class KBThermo:
 
         Notes
         -----
-        Activity coefficient derivatives, :math:`\frac{\partial \gamma_i}{\partial x_i}` are calculated as follows:
+        Activity coefficient derivatives are calculated as follows:
 
         .. math::
             \frac{\partial \ln{\gamma_i}}{\partial x_i} = \frac{1}{R T}\left(\frac{\partial \mu_i}{\partial x_i}\right) - \frac{1}{x_i}
@@ -324,7 +324,7 @@ class KBThermo:
         where:
             - :math:`\mu_i` is the chemical potential of molecule :math:`i`
             - :math:`\gamma_i` is the activity coefficient of molecule :math:`i`
-            - :math:`x_i` is the mol fraction of molecule :math:`i`
+            - :math:`x_i` is the mole fraction of molecule :math:`i`
         """
         # Compute derivative of ln(gamma) with respect to composition
         factor = 1 / (self.gas_constant * self.state.temperature()[:, np.newaxis])
@@ -354,7 +354,7 @@ class KBThermo:
             }
 
     def _x_initial(self, mol: str) -> float:
-        """Return initial mol fraction for reference state."""
+        """Return initial mole fraction for reference state."""
         val = self._get_ref_state_dict(mol)["x_initial"]
         if isinstance(val, (float, int)):
             return float(val)
@@ -377,22 +377,10 @@ class KBThermo:
         else:
             raise TypeError("Could not exctract callable from weight_fn for mol.")
 
-    @register_property("lngammas", "")
-    def lngammas(self) -> NDArray[np.float64]:
-        r"""
-        ThermoProperty: Activity coefficients as a function of composition and molecule.
-
-        See Also
-        --------
-        :meth:`compute_lngammas` for full derivation and formulas.
-        """
-        return self.compute_lngammas(
-            integration_type=self.gamma_integration_type, polynomial_degree=self.gamma_polynomial_degree
-        )
-
     def compute_lngammas(self, integration_type: str, polynomial_degree: int = 5) -> NDArray[np.float64]:
         r"""
         Integrate the derivative of activity coefficients to obtain :math:`\ln{\gamma_i}` for each component.
+        Use either numerical methods (trapezoidal rule) or polynomial fitting for integration.
 
         Parameters
         ----------
@@ -411,7 +399,7 @@ class KBThermo:
         The general formula for activity coefficient integration is:
 
         .. math::
-            \ln{\gamma_i}(x_i) = \int_{a_0}^{x_i} \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right) dx_i
+            \ln{\gamma_i}(x_i) = \int \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right) dx_i
 
         The integration method is chosen by the `integration_type` argument:
             * "numerical": trapezoidal rule (see :meth:`dlngammas_numerical_integration`)
@@ -483,12 +471,12 @@ class KBThermo:
 
         Parameters
         ----------
-        xi: NDArray[np.float64]
+        xi: np.ndarray
             Mol fraction 1D array to integrate over.
-        dlng: NDArray[np.float64]
-            Natural log of activity coefficients with respect to mol fraction.
+        dlng: np.ndarray
+            Natural log of activity coefficients with respect to mole fraction.
         mol: str
-            Molecule ID of mol fraction and activity coefficient derivative.
+            Molecule ID of mole fraction and activity coefficient derivative.
         polynomial_degree: int, optional.
             Polynomial degree for activity coefficient derivative fit (default: 5).
 
@@ -499,10 +487,10 @@ class KBThermo:
 
         Notes
         -----
-        The method fits a polynomial :math:`P(x_i)` to the derivative data and integrates:
+        The method fits a polynomial, :math:`P(x_i)`, to the derivative data and integrates:
 
         .. math::
-            \ln{\gamma_i}(x_i) = \int_{a_0}^{x_i} P(x_i) dx_i
+            \ln{\gamma_i}(x_i) = \int P(x_i) dx_i
 
         The integration constant is chosen so that :math:`\ln{\gamma_i}` obeys the boundary condition at the reference state.
         """
@@ -545,12 +533,12 @@ class KBThermo:
 
         Parameters
         ----------
-        xi: NDArray[np.float64]
+        xi: np.ndarray
             Mol fraction 1D array to integrate over.
-        dlng: NDArray[np.float64]
-            Natural log of activity coefficients with respect to mol fraction.
+        dlng: np.ndarray
+            Natural log of activity coefficients with respect to mole fraction.
         mol: str
-            Molecule ID of mol fraction and activity coefficient derivative.
+            Molecule ID of mole fraction and activity coefficient derivative.
 
         Returns
         -------
@@ -560,32 +548,45 @@ class KBThermo:
         Notes
         -----
         The trapezoidal rule is used to approximate the integral because an analytical
-        solution is not available.  The integral is approximated as:
+        solution is not available. The integral is approximated as:
 
         .. math::
-           \ln{\gamma_i}(x_i) \approx \sum_{a=a_0}^{x_i} \frac{\Delta x}{2} \left[\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a} + \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a \pm \Delta x}\right]
+           \ln{\gamma_i}(x_i) \approx \sum_{a=a_0}^{N-1} \frac{(x_i)_{a+1}-(x_i)_a}{2} \left[\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a} + \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a+1}\right]
 
         where:
             *  :math:`\ln{\gamma_i}(x_i)` is the natural logarithm of the activity coefficient of component `i` at mole fraction :math:`x_i`.
-            *  :math:`a` is the index of summation
-            *  :math:`a_0` is the starting value for the index of summation
+            *  :math:`a` is the index of summation.
+            *  :math:`a_0` is the starting value for index of summation.
+            *  :math:`N` is the number of data points to sum over.
             *  :math:`x_i` is the mole fraction of component :math:`i`.
             *  :math:`\Delta x` is the step size in :math:`x` between points.
             *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}` is the derivative of the natural logarithm of the activity coefficient of component `i` with respect to its mole fraction, evaluated at point `a`.
 
-        The integration starts at a reference state where :math:`x_i = a_0` and
-        :math:`\ln{\gamma_i}(a_0) = 0`.  The step size :math:`\Delta x` is determined
-        by the spacing of the input data points.
+        The integration starts at a reference state where :math:`x_i = a_0` and :math:`\ln{\gamma_i}(a_0) = 0`. 
         """
         try:
             return np.asarray(cumulative_trapezoid(dlng, xi, initial=0))
         except Exception as e:
             raise Exception(f"Could not perform numerical integration for {mol}. Details: {e}.") from e
+        
+    @register_property("lngammas", "")
+    def lngammas(self) -> NDArray[np.float64]:
+        r"""
+        ThermoProperty: Natural logarithm of activity coefficients as a function of composition and molecule 
+        using attributes ``gamma_integration_type`` and ``gamma_polynomial_degree`` for calculation.
+
+        See Also
+        --------
+        :meth:`compute_lngammas` for full derivation and formulas.
+        """
+        return self.compute_lngammas(
+            integration_type=self.gamma_integration_type, polynomial_degree=self.gamma_polynomial_degree
+        )
 
     @register_property("g_ex", "kJ/mol")
     def g_ex(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Gibbs excess energy from activity coefficients.
+        ThermoProperty: Gibbs excess energy from activity coefficients (units: kJ/mol).
 
         Notes
         -----
@@ -595,7 +596,7 @@ class KBThermo:
             \frac{G^E}{RT} = \sum_{i=1}^n x_i \ln{\gamma_i}
 
         where:
-            - :math:`x_i` is mol fraction of molecule :math:`i`
+            - :math:`x_i` is mole fraction of molecule :math:`i`
             - :math:`\gamma_i` is activity coefficient of molecule :math:`i`
         """
         ge = self.gas_constant * self.state.temperature() * (self.state.mol_fr * self.lngammas.value).sum(axis=1)
@@ -606,27 +607,27 @@ class KBThermo:
     @register_property("h_mix", "kJ/mol")
     def h_mix(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Enthalpy of mixing from pure component simulations.
+        ThermoProperty: Enthalpy of mixing (units: kJ/mol). Requires pure component simulations.
 
         See Also
         --------
-        :meth:`~kbkit.systems.state.mixture_enthalpy` for calculation from simulation properties.
+        :func:`~kbkit.systems.state.mixture_enthalpy` for calculation from simulation properties.
         """
         return self.state.mixture_enthalpy(units="kJ/mol")
 
     @register_property("s_ex", "kJ/mol/K")
     def s_ex(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Excess entropy from mixing enthalpy and Gibbs excess energy.
+        r"""ThermoProperty: Excess entropy from mixing enthalpy and Gibbs excess energy (units: kJ/mol/K). Requires pure component simulations.
         
         Notes
         -----
         Excess entropy, :math:`S^E`, is calculated according to:
 
         .. math::
-            \frac{S^E} = \frac{\Delta H_{mix} - G^E}{T}
+            S^E = \frac{\Delta H_{mix} - G^E}{T}
 
         where:
-            - :math:`x_i` is mol fraction of molecule :math:`i`
+            - :math:`x_i` is mole fraction of molecule :math:`i`
         """
         se = (self.state.mixture_enthalpy("kJ/mol") - self.g_ex.value) / self.state.temperature("K")
         se[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
@@ -635,7 +636,7 @@ class KBThermo:
     @register_property("g_id", "kJ/mol")
     def g_id(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Ideal free energy calculated from mol fractions.
+        ThermoProperty: Ideal free energy calculated from mole fractions (units: kJ/mol).
 
         Notes
         -----
@@ -645,7 +646,7 @@ class KBThermo:
             \frac{G^{id}}{RT} = \sum_{i=1}^n x_i \ln{x_i}
 
         where:
-            - :math:`x_i` is mol fraction of molecule :math:`i`
+            - :math:`x_i` is mole fraction of molecule :math:`i`
         """
         with np.errstate(divide="ignore", invalid="ignore"):
             gid = (
@@ -659,7 +660,7 @@ class KBThermo:
     @register_property("g_mix", "kJ/mol")
     def g_mix(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Gibbs mixing free energy calculated from excess and ideal contributions.
+        ThermoProperty: Gibbs mixing free energy calculated from excess and ideal contributions (units: kJ/mol).
 
         Notes
         -----
@@ -689,50 +690,48 @@ class KBThermo:
         Partial structure factor, :math:`\hat{S}_{ij}(0)`, is calculated via:
 
         .. math::
-            \hat{S}_{ij}(0) = \frac{A_{ij}^{-1}}{(x_i x_j)^{1/2}}
+            \hat{S}_{ij}(0) = A_{ij}^{-1} = \rho x_i x_j G_{ij} + x_i \delta_{i,j}
         """
-        xi = self.state.mol_fr[:, :, np.newaxis]
-        xj = self.state.mol_fr[:, np.newaxis, :]
-        return self.A_inv_matrix.value / np.sqrt(xi * xj)
+        return self.A_inv_matrix.value
 
     @register_property("s0_cc", "")
     def s0_cc(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from Bhatia-Thorton concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
         Structure factor, :math:`\hat{S}_{CC}(0)`, is calcuted via:
 
         .. math::
-            \hat{S}_{CC}(0) = A_{ij}^{-1} - x_i \sum_{k=1}^n A_{kj}^{-1} - x_j \sum_{k=1}^n A_{ki}^{-1} + x_i x_j \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
+            \hat{S}_{CC}(0) = \hat{S}_{ij}(0) - x_i \sum_{k=1}^n \hat{S}_{kj}(0) - x_j \sum_{k=1}^n \hat{S}_{ki}(0) + x_i x_j \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
 
-        for i and j from 1 to n-1.
+        for `i` and `j` from 1 to n-1.
         """
         mfr = self.state.mol_fr
         xi = mfr[:, :, np.newaxis]
         xj = mfr[:, np.newaxis, :]
-        t1 = self.A_inv_matrix.value
-        t2 = -xi * np.nansum(self.A_inv_matrix.value, axis=2)[:, :, np.newaxis]
-        t3 = -xj * np.nansum(self.A_inv_matrix.value, axis=1)[:, :, np.newaxis]
-        t4 = xi * xj * np.nansum(self.A_inv_matrix.value, axis=(2, 1))[:, np.newaxis, np.newaxis]
+        t1 = self.s0_ij.value
+        t2 = -xi * np.nansum(self.s0_ij.value, axis=2)[:, :, np.newaxis]
+        t3 = -xj * np.nansum(self.s0_ij.value, axis=1)[:, :, np.newaxis]
+        t4 = xi * xj * np.nansum(self.s0_ij.value, axis=(2, 1))[:, np.newaxis, np.newaxis]
         n = self.state.n_comp - 1
         return (t1 + t2 + t3 + t4)[:, :n, :n]
 
     @register_property("s0_nc", "")
     def s0_nc(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from number-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from Bhatia-Thorton number-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
         Structure factor, :math:`\hat{S}_{NC}(0)`, is calcuted via:
 
         .. math::
-            \hat{S}_{NC}(0) = \sum_{k=1}^n A_{ik}^{-1}  - x_i \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
+            \hat{S}_{NC}(0) = \sum_{k=1}^n \hat{S}_{ik}(0)  - x_i \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
 
         for i from 1 to n-1.
         """
-        t1 = np.nansum(self.A_inv_matrix.value, axis=2)
-        t2 = -self.state.mol_fr * np.nansum(self.A_inv_matrix.value, axis=(2, 1))[:, np.newaxis]
+        t1 = np.nansum(self.s0_ij.value, axis=2)
+        t2 = -self.state.mol_fr * np.nansum(self.s0_ij.value, axis=(2, 1))[:, np.newaxis]
         n = self.state.n_comp - 1
         dz_sign = np.sign(self._delta_z)
         return dz_sign[np.newaxis, :] * (t1 + t2)[:, :n]
@@ -746,9 +745,9 @@ class KBThermo:
         Structure factor, :math:`\hat{S}_{NN}(0)`, is calcuted via:
 
         .. math::
-            \hat{S}_{NN}(0) = \sum_{k=1}^n \sum_{l=1}^n A_{kl}^{-1}
+            \hat{S}_{NN}(0) = \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
         """
-        return np.nansum(self.A_inv_matrix.value, axis=(2, 1))
+        return np.nansum(self.s0_ij.value, axis=(2, 1))
 
     @register_property("s0_kappa", "")
     def s0_kappa(self) -> NDArray[np.float64]:
@@ -768,28 +767,9 @@ class KBThermo:
             / self.state.ideal_molar_volume("m^3/mol")
         )
 
-    @register_property("s0_x", "")
-    def s0_x(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
-
-        Notes
-        -----
-        Structure factor, :math:`\hat{S}_x(0)`, is calcuted via:
-
-        .. math::
-            \hat{S}_x(0) = \sum_{i=1}^{n-1} \sum_{j=1}^{n-1} \hat{S}_{CC}(0) + \sum_{i=1}^{n-1} \hat{S}_{NC}(0) + \hat{S}_{NN}(0) - \hat{S}_{\kappa_T}(0)
-
-        """
-        return (
-            np.nansum(self.s0_cc.value, axis=(2, 1))
-            + np.nansum(self.s0_nc.value, axis=1)
-            + self.s0_nn.value
-            - self.s0_kappa.value
-        )
-
     @register_property("s0_cc_e", "")
     def s0_cc_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from Bhatia-Thorton concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -804,7 +784,7 @@ class KBThermo:
 
     @register_property("s0_nc_e", "")
     def s0_nc_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from number-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from Bhatia-Thorton number-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -819,7 +799,7 @@ class KBThermo:
 
     @register_property("s0_nn_e", "")
     def s0_nn_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from number-number fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from Bhatia-Thorton number-number fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -832,7 +812,7 @@ class KBThermo:
 
     @register_property("s0_kappa_e", "")
     def s0_kappa_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from isothermal compressibility to density-density fluctuations electron density structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from isothermal compressibility to Bhatia-Thorton number-number fluctuations electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -843,19 +823,6 @@ class KBThermo:
         """
         return self._zbar**2 * self.s0_kappa.value
 
-    @register_property("s0_x_e", "")
-    def s0_x_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
-
-        Notes
-        -----
-        Structure factor, :math:`\hat{S}_x^e(0)`, is calcuted via:
-
-        .. math::
-            \hat{S}_x^e(0) = \hat{S}_{CC}^e(0) + \hat{S}_{NC}^e(0) + \hat{S}_{NN}^e(0) - \hat{S}_{\kappa_T}^e(0)
-        """
-        return self.s0_cc_e.value + self.s0_nc_e.value + self.s0_nn_e.value - self.s0_kappa_e.value
-
     @register_property("s0_e", "")
     def s0_e(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Electron density structure factor as q :math:`\rightarrow` 0 for the entire mixture.
@@ -865,12 +832,12 @@ class KBThermo:
         Structure factor, :math:`\hat{S}^{e}(0)`, is calcuted via:
 
         .. math::
-            \hat{S}^{e}(0) = \sum_{i=1}^n \sum_{j=1}^n Z_i Z_j A_{ij}^{-1}
+            \hat{S}^{e}(0) = \sum_{i=1}^n \sum_{j=1}^n Z_i Z_j \hat{S}_{ij}(0)
 
         """
         ne = self.state.unique_electrons
         ne_sq = ne[:, np.newaxis] * ne[np.newaxis, :]
-        return np.nansum(ne_sq * self.A_inv_matrix.value, axis=(2, 1))
+        return np.nansum(ne_sq * self.s0_ij.value, axis=(2, 1))
 
     def _calculate_i0_from_s0e(self, s0_elec) -> NDArray[np.float64]:
         r"""Calculates x-ray scattering intensity from electron density contribution of structure factor."""
@@ -940,9 +907,9 @@ class KBThermo:
         X-ray intensity, :math:`I_{x}(0)`, is calcuted via:
 
         .. math::
-            I_{x}(0) = r_e^2 \rho N_A \hat{S}_x^e(0)
+            I_{x}(0) = I(0) - I_{\kappa_T}(0)
         """
-        return self._calculate_i0_from_s0e(self.s0_x_e.value)
+        return self.i0.value - self.i0_kappa.value
 
     @register_property("i0", "1/cm")
     def i0(self) -> NDArray[np.float64]:

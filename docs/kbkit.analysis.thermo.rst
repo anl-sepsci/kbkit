@@ -1,5 +1,5 @@
-Kirkwood-Buff Thermodynamics
-====================================
+Kirkwood-Buff Thermodynamics and Structure Factors
+===================================================
 
 .. automodule:: kbkit.analysis.thermo
    :members:
