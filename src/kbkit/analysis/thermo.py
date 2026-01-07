@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import cumulative_trapezoid
 
-from kbkit.schema.thermo_property import ThermoProperty, register_property
+from kbkit.schema.thermo_property import register_property
 from kbkit.systems.state import SystemState
 
 # Suppress only the specific RuntimeWarning from numpy.linalg
@@ -25,7 +25,7 @@ class KBThermo:
     ----------
     state: SystemState
         SystemState at a constant temperature.
-    kbi_matrix: NDArray[np.float64]
+    kbi_matrix: np.ndarray
         Matrix of KBI values for each pairwise interaction.
     gamma_integration_type: str, optional.
         How to perform activity coefficient integration. Options: numerical, polynomial (default: numerical).
@@ -56,7 +56,7 @@ class KBThermo:
         # how to integrate activity coefficients and what polynomial degree to be used if type=="polynomial"
         self.gamma_integration_type = gamma_integration_type
         self.gamma_polynomial_degree = gamma_polynomial_degree
-
+        
     @register_property("kbi_matrix", "nm^3/molecule")
     def kbi_matrix(self) -> NDArray[np.float64]:
         """ThermoProperty: Matrix of KBI values."""
@@ -99,7 +99,7 @@ class KBThermo:
         mfr_3d_sq = (
             self.state.mol_fr[:, :, np.newaxis] * self.state.mol_fr[:, np.newaxis, :]
         )  # compute square of 3d array
-        rho = self.state.mixture_number_density("molecule/nm^3")[:, np.newaxis, np.newaxis]  # compute mixture number density
+        rho = self.state.mixture_number_density.to("molecule/nm^3")[:, np.newaxis, np.newaxis]  # compute mixture number density
         Aij_inv = (
             mfr_3d * self.kronecker_delta()[np.newaxis, :] + rho * mfr_3d_sq * self.kbi_matrix.value
         )  # inverse of
@@ -170,7 +170,7 @@ class KBThermo:
         with np.errstate(divide="ignore", invalid="ignore"):
             term2 = (upper[:, :, np.newaxis] * upper[:, np.newaxis, :]) / l_arr[:, np.newaxis, np.newaxis]
 
-        RT = self.gas_constant * self.state.temperature()[:, np.newaxis, np.newaxis]
+        RT = self.gas_constant * self.state.temperature.to("K")[:, np.newaxis, np.newaxis]
         M_mat = RT * (A_mat - term2)
         return M_mat
 
@@ -196,8 +196,8 @@ class KBThermo:
             - :math:`\rho` is the mixture number density.
             - :math:`A_{ij}` is the stability matrix (see :meth:`A_matrix`).
         """
-        RT = self.gas_constant * self.state.temperature()
-        RTkT = self.state.mixture_molar_volume("m^3/mol") / self.l_stability.value
+        RT = self.gas_constant * self.state.temperature.to("K")
+        RTkT = self.state.mixture_molar_volume.to("m^3/mol") / self.l_stability.value
         return RTkT / RT
 
     def _subtract_nth_elements(self, matrix: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -327,7 +327,7 @@ class KBThermo:
             - :math:`x_i` is the mole fraction of molecule :math:`i`
         """
         # Compute derivative of ln(gamma) with respect to composition
-        factor = 1 / (self.gas_constant * self.state.temperature()[:, np.newaxis])
+        factor = 1 / (self.gas_constant * self.state.temperature.to("K")[:, np.newaxis])
         with np.errstate(divide="ignore", invalid="ignore"):
             lng_dx = factor * self.dmui_dxi.value - 1 / self.state.mol_fr
         return self._set_pure_to_zero(lng_dx)
@@ -599,13 +599,13 @@ class KBThermo:
             - :math:`x_i` is mole fraction of molecule :math:`i`
             - :math:`\gamma_i` is activity coefficient of molecule :math:`i`
         """
-        ge = self.gas_constant * self.state.temperature() * (self.state.mol_fr * self.lngammas.value).sum(axis=1)
+        ge = self.gas_constant * self.state.temperature.to("K") * (self.state.mol_fr * self.lngammas.value).sum(axis=1)
         # where any system contains a pure component, set excess to zero
         ge[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return ge
     
     @register_property("h_mix", "kJ/mol")
-    def h_mix(self) -> NDArray[np.float64]:
+    def h_mix(self) -> NDArray[np.float64]: # maybe remove this bc its defined in system state.
         r"""
         ThermoProperty: Enthalpy of mixing (units: kJ/mol). Requires pure component simulations.
 
@@ -613,7 +613,7 @@ class KBThermo:
         --------
         :func:`~kbkit.systems.state.mixture_enthalpy` for calculation from simulation properties.
         """
-        return self.state.mixture_enthalpy(units="kJ/mol")
+        return self.state.mixture_enthalpy.to("kJ/mol")
 
     @register_property("s_ex", "kJ/mol/K")
     def s_ex(self) -> NDArray[np.float64]:
@@ -629,7 +629,7 @@ class KBThermo:
         where:
             - :math:`x_i` is mole fraction of molecule :math:`i`
         """
-        se = (self.state.mixture_enthalpy("kJ/mol") - self.g_ex.value) / self.state.temperature("K")
+        se = (self.state.mixture_enthalpy.to("kJ/mol") - self.g_ex.value) / self.state.temperature.to("K")
         se[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return se
 
@@ -651,7 +651,7 @@ class KBThermo:
         with np.errstate(divide="ignore", invalid="ignore"):
             gid = (
                 self.gas_constant
-                * self.state.temperature()
+                * self.state.temperature.to("K")
                 * (self.state.mol_fr * np.log(self.state.mol_fr)).sum(axis=1)
             )
         gid[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
@@ -762,9 +762,9 @@ class KBThermo:
         """
         return (
             self.gas_constant
-            * self.state.temperature()
+            * self.state.temperature.to("K")
             * self.isothermal_compressibility.value
-            / self.state.ideal_molar_volume("m^3/mol")
+            / self.state.ideal_molar_volume.to("m^3/mol")
         )
 
     @register_property("s0_cc_e", "")
@@ -842,7 +842,7 @@ class KBThermo:
     def _calculate_i0_from_s0e(self, s0_elec) -> NDArray[np.float64]:
         r"""Calculates x-ray scattering intensity from electron density contribution of structure factor."""
         re = float(self.state.ureg("re").to("cm").magnitude)
-        vbar = self.state.ideal_molar_volume(units="cm^3/mol")
+        vbar = self.state.ideal_molar_volume.to("cm^3/mol")
         N_A = float(self.state.ureg("N_A").to("1/mol").magnitude)
         return re**2 * (1 / vbar) * N_A * s0_elec
 

@@ -1,6 +1,5 @@
 """High-level orchestration layer for running thermodynamic analysis workflows."""
 
-from dataclasses import fields
 from functools import cached_property
 from typing import Any, Union
 import os
@@ -167,7 +166,7 @@ class Pipeline:
     def thermo_state(self) -> ThermoState:
         """:class:`~kbkit.schema.thermo_state.ThermoState` object containing all computed thermodynamic properties, in :class:`~kbkit.schema.thermo_property.ThermoProperty` objects."""
         self.logger.info("Mapping ThermoProperty obejcts into ThermoState...")
-        return ThermoState.from_sources(self.thermo, self.state.computed_properties())
+        return ThermoState.from_sources(self.thermo, self.state, self.state.computed_properties())
 
     @cached_property
     def results(self) -> dict[str, Any]:
@@ -226,7 +225,7 @@ class Pipeline:
         self.plotter.make_figures()
 
     def save(self, filepath: str) -> None:
-        """Save `results` object to `.npz` file with robust error handling.
+        """Save `results` object to `.npz` file.
         
         Parameters
         ----------
@@ -256,7 +255,7 @@ class Pipeline:
     @staticmethod
     def load(filepath: str) -> dict[str, Any]:
         """
-        Try to load previously computed pipeline results with robust error handling.
+        Try to load previously computed pipeline results.
 
         Returns
         -------
@@ -267,7 +266,7 @@ class Pipeline:
 
         # 1. Check if file exists first
         if not os.path.exists(filepath):
-            print(f"INFO: Results file not found at '{file_path_npz}'.")
+            print(f"INFO: Results file not found at '{filepath}'.")
             return {}
         
         # 2. Try to load the file with NumPy

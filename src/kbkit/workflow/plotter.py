@@ -347,8 +347,8 @@ class Plotter:
 
         elif prop in ["mixing", "excess"]:
             y_series_list = [
-                (self.pipe.state.mixture_enthalpy(), "violet", "s", r"$\Delta H_{mix}$"),
-                (-self.pipe.state.temperature() * self.property_map["s_ex"], "limegreen", "o", r"$-TS^E$"),
+                (self.pipe.state.mixture_enthalpy.to("kJ/mol"), "violet", "s", r"$\Delta H_{mix}$"),
+                (-self.pipe.state.temperature.to("K") * self.property_map["s_ex"], "limegreen", "o", r"$-TS^E$"),
             ]
             if prop == "mixing":
                 y_series_list += [
