@@ -1,5 +1,6 @@
 """
 Calculator for Kirkwood-Buff Integrals (KBIs).
+
 This calculator operates on a :class:`~kbkit.systems.state.SystemState` that contains molecular dynamics properties from structure (.gro) and energy (.edr) files.
 Additional inputs to `KBICalculator` are key parameters used for the KBI corrections provided in :class:`~kbkit.analysis.integrator.KBIntegrator`.
 
@@ -56,7 +57,7 @@ class KBICalculator:
         rdf_convergence_threshold: float = 0.005,
         correct_rdf_convergence: bool = True,
         apply_damping: bool = True,
-        extrapolate_thermodynamic_limit: bool = True
+        extrapolate_thermodynamic_limit: bool = True,
     ) -> None:
         self.state = state
         self.use_fixed_r = use_fixed_r
@@ -68,10 +69,8 @@ class KBICalculator:
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
 
     def compute_kbi_matrix(self, apply_electrolyte_correction: bool = True) -> NDArray[np.float64]:
-        """
-        Runs the full KBI computation workflow.
-        This is the main entry point for the calculator. 
-        It orchestrates the process of computing the raw KBI matrix and, if specified, applies the electrolyte correction.
+        r"""
+        Runs the full KBI computation workflow by orchestrating the process of computing the raw KBI matrix and, if specified, applies the electrolyte correction.
 
         Parameters
         ----------
@@ -85,11 +84,11 @@ class KBICalculator:
 
         Notes
         -----
-        First the raw KBI matrix is computed for all systems. 
+        First the raw KBI matrix is computed for all systems.
         Each KBI value :math:`G_{ij}` is computed by integrating the RDF between molecule types :math:`i, j`:
 
         .. math::
-            G_{ij} = 4\pi \int_0^\infty (g_{ij}(r) - 1) r^2 \, dr
+            G_{ij} = 4\\pi \\int_0^\\infty (g_{ij}(r) - 1) r^2 \\, dr
 
         * If an RDF directory is missing, the corresponding system's values remain NaN, if ignore_convergence_errors is True.
         * Populates `kbi_metadata` with integration results for each RDF file.
@@ -111,7 +110,7 @@ class KBICalculator:
             * :math:`x_c = \frac{N_c}{N_c + N_a}` is the mole fraction of the cation
             * :math:`x_a = \frac{N_a}{N_c + N_a}` is the mole fraction of the anion
             * :math:`G_{ij}` are the raw KBIs between molecule types :math:`i` and :math:`j`
-        
+
 
         See Also
         --------
@@ -162,7 +161,7 @@ class KBICalculator:
                     convergence_threshold=self.rdf_convergence_threshold,
                     correct_rdf_convergence=self.correct_rdf_convergence,
                     apply_damping=self.apply_damping,
-                    extrapolate_thermodynamic_limit=self.extrapolate_thermodynamic_limit
+                    extrapolate_thermodynamic_limit=self.extrapolate_thermodynamic_limit,
                 )
 
                 # get molecules present in rdf

@@ -1,17 +1,14 @@
 """Structured representation of thermodynamic and state properties with units and semantic tags."""
 
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Any, Dict
 
 from kbkit.schema.thermo_property import ThermoProperty
 
 
 @dataclass
 class ThermoState:
-    """
-    Flexible container for thermodynamic and state properties.
-    Properties stored in a dictionary keyed by name.
-    """
+    """Flexible container for thermodynamic and state properties. Properties stored in a dictionary keyed by name."""
 
     properties: Dict[str, ThermoProperty] = field(default_factory=dict)
 
@@ -23,24 +20,21 @@ class ThermoState:
         """Retrieve a specific ThermoProperty by name."""
         try:
             return self.properties[property_name]
-        except KeyError:
-            raise AttributeError(f"ThermoState has no property '{property_name}'")
-        
+        except KeyError as e:
+            raise KeyError(f"ThermoState has no property '{property_name}'") from e
+
     @classmethod
     def from_sources(cls, *sources: Any) -> "ThermoState":
-        """
-        Build a ThermoState from one or more source objects.
-        Each source can be another dataclass, dict, or object with attributes.
-        """
+        """Build a ThermoState from one or more source objects. Each source can be another dataclass, dict, or object with attributes."""
         props = {}
         for src in sources:
             if isinstance(src, dict):
                 for k, v in src.items():
                     if isinstance(v, ThermoProperty):
-                        props[k] = v 
+                        props[k] = v
             else:
                 for attr in dir(src):
                     val = getattr(src, attr)
                     if isinstance(val, ThermoProperty):
-                        props[attr] = val 
+                        props[attr] = val
         return cls(properties=props)

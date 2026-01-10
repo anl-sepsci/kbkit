@@ -54,13 +54,12 @@ class Plotter:
 
         self.x_mol = x_mol
         self.molecule_map = molecule_map
-        self.img_type = img_type.lower() if img_type.startswith('.') else f".{img_type.lower()}"
+        self.img_type = img_type.lower() if img_type.startswith(".") else f".{img_type.lower()}"
         if self.img_type not in (".png", ".pdf", ".jpg"):
             raise ValueError(f"Invalid image type ({self.img_type}) detected! Options include: .pdf, .jpg, .png")
 
         self.base_path = save_dir or self.pipe.config.base_path
         self._setup_folders(str(self.base_path))
-
 
     def _setup_folders(self, base_path: str) -> None:
         # create folders for figures if they don't exist
@@ -573,7 +572,7 @@ class Plotter:
         prop_key = ""
         for p in self.available_properties():
             if (prop.lower().startswith(p)) or (p.startswith(prop.lower())):
-                prop_key = p 
+                prop_key = p
                 break
         if len(prop_key) == 0:
             raise ValueError(f"Property {prop_key} not valid. Options include: {self.available_properties()}")
@@ -598,7 +597,14 @@ class Plotter:
             spec = self._get_plot_spec(prop_key)
             return self._render_binary_plot(spec, marker=marker, ylim=ylim, cmap=cmap, show=show)
 
-        elif self.pipe.state.n_comp == TERNARY_SYSTEM and prop_key in {"g_mix", "g_ex", "h_mix", "s_ex", "i0", "hessian_determinant"}:
+        elif self.pipe.state.n_comp == TERNARY_SYSTEM and prop_key in {
+            "g_mix",
+            "g_ex",
+            "h_mix",
+            "s_ex",
+            "i0",
+            "hessian_determinant",
+        }:
             return self._render_ternary_plot(property_name=prop_key, cmap=cmap, show=show)
 
         elif self.pipe.state.n_comp > TERNARY_SYSTEM:

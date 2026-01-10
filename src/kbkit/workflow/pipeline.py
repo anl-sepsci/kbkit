@@ -1,9 +1,9 @@
-"""
+r"""
 Pipeline module for automated Kirkwood-Buff (KB) thermodynamic analysis.
 
 This module provides a high-level workflow that coordinates all major `KBKit` components—-`SystemConfig`, `SystemProperties`, `SystemState`, `KBICalculator`, and `KBThermo`—-to compute thermodynamic properties across a composition series directly from simulation outputs.
 
-The pipeline expects a directory structure containing simulation results for each composition point. 
+The pipeline expects a directory structure containing simulation results for each composition point.
 At each of these composition points, the pipeline:
 
 1. Loads structural (.gro) and energy (.edr) files using :class:`~kbkit.schema.system_config.SystemConfig`.
@@ -14,13 +14,13 @@ At each of these composition points, the pipeline:
 
 Composition-Grid Requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Different thermodynamic quantities place different demands on the composition grid. 
+Different thermodynamic quantities place different demands on the composition grid.
 In KBKit, these fall into two distinct categories:
 
-**1. Quantities that *require* an evenly spaced composition grid**  
+**1. Quantities that *require* an evenly spaced composition grid**
 (first derivatives of the Gibbs free energy)
 
-These properties depend on **integration** of derivatives of the Gibbs free energy and therefore require a composition series that spans the **entire mole-fraction domain** with **approximately uniform spacing**. 
+These properties depend on **integration** of derivatives of the Gibbs free energy and therefore require a composition series that spans the **entire mole-fraction domain** with **approximately uniform spacing**.
 This ensures stable integration and physically meaningful results.
 
 Properties in this category include:
@@ -29,10 +29,10 @@ Properties in this category include:
 
 A well-distributed composition grid is essential for these quantities.
 
-**2. Quantities that do *not* require evenly spaced compositions**  
+**2. Quantities that do *not* require evenly spaced compositions**
 (second derivatives of the Gibbs free energy)
 
-These properties are computed **directly from the KB integrals** and do *not* depend on the spacing or coverage of the composition grid. 
+These properties are computed **directly from the KB integrals** and do *not* depend on the spacing or coverage of the composition grid.
 Uneven, sparse, or clustered composition points are acceptable as long as the KBIs themselves are well converged.
 
 Properties in this category include:
@@ -52,13 +52,13 @@ Requirements for automated thermodynamic analysis
     * excess molar volume,
     * decoupling enthalpic and entropic contributions.
 
-    
+
 The pipeline stores all intermediate objects for reproducibility and supports high-throughput mixture sweeps and automated KB analysis.
 """
 
+import os
 from functools import cached_property
 from typing import Any, Union
-import os
 
 import numpy as np
 from numpy.typing import NDArray
@@ -75,7 +75,7 @@ class Pipeline:
     """
     High-level workflow manager for running automated KBKit thermodynamic analysis across a composition series.
 
-    Pipeline loads simulation data, constructs `SystemState` objects, computes KB integrals, and evaluates thermodynamic properties using `KBThermo`. 
+    Pipeline loads simulation data, constructs `SystemState` objects, computes KB integrals, and evaluates thermodynamic properties using `KBThermo`.
     It provides a reproducible interface for mixture sweeps and KB-based analysis.
 
     Parameters
@@ -220,7 +220,6 @@ class Pipeline:
 
         self.logger.info("Pipeline sucessfully built!")
 
-
     @cached_property
     def thermo_state(self) -> ThermoState:
         """:class:`~kbkit.schema.thermo_state.ThermoState` object containing all computed thermodynamic properties, in :class:`~kbkit.schema.thermo_property.ThermoProperty` objects."""
@@ -285,21 +284,21 @@ class Pipeline:
 
     def save(self, filepath: str) -> None:
         """Save `results` object to `.npz` file.
-        
+
         Parameters
         ----------
         filepath: str
             Filepath to save results in.
         """
-        filepath = str(filepath) if filepath.endswith(".npz") else str(filepath)+".npz"
-        
+        filepath = str(filepath) if filepath.endswith(".npz") else str(filepath) + ".npz"
+
         # Error handling for saving the NPZ file
         try:
             # Note: The **self.results unpacks a dictionary of arrays to named arguments
             np.savez(filepath, **self.results)
             print(f"Successfully saved results to {filepath}")
-            
-        except PermissionError as e:
+
+        except PermissionError:
             print(f"ERROR: Permission denied when trying to write to {filepath}.")
             print("Check file permissions or run script as administrator/superuser.")
         except ValueError as e:
@@ -327,7 +326,7 @@ class Pipeline:
         if not os.path.exists(filepath):
             print(f"INFO: Results file not found at '{filepath}'.")
             return {}
-        
+
         # 2. Try to load the file with NumPy
         try:
             # We maintain allow_pickle=True based on your previous interaction to handle object arrays
@@ -351,7 +350,6 @@ class Pipeline:
         except Exception as e:
             # Catch any other unforeseen issues during the load process
             print(f"An unexpected error occurred during loading: {e}")
-        
+
         # Return empty dict if any exception occurred
         return {}
-

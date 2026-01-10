@@ -8,7 +8,7 @@ Compute thermodynamic properties and structure factors from Kirkwood-Buff integr
     * structure factors (partial, Bhatia-Thorton),
     * and related x-ray intensities.
 
-The class operates at constant temperature and uses system metadata (densities, compositions, species identities) provided by a :class:`~kbkit.systems.state.SystemState` object. 
+The class operates at constant temperature and uses system metadata (densities, compositions, species identities) provided by a :class:`~kbkit.systems.state.SystemState` object.
 It supports multiple strategies for integrating activity coefficient derivatives, including numerical integration and polynomial fitting.
 
 
@@ -34,6 +34,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="numpy.linalg"
 class KBThermo:
     """
     Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties, structure factors, and related x-ray intensities from KBI matrix.
+
     This class inherits system properties from :class:`~kbkit.systems.state.SystemState` and uses them for the calculation of thermodynamic properties.
 
     Parameters
@@ -69,7 +70,7 @@ class KBThermo:
         # how to integrate activity coefficients and what polynomial degree to be used if type=="polynomial"
         self.gamma_integration_type = gamma_integration_type
         self.gamma_polynomial_degree = gamma_polynomial_degree
-        
+
     @register_property("kbi_matrix", "nm^3/molecule")
     def kbi_matrix(self) -> NDArray[np.float64]:
         """ThermoProperty: Matrix of KBI values."""
@@ -112,10 +113,10 @@ class KBThermo:
         mfr_3d_sq = (
             self.state.mol_fr[:, :, np.newaxis] * self.state.mol_fr[:, np.newaxis, :]
         )  # compute square of 3d array
-        rho = self.state.mixture_number_density.to("molecule/nm^3")[:, np.newaxis, np.newaxis]  # compute mixture number density
-        Aij_inv = (
-            mfr_3d * self.kronecker_delta()[np.newaxis, :] + rho * mfr_3d_sq * self.kbi_matrix.value
-        )  # inverse of
+        rho = self.state.mixture_number_density.to("molecule/nm^3")[
+            :, np.newaxis, np.newaxis
+        ]  # compute mixture number density
+        Aij_inv = mfr_3d * self.kronecker_delta()[np.newaxis, :] + rho * mfr_3d_sq * self.kbi_matrix.value  # inverse of
         return Aij_inv
 
     @register_property("A_matrix", "")
@@ -393,6 +394,7 @@ class KBThermo:
     def compute_lngammas(self, integration_type: str, polynomial_degree: int = 5) -> NDArray[np.float64]:
         r"""
         Integrate the derivative of activity coefficients to obtain :math:`\ln{\gamma_i}` for each component.
+
         Use either numerical methods (trapezoidal rule) or polynomial fitting for integration.
 
         Parameters
@@ -574,17 +576,19 @@ class KBThermo:
             *  :math:`x_i` is the mole fraction of component :math:`i`.
             *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}` is the derivative of the natural logarithm of the activity coefficient of component `i` with respect to its mole fraction, evaluated at point `a`.
 
-        The integration starts at a reference state where :math:`x_i = a_0` and :math:`\ln{\gamma_i}(a_0) = 0`. 
+        The integration starts at a reference state where :math:`x_i = a_0` and :math:`\ln{\gamma_i}(a_0) = 0`.
         """
         try:
             return np.asarray(cumulative_trapezoid(dlng, xi, initial=0))
         except Exception as e:
             raise Exception(f"Could not perform numerical integration for {mol}. Details: {e}.") from e
-        
+
     @register_property("lngammas", "")
     def lngammas(self) -> NDArray[np.float64]:
         r"""
-        ThermoProperty: Natural logarithm of activity coefficients as a function of composition and molecule 
+        ThermoProperty: Natural logarithm of activity coefficients.
+
+        Natural logarithm of activity coefficients as a function of composition and molecule
         using attributes ``gamma_integration_type`` and ``gamma_polynomial_degree`` for calculation.
 
         See Also
@@ -615,9 +619,9 @@ class KBThermo:
         # where any system contains a pure component, set excess to zero
         ge[np.array(np.where(self.state.mol_fr == 1))[0, :]] = 0
         return ge
-    
+
     @register_property("h_mix", "kJ/mol")
-    def h_mix(self) -> NDArray[np.float64]: # maybe remove this bc its defined in system state.
+    def h_mix(self) -> NDArray[np.float64]:  # maybe remove this bc its defined in system state.
         r"""
         ThermoProperty: Enthalpy of mixing (units: kJ/mol). Requires pure component simulations.
 
@@ -630,7 +634,7 @@ class KBThermo:
     @register_property("s_ex", "kJ/mol/K")
     def s_ex(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Excess entropy from mixing enthalpy and Gibbs excess energy (units: kJ/mol/K). Requires pure component simulations.
-        
+
         Notes
         -----
         Excess entropy, :math:`S^E`, is calculated according to:
@@ -935,4 +939,3 @@ class KBThermo:
             I(0) = r_e^2 \rho N_A \hat{S}^e
         """
         return self._calculate_i0_from_s0e(self.s0_e.value)
-

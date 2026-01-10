@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from functools import cached_property, wraps
 from typing import Any
+
 from kbkit.config.unit_registry import load_unit_registry
 
 
@@ -36,7 +37,7 @@ class ThermoProperty:
         ----------
         new_units: str
             Units for desired property
-        
+
         Returns
         -------
         Any
@@ -45,6 +46,7 @@ class ThermoProperty:
         ureg = load_unit_registry()
         Q_ = ureg.Quantity
         return Q_(self.value, self.units).to(new_units).magnitude
+
 
 def register_property(name: str, units: str):
     """

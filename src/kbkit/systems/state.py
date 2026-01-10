@@ -2,7 +2,7 @@
 Represent the thermodynamic state of a multicomponent mixture at fixed temperature, providing all metadata and simulation-derived properties required for Kirkwood-Buff analysis.
 
 `SystemState` aggregates species identities, compositions, densities, and concentration-dependent metadata in a consistent, queryable structure.
-It also exposes mixture properties computed directly from simulation via the :class:`~kbkit.system.SystemConfig` object. 
+It also exposes mixture properties computed directly from simulation via the :class:`~kbkit.system.SystemConfig` object.
 These properties are derived from structure (.gro) or energy (.edr) files and processed through :class:`~kbkit.systems.properties.SystemProperties`.
 
 The class enforces internal consistency between mole fractions, densities, and derived quantities (e.g., molar concentrations), ensuring that all downstream thermodynamic calculations operate on a coherent and validated state description.
@@ -26,6 +26,7 @@ from numpy.typing import NDArray
 from kbkit.config.unit_registry import load_unit_registry
 from kbkit.schema.system_config import SystemConfig
 from kbkit.schema.thermo_property import ThermoProperty, register_property
+
 
 class SystemState:
     """
@@ -361,7 +362,7 @@ class SystemState:
             - :math:`H^{id}` is ideal enthalpy
         """
         return self.enthalpy.to("kJ/mol") - self.ideal_enthalpy.to("kJ/mol")
-    
+
     def molar_volume_map(self, units: str = "cm^3/mol") -> dict[str, float]:
         r"""Molar volumes, :math:`V_i`, of mapped to molecule name (for pure components).
 
@@ -486,7 +487,7 @@ class SystemState:
             - :math:`\bar{V}` is ideal molar volume
         """
         return self.mixture_molar_volume.to("cm^3/mol") - self.ideal_molar_volume.to("cm^3/mol")
-    
+
     @register_property("mixture_number_density", "molecule/nm^3")
     def mixture_number_density(self) -> NDArray[np.float64]:
         r"""Mixture number density, :math:`\rho`.
@@ -513,7 +514,7 @@ class SystemState:
             - :math:`N_T` is total number of molecules present
         """
         volumes = self.volume.to("nm^3")
-        return np.asarray(self.total_molecules/volumes, dtype=np.float64)
+        return np.asarray(self.total_molecules / volumes, dtype=np.float64)
 
     def computed_properties(self) -> dict[str, ThermoProperty]:
         """
@@ -525,7 +526,7 @@ class SystemState:
             A list of `ThermoProperty` instances, containing the name, value, and units of the
             computed property from current set of systems. The units are corresponding to GROMACS
             default units.
-        """ 
+        """
         return {
             "top_molecules": ThermoProperty(name="top_molecules", value=self.top_molecules, units=""),
             "salt_pairs": ThermoProperty(name="salt_pairs", value=self.salt_pairs, units=""),
@@ -536,8 +537,14 @@ class SystemState:
             "pure_molecules": ThermoProperty(name="pure_molecules", value=self.pure_molecules, units=""),
             "pure_mol_fr": ThermoProperty(name="pure_mol_fr", value=self.pure_mol_fr, units=""),
             "electron_map": ThermoProperty(name="electron_map", value=self.top_electron_map, units="electron/molecule"),
-            "unique_electrons": ThermoProperty(name="unique_electrons", value=self.unique_electrons, units="electron/molecule"),
-            "total_electrons": ThermoProperty(name="total_electrons", value=self.total_electrons, units="electron/molecule"),
+            "unique_electrons": ThermoProperty(
+                name="unique_electrons", value=self.unique_electrons, units="electron/molecule"
+            ),
+            "total_electrons": ThermoProperty(
+                name="total_electrons", value=self.total_electrons, units="electron/molecule"
+            ),
             "mol_fr": ThermoProperty(name="mol_fr", value=self.mol_fr, units=""),
-            "molar_volume_map": ThermoProperty(name="molar_volume_map", value=self.molar_volume_map("cm^3/mol"), units="cm^3/mol"),
+            "molar_volume_map": ThermoProperty(
+                name="molar_volume_map", value=self.molar_volume_map("cm^3/mol"), units="cm^3/mol"
+            ),
         }

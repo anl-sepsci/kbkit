@@ -62,7 +62,7 @@ class KBIntegrator:
         convergence_threshold: float = 0.005,
         correct_rdf_convergence: bool = True,
         apply_damping: bool = True,
-        extrapolate_thermodynamic_limit: bool = True
+        extrapolate_thermodynamic_limit: bool = True,
     ) -> None:
         self.rdf = RDFParser(
             rdf_file=rdf_file, use_fixed_rmin=use_fixed_rmin, convergence_threshold=convergence_threshold
@@ -188,7 +188,7 @@ class KBIntegrator:
         Delta_Nj = np.append(Delta_Nj, Delta_Nj[-1])
 
         # correct g(r) with GV correction
-        g_gv = (Nj * vr / (Nj * vr - Delta_Nj - self.kronecker_delta()))
+        g_gv = Nj * vr / (Nj * vr - Delta_Nj - self.kronecker_delta())
         return np.asarray(g_gv)  # make sure that an array is returned
 
     def kruger_damping_factor(self) -> NDArray[np.float64]:
@@ -215,7 +215,7 @@ class KBIntegrator:
 
     def h(self, mol_j: str = "") -> NDArray[np.float64]:
         r"""
-        Calculate correlation function h(r) from g(r). 
+        Calculate correlation function h(r) from g(r).
 
         If ``correct_rdf_convergence`` is `True`, Ganguly correction factor is applied.
 
@@ -278,10 +278,10 @@ class KBIntegrator:
         corrected_integrand = self.kruger_damping_factor() * integrand if self.apply_damping else integrand
         rkbi_arr = cumulative_trapezoid(corrected_integrand, self.rdf.r, initial=0)
         return np.asarray(rkbi_arr)
-    
+
     def _compute_rkbi(self, mol_j: str = "", correct_rdf_convergence: bool = True, apply_damping: bool = True):
         r"""Enables comparison of various running KBIs."""
-        g = self.ganguly_correction_factor(mol_j=mol_j) * self.rdf.g if correct_rdf_convergence else self.rdf.g 
+        g = self.ganguly_correction_factor(mol_j=mol_j) * self.rdf.g if correct_rdf_convergence else self.rdf.g
         omega = self.kruger_damping_factor() if apply_damping else 1
         integrand = 4 * np.pi * self.rdf.r**2 * omega * (g - 1)
         rkbi_arr = cumulative_trapezoid(integrand, self.rdf.r, initial=0)
@@ -345,14 +345,14 @@ class KBIntegrator:
         """
         # fit linear regression to masked values
         return np.polyfit(self.rdf.r_fit, self.scaled_rkbi_fit(mol_j), 1)
-    
+
     def compute_kbi(self, mol_j: str = "") -> float:
         r"""Compute KBI according the specified corrections.
-        
+
         If ``extrapolate_thermodynamic_limit`` is set to `True`, extrapolate the KBI to the thermodynamic limit with linear regression.
         Otherwise, get the average of the tail of the running KBI.
 
-        
+
         Parameters
         ----------
         mol_j: str, optional
@@ -367,10 +367,10 @@ class KBIntegrator:
             return float(self.fit_limit_params(mol_j)[0])
         else:
             return self.rkbi(mol_j=mol_j)[self.rdf.r_mask].mean()
-        
+
     def plot_rkbis(self, mol_j: str = "", save_dir: Optional[str] = None) -> None:
         """Plot various types of running KBIs. Includes raw (no corrections), only Ganguly correction, and Ganguly + Kruger correction.
-        
+
         Parameters
         ----------
         mol_j: str, optional
@@ -382,24 +382,23 @@ class KBIntegrator:
         g_rkbi = self._compute_rkbi(mol_j=mol_j, correct_rdf_convergence=True, apply_damping=False)
         gk_rkbi = self._compute_rkbi(mol_j=mol_j, correct_rdf_convergence=True, apply_damping=True)
 
-        fig, ax = plt.subplots(figsize=(5,4.5))
+        fig, ax = plt.subplots(figsize=(5, 4.5))
         ax.plot(self.rdf.r, raw_rkbi, c="limegreen", alpha=0.6, lw=3, ls="-", label="no corrections")
         ax.plot(self.rdf.r, g_rkbi, c="tomato", lw=3, ls="-", label="convergence correction")
         ax.plot(self.rdf.r, gk_rkbi, c="skyblue", lw=3, ls="-", label="convergence + damping correction")
         ax.set_xlabel(r"$r$ [$nm$]")
         ax.set_ylabel(r"$\int_0^R 4 \pi r^2 \ \omega (r) \ [g(r) - 1]$")
         ax.legend(
-            bbox_to_anchor=(0., 1.02, 1., .102), 
-            loc='lower left', 
-            mode='expand',
-            borderaxespad=0., 
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc="lower left",
+            mode="expand",
+            borderaxespad=0.0,
         )
 
         if save_dir is not None:
             mols = "_".join(self.rdf_molecules)
             fig.savefig(os.path.join(save_dir, f"rkbis_{mols}.pdf"), dpi=100)
         plt.show()
-
 
     def plot_integrand(self, mol_j: str = "", save_dir: Optional[str] = None) -> None:
         """
