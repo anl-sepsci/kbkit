@@ -6,14 +6,14 @@ This module provides a high-level workflow that coordinates all major `KBKit` co
 The pipeline expects a directory structure containing simulation results for each composition point. 
 At each of these composition points, the pipeline:
 
-1. Loads structural (.gro) and energy (.edr) files using :class:`~kbkit.shema.system_config.SystemConfig`.
+1. Loads structural (.gro) and energy (.edr) files using :class:`~kbkit.schema.system_config.SystemConfig`.
 2. Computes mixture properties from simulation via :class:`~kbkit.systems.properties.SystemProperties`.
-3. Constructs a validated thermodynamic state using :class:`~kbkit.system.state.SystemState`.
+3. Constructs a validated thermodynamic state using :class:`~kbkit.systems.state.SystemState`.
 4. Computes pairwise Kirkwood-Buff integrals using :class:`~kbkit.analysis.calculator.KBICalculator`.
 5. Computes KBI-derived thermodynamic properties and structure factors using :class:`~kbkit.analysis.thermo.KBThermo`.
 
 Composition-Grid Requirements
------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Different thermodynamic quantities place different demands on the composition grid. 
 In KBKit, these fall into two distinct categories:
 
@@ -24,8 +24,8 @@ These properties depend on **integration** of derivatives of the Gibbs free ener
 This ensures stable integration and physically meaningful results.
 
 Properties in this category include:
-- activity coefficients (γᵢ),
-- excess Gibbs-energy-related quantities that rely on integrating activity coefficients (i.e., decoupling enthalpic and entropic contributions).
+    - activity coefficients (γᵢ),
+    - excess Gibbs-energy-related quantities that rely on integrating activity coefficients (i.e., decoupling enthalpic and entropic contributions).
 
 A well-distributed composition grid is essential for these quantities.
 
@@ -36,12 +36,12 @@ These properties are computed **directly from the KB integrals** and do *not* de
 Uneven, sparse, or clustered composition points are acceptable as long as the KBIs themselves are well converged.
 
 Properties in this category include:
-- stability metrics (Hessian of :math:`\Delta G_{mix}`),
-- structure factors,
-- any quantity derived directly from the KBI matrix that doesn't rely on activity coefficients or excess Gibbs energy contributions.
+    - stability metrics (Hessian of :math:`\Delta G_{mix}`),
+    - structure factors,
+    - any quantity derived directly from the KBI matrix that doesn't rely on activity coefficients or excess Gibbs energy contributions.
 
 Requirements for automated thermodynamic analysis
--------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - A composition series with one simulation directory per composition point.
 - Each directory must contain:
     * a structure file (.gro),
