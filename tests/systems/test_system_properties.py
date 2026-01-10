@@ -90,7 +90,7 @@ def test_get_heat_capacity(mock_heat_capacity, system):
     cap = system.get("heat_capacity")
     assert isinstance(cap, float)
     assert cap == SAMPLE_HEAT_CAPACITY
-    mock_heat_capacity.assert_called_once_with(nmol=2)
+    mock_heat_capacity.assert_called_once_with(nmol=2, start_time=0)
 
 
 @patch.object(SystemProperties, "_get_average_property", return_value=SAMPLE_VOLUME)
