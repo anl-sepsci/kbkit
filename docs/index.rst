@@ -1,7 +1,7 @@
 KBKit: Kirkwood-Buff Analysis Toolkit
 ======================================
 
-Check out our `latest release <https://github.com/aperoutka/kbkit/releases>`_ on GitHub!
+Check out our `latest release <https://github.com/anl-sepsci/kbkit/releases>`_ on GitHub!
 
 .. toctree::
     :maxdepth: 1
@@ -31,9 +31,9 @@ Installation
 .. image:: https://img.shields.io/badge/code%20style-ruff-000000.svg
     :target: https://github.com/astral-sh/ruff
     :alt: Code style: ruff
-.. image:: https://coveralls.io/repos/github/aperoutka/kbkit/badge.svg?branch=main
-    :target: https://coveralls.io/github/aperoutka/kbkit?branch=main
-    :alt: Coverage Status
+.. image:: https://codecov.io/gh/anl-sepsci/kbkit/graph/badge.svg?token=XJ5LXJYP76
+    :target: https://codecov.io/gh/anl-sepsci/kbkit
+    :alt: codecov
 .. image:: http://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat
     :target: https://kbkit.readthedocs.io/
     :alt: docs
@@ -51,7 +51,7 @@ Clone the GitHub repository and use the provided Makefile to set up your develop
 
 .. code-block:: bash
 
-    git clone https://github.com/aperoutka/kbkit.git
+    git clone https://github.com/anl-sepsci/kbkit.git
     cd kbkit
     make setup-dev
 

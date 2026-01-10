@@ -2,7 +2,7 @@
 name = "kbkit"
 description = "KBKit: Kirkwood-Buff Analysis Toolkit"
 license = {file = "LICENSE"}
-version = "1.0.21"
+version = "1.0.22"
 readme = "README.md"
 keywords = []
 authors = [{name = "Allison Peroutka"}]
@@ -11,7 +11,7 @@ dependencies = [ "sphinx", "numpy>=2.3.2,<3", "natsort>=8.4.0,<9", "scipy>=1.16.
 
 [project.urls]
 Homepage = "https://github.com/anl-sepsci/kbkit"
-Documentation = "https://app.readthedocs.org/projects/kbkit/"
+Documentation = "https://kbkit.readthedocs.io/en/latest/"
 
 [dev-dependencies]
 pip = "*"
