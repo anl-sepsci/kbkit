@@ -1,4 +1,21 @@
-"""Extracts thermodynamic and compositional features from a batch of molecular simulation systems."""
+"""
+Represent the thermodynamic state of a multicomponent mixture at fixed temperature, providing all metadata and simulation-derived properties required for Kirkwood-Buff analysis.
+
+`SystemState` aggregates species identities, compositions, densities, and concentration-dependent metadata in a consistent, queryable structure.
+It also exposes mixture properties computed directly from simulation via the :class:`~kbkit.system.SystemConfig` object. 
+These properties are derived from structure (.gro) or energy (.edr) files and processed through :class:`~kbkit.systems.properties.SystemProperties`.
+
+The class enforces internal consistency between mole fractions, densities, and derived quantities (e.g., molar concentrations), ensuring that all downstream thermodynamic calculations operate on a coherent and validated state description.
+
+Notes
+-----
+    * `SystemState` does not perform thermodynamic calculations itself; it provides validated state information and simulation-derived properties to components such as `KBICalculator` and `KBThermo`.
+    * All arrays and properties follow a consistent species ordering to ensure reproducibility across workflows.
+    * Designed to support automated mixture sweeps, concentration series, and multicomponent KB analyses.
+
+.. note::
+    For mixing enthalpy and excess molar volume calculations, pure-component systems must be supplied during :class:`~kbkit.schema.system_config.SystemConfig` initialization for each molecule type present in the simulation.
+"""
 
 import itertools
 from functools import cached_property
@@ -12,11 +29,7 @@ from kbkit.schema.thermo_property import ThermoProperty, register_property
 
 class SystemState:
     """
-    Performs analysis and validation on molecular simulation systems.
-
-    The SystemAnalyzer consumes a SystemConfig object and provides
-    tools for inspecting system composition, temperature distributions, molecule coverage,
-    and semantic consistency across base and pure component systems.
+    The `SystemState` consumes a `SystemConfig` object and provides tools for inspecting tabulated properties as a function of composition.
 
     Parameters
     ----------

@@ -1,6 +1,20 @@
 """
-Constructs thermodynamic property matrices from KBIs across multiple systems.
-Includes support for structure factors and corresponding x-ray intensities for small-angle scattering.
+Compute thermodynamic properties from Kirkwood-Buff integrals (KBIs) across multicomponent systems.
+
+`KBThermo` applies Kirkwood-Buff theory to a matrix of pairwise KB integrals and constructs thermodynamic property matrices such as:
+    * hessians of Gibbs mixing free energy,
+    * activity coefficient derivatives,
+    * decouples enthalpic vs. entropic contribution to Gibbs mixing free energy (provided pure component simulations),
+    * structure factors (partial, Bhatia-Throton),
+    * and related x-ray intensities.
+
+The class operates at constant temperature and uses system metadata (densities, compositions, species identities) provided by a :class:`~kbkit.systems.state.SystemState` object. 
+It supports multiple strategies for integrating activity coefficient derivatives, including numerical integration and polynomial fitting.
+
+..note::
+    * KBThermo does not compute KB integrals itself; it consumes a precomputed KBI matrix (e.g., from :class:`~kbkit.analysis.calculator.KBICalculator`).
+    * All thermodynamic quantities are computed consistently across mixtures, enabling comparison of multicomponent systems or concentration series.
+    * Designed for automated workflows within the KBKit analysis pipeline.
 """
 
 import warnings
@@ -17,9 +31,9 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="numpy.linalg"
 
 
 class KBThermo:
-    """Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties from KBI matrix.
-
-    This class inherits system properties from :class:`KBICalculator` and uses them for the calculation of thermodynamic properties.
+    """
+    Apply Kirkwood-Buff (KB) theory to calculate thermodynamic properties, structure factors, and related x-ray intensities from KBI matrix.
+    This class inherits system properties from :class:`~kbkit.systems.state.SystemState` and uses them for the calculation of thermodynamic properties.
 
     Parameters
     ----------
@@ -36,8 +50,6 @@ class KBThermo:
     ----------
     state: SystemState
         Initialized SystemState object.
-    structure_calc: StaticStructureCalculator
-        Calculator for calculating static structure.
     """
 
     def __init__(
@@ -559,7 +571,6 @@ class KBThermo:
             *  :math:`a_0` is the starting value for index of summation.
             *  :math:`N` is the number of data points to sum over.
             *  :math:`x_i` is the mole fraction of component :math:`i`.
-            *  :math:`\Delta x` is the step size in :math:`x` between points.
             *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}` is the derivative of the natural logarithm of the activity coefficient of component `i` with respect to its mole fraction, evaluated at point `a`.
 
         The integration starts at a reference state where :math:`x_i = a_0` and :math:`\ln{\gamma_i}(a_0) = 0`. 

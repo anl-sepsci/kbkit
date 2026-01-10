@@ -1,4 +1,60 @@
-"""High-level orchestration layer for running thermodynamic analysis workflows."""
+"""
+Pipeline module for automated Kirkwood-Buff (KB) thermodynamic analysis.
+
+This module provides a high-level workflow that coordinates all major `KBKit` components—-`SystemConfig`, `SystemProperties`, `SystemState`, `KBICalculator`, and `KBThermo`—-to compute thermodynamic properties across a composition series directly from simulation outputs.
+
+The pipeline expects a directory structure containing simulation results for each composition point. 
+At each of these composition points, the pipeline:
+
+1. Loads structural (.gro) and energy (.edr) files using :class:`~kbkit.shema.system_config.SystemConfig`.
+2. Computes mixture properties from simulation via :class:`~kbkit.systems.properties.SystemProperties`.
+3. Constructs a validated thermodynamic state using :class:`~kbkit.system.state.SystemState`.
+4. Computes pairwise Kirkwood-Buff integrals using :class:`~kbkit.analysis.calculator.KBICalculator`.
+5. Computes KBI-derived thermodynamic properties and structure factors using :class:`~kbkit.analysis.thermo.KBThermo`.
+
+Composition-Grid Requirements
+-----------------------------
+Different thermodynamic quantities place different demands on the composition grid. 
+In KBKit, these fall into two distinct categories:
+
+**1. Quantities that *require* an evenly spaced composition grid**  
+(first derivatives of the Gibbs free energy)
+
+These properties depend on **integration** of derivatives of the Gibbs free energy and therefore require a composition series that spans the **entire mole-fraction domain** with **approximately uniform spacing**. 
+This ensures stable integration and physically meaningful results.
+
+Properties in this category include:
+- activity coefficients (γᵢ),
+- excess Gibbs-energy-related quantities that rely on integrating activity coefficients (i.e., decoupling enthalpic and entropic contributions).
+
+A well-distributed composition grid is essential for these quantities.
+
+**2. Quantities that do *not* require evenly spaced compositions**  
+(second derivatives of the Gibbs free energy)
+
+These properties are computed **directly from the KB integrals** and do *not* depend on the spacing or coverage of the composition grid. 
+Uneven, sparse, or clustered composition points are acceptable as long as the KBIs themselves are well converged.
+
+Properties in this category include:
+- stability metrics (Hessian of :math:`\Delta G_{mix}`),
+- structure factors,
+- any quantity derived directly from the KBI matrix that doesn't rely on activity coefficients or excess Gibbs energy contributions.
+
+Requirements for automated thermodynamic analysis
+-------------------------------------------------
+- A composition series with one simulation directory per composition point.
+- Each directory must contain:
+    * a structure file (.gro),
+    * an energy file (.edr),
+    * a subdirectory containing RDF files (.xvg) for each pairwise interaction.
+- Pure-component simulations are required for:
+    * mixing enthalpy,
+    * excess molar volume,
+    * decoupling enthalpic and entropic contributions.
+
+    
+The pipeline stores all intermediate objects for reproducibility and supports high-throughput mixture sweeps and automated KB analysis.
+"""
 
 from functools import cached_property
 from typing import Any, Union
@@ -17,7 +73,10 @@ from kbkit.workflow.plotter import Plotter
 
 class Pipeline:
     """
-    A pipeline for performing Kirkwood-Buff analysis of molecular simulations.
+    High-level workflow manager for running automated KBKit thermodynamic analysis across a composition series.
+
+    Pipeline loads simulation data, constructs `SystemState` objects, computes KB integrals, and evaluates thermodynamic properties using `KBThermo`. 
+    It provides a reproducible interface for mixture sweeps and KB-based analysis.
 
     Parameters
     ----------
@@ -64,7 +123,7 @@ class Pipeline:
         KBThermo object for computing thermodynamic properties from KBIs.
     thermo_state: ThermoState
         ThermoState object containing results from KBThermo and SystemState.
-    results: dict[str, NDArray[np.float64]]
+    results: dict[str, np.ndarray]
         Dictionary of attributes and their corresponding values in ThermoState object.
     """
 
@@ -149,7 +208,7 @@ class Pipeline:
             rdf_convergence_threshold=self.rdf_convergence_threshold,
         )
         self.logger.info("Calculating KBIs")
-        kbi_matrix = self.kbi_calculator.run(apply_electrolyte_correction=True)
+        kbi_matrix = self.kbi_calculator.compute_kbi_matrix(apply_electrolyte_correction=True)
 
         self.logger.info("Creating KBThermo...")
         self.thermo = KBThermo(

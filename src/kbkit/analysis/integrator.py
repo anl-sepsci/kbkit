@@ -1,7 +1,12 @@
 """
-Computes Kirkwood-Buff integrals (KBIs) from RDF data and applies thermodynamic limit corrections.
+Computes Kirkwood-Buff integrals (KBIs) from RDF file (`.xvg`) and :class:~`kbkit.systems.properties.SystemProperties` object.
 
-Relies on RDF parsing and system composition data to produce corrected KBIs for use in thermodynamic models.
+There are three corrections that by default are implemented to correct KBIs to thermodynamic limit values:
+    * RDF convergence correction (``correct_rdf_convergence``): Corrects RDF for molecule excess/depletion. [`Ganguly (2013).<https://doi.org/10.1021/ct301017q>_`]
+    * RDF damping correction (``apply_damping``): Forces the tail of the RDF to 1 (required to ensure convergence of KBI in finite systems). [`Krüger (2013).<https://doi.org/10.1021/jz301992u>_`]
+    * Thermodynamic limit extrapolation (``extrapolate_thermodynamic_limit``): Extrapolated KBI in a finite system to the thermodynamic limit where relationships between thermodynamic properties and KBIs are defined. [`Simon (2022).<https://doi.org/10.1063/5.0106162>_`]
+
+Each of the corrections can be turned off by setting the attribute to ``False``.
 """
 
 import os
@@ -373,9 +378,9 @@ class KBIntegrator:
         save_dir: str, optional
             Directory to save the plot. If not provided, the plot will be displayed but not saved
         """
-        raw_rkbi = self._compute_rkbi(correct_rdf_convergence=False, apply_damping=False)
-        g_rkbi = self._compute_rkbi(correct_rdf_convergence=True, apply_damping=False)
-        gk_rkbi = self._compute_rkbi(correct_rdf_convergence=True, apply_damping=True)
+        raw_rkbi = self._compute_rkbi(mol_j=mol_j, correct_rdf_convergence=False, apply_damping=False)
+        g_rkbi = self._compute_rkbi(mol_j=mol_j, correct_rdf_convergence=True, apply_damping=False)
+        gk_rkbi = self._compute_rkbi(mol_j=mol_j, correct_rdf_convergence=True, apply_damping=True)
 
         fig, ax = plt.subplots(figsize=(5,4.5))
         ax.plot(self.rdf.r, raw_rkbi, c="limegreen", alpha=0.6, lw=3, ls="-", label="no corrections")

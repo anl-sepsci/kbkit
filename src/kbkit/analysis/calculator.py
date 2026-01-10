@@ -1,4 +1,13 @@
-"""Calculator for Kirkwood-Buff Integrals (KBIs)."""
+"""
+Calculator for Kirkwood-Buff Integrals (KBIs).
+This calculator operates on a :class:`~kbkit.systems.state.SystemState` that contains molecular dynamics properties from structure (.gro) and energy (.edr) files.
+Additional inputs to :class:`~kbkit.analysis.calculator.KBICalculator` are key parameters used for the KBI corrections provided in :class:`~kbkit.analysis.integrator.KBIntegrator`.
+
+The purpose of the :class:`~kbkit.analysis.calculator.KBICalculator` is the following:
+    * Computes a KBI matrix for all molecular pairs in each system in the :class:`~kbkit.systems.registry.SystemRegistry` object.
+    * Applies electrolyte corrections to KBI matrix if electrolytes are present.
+    * Stores results for each system into a :class:~kbkit.schema.kbit_metadata.KBIMetadata` container.
+"""
 
 import numpy as np
 from numpy.typing import NDArray
@@ -58,61 +67,76 @@ class KBICalculator:
         self.extrapolate_thermodynamic_limit = extrapolate_thermodynamic_limit
         self.kbi_metadata: dict[str, list[KBIMetadata]] = {}
 
-    def run(self, apply_electrolyte_correction: bool = True) -> NDArray[np.float64]:
+    def compute_kbi_matrix(self, apply_electrolyte_correction: bool = True) -> NDArray[np.float64]:
         """
         Runs the full KBI computation workflow.
-
-        This is the main entry point for the calculator. It orchestrates the
-        process of computing the raw KBI matrix and, if specified, applies
-        the electrolyte correction.
+        This is the main entry point for the calculator. 
+        It orchestrates the process of computing the raw KBI matrix and, if specified, applies the electrolyte correction.
 
         Parameters
         ----------
         apply_electrolyte_correction: bool, optional
-            If True (default), applies corrections
-            for salt-salt and salt-other interactions. If False, returns the
-            raw, uncorrected KBI matrix.
+            If True (default), applies corrections for salt-salt and salt-other interactions. If False, returns the raw, uncorrected KBI matrix.
 
         Returns
         -------
         np.ndarray
             A 3D numpy array representing the final KBI matrix.
+
+        Notes
+        -----
+        First the raw KBI matrix is computed for all systems. 
+        Each KBI value :math:`G_{ij}` is computed by integrating the RDF between molecule types :math:`i, j`:
+
+        .. math::
+            G_{ij} = 4\pi \int_0^\infty (g_{ij}(r) - 1) r^2 \, dr
+
+        * If an RDF directory is missing, the corresponding system's values remain NaN, if ignore_convergence_errors is True.
+        * Populates `kbi_metadata` with integration results for each RDF file.
+
+        Then if electrolyte correction is desired and an electrolyte is present the following electrolyte corrections are applied.
+        The electrolyte corrections modifies the KBI matrix to account for salt-salt and salt-other interactions using mole fraction-weighted combinations of cation and anion contributions.
+
+        Salt-salt interactions :math:`G_{ss}` are computed as:
+
+        .. math::
+            G_{ss} = x_c^2 G_{cc} + x_a^2 G_{aa} + x_c x_a (G_{ca} + G_{ac})
+
+        Salt-other interactions :math:`G_{si}` are computed as:
+
+        .. math::
+            G_{si} = x_c G_{ic} + x_a G_{ia}
+
+        where:
+            * :math:`x_c = \frac{N_c}{N_c + N_a}` is the mole fraction of the cation
+            * :math:`x_a = \frac{N_a}{N_c + N_a}` is the mole fraction of the anion
+            * :math:`G_{ij}` are the raw KBIs between molecule types :math:`i` and :math:`j`
+        
+
+        See Also
+        --------
+        :class:`~kbkit.analysis.integrator.KBIntegrator` : For derivation and detailed formulas for RDF integration and KBI corrections.
         """
         # calculate kbis for each unique molecule in topology file
-        kbis = self.compute_raw_kbi_matrix()
+        kbis = self._compute_raw_kbi_matrix()
         # check if any electrolytes are present
         electrolyte_chk = True if any("." in x for x in self.state.unique_molecules) else False
         # correct for electrolytes if present
         if apply_electrolyte_correction and electrolyte_chk:
-            return self.compute_electrolyte_corrected_kbi_matrix(kbis)
+            return self._compute_electrolyte_corrected_kbi_matrix(kbis)
         # return raw kbi matrix if electrolytes are detected but user doesn't want corrected kbi matrix
         else:
             return kbis
 
-    def compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
+    def _compute_raw_kbi_matrix(self) -> NDArray[np.float64]:
         r"""
         Compute the raw KBI matrix for all systems.
-
-        Each KBI value :math:`G_{ij}` is computed by integrating the RDF
-        between molecule types :math:`i, j`:
-
-        .. math::
-            G_{ij} = 4\pi \int_0^\infty (g_{ij}(r) - 1) r^2 \, dr
 
         Returns
         -------
         np.ndarray
             A 3D matrix of KBIs with shape ``(n_sys, n_mols, n_mols)``, where:
             ``n_sys`` is the number of systems and``n_mols`` is the number of unique molecules.
-
-        Notes
-        -----
-        * If an RDF directory is missing, the corresponding system's values remain NaN, if ignore_convergence_errors is True.
-        * Populates `kbi_metadata` with integration results for each RDF file.
-
-        See Also
-        --------
-        :class:`KBIntegrator` : For derivation and detailed formulas for RDF integration and finite-size corrections.
         """
         kbis = np.full(
             (self.state.n_sys, len(self.state.top_molecules), len(self.state.top_molecules)), fill_value=np.nan
@@ -221,34 +245,22 @@ class KBICalculator:
                 return meta
         return None
 
-    def compute_electrolyte_corrected_kbi_matrix(self, kbi_matrix) -> NDArray[np.float64]:
+    def _compute_electrolyte_corrected_kbi_matrix(self, kbi_matrix) -> NDArray[np.float64]:
         r"""
         Apply electrolyte correction to the input KBI matrix.
 
         This method modifies the KBI matrix to account for salt-salt and salt-other interactions
         using mole fraction-weighted combinations of cation and anion contributions.
 
+        Parameters
+        ----------
+        kbi_matrix: np.ndarray
+            Input KBI matrix to be corrected for electrolytes.
+
         Returns
         -------
         np.ndarray
             Corrected KBI matrix with additional rows/columns for salt interactions.
-
-        Notes
-        -----
-        Salt-salt interactions :math:`G_{ss}` are computed as:
-
-        .. math::
-            G_{ss} = x_c^2 G_{cc} + x_a^2 G_{aa} + x_c x_a (G_{ca} + G_{ac})
-
-        Salt-other interactions :math:`G_{si}` are computed as:
-
-        .. math::
-            G_{si} = x_c G_{ic} + x_a G_{ia}
-
-        where:
-            * :math:`x_c = \frac{N_c}{N_c + N_a}` is the mole fraction of the cation
-            * :math:`x_a = \frac{N_a}{N_c + N_a}` is the mole fraction of the anion
-            * :math:`G_{ij}` are the raw KBIs between molecule types :math:`i` and :math:`j`
         """
         # This method first computes the raw matrix then corrects it
         salt_pairs = self.state.salt_pairs
