@@ -12,7 +12,7 @@ The class operates at constant temperature and uses system metadata (densities, 
 It supports multiple strategies for integrating activity coefficient derivatives, including numerical integration and polynomial fitting.
 
 
-..note::
+.. note::
     * KBThermo does not compute KB integrals itself; it consumes a precomputed KBI matrix (e.g., from :class:`~kbkit.analysis.calculator.KBICalculator`).
     * All thermodynamic quantities are computed consistently across mixtures, enabling comparison of multicomponent systems or concentration series.
     * Designed for automated workflows within the KBKit analysis pipeline.
