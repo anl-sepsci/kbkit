@@ -1,15 +1,16 @@
 """
-Compute thermodynamic properties from Kirkwood-Buff integrals (KBIs) across multicomponent systems.
+Compute thermodynamic properties and structure factors from Kirkwood-Buff integrals (KBIs) across multicomponent systems.
 
 `KBThermo` applies Kirkwood-Buff theory to a matrix of pairwise KB integrals and constructs thermodynamic property matrices such as:
     * hessians of Gibbs mixing free energy,
     * activity coefficient derivatives,
-    * decouples enthalpic vs. entropic contribution to Gibbs mixing free energy (provided pure component simulations),
-    * structure factors (partial, Bhatia-Throton),
+    * decouples enthalpic vs. entropic contribution to Gibbs mixing free energy,
+    * structure factors (partial, Bhatia-Thorton),
     * and related x-ray intensities.
 
 The class operates at constant temperature and uses system metadata (densities, compositions, species identities) provided by a :class:`~kbkit.systems.state.SystemState` object. 
 It supports multiple strategies for integrating activity coefficient derivatives, including numerical integration and polynomial fitting.
+
 
 ..note::
     * KBThermo does not compute KB integrals itself; it consumes a precomputed KBI matrix (e.g., from :class:`~kbkit.analysis.calculator.KBICalculator`).

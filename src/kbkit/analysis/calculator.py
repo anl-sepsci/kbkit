@@ -1,12 +1,12 @@
 """
 Calculator for Kirkwood-Buff Integrals (KBIs).
 This calculator operates on a :class:`~kbkit.systems.state.SystemState` that contains molecular dynamics properties from structure (.gro) and energy (.edr) files.
-Additional inputs to :class:`~kbkit.analysis.calculator.KBICalculator` are key parameters used for the KBI corrections provided in :class:`~kbkit.analysis.integrator.KBIntegrator`.
+Additional inputs to `KBICalculator` are key parameters used for the KBI corrections provided in :class:`~kbkit.analysis.integrator.KBIntegrator`.
 
-The purpose of the :class:`~kbkit.analysis.calculator.KBICalculator` is the following:
+The purpose of the `KBICalculator` is the following:
     * Computes a KBI matrix for all molecular pairs in each system in the :class:`~kbkit.systems.registry.SystemRegistry` object.
     * Applies electrolyte corrections to KBI matrix if electrolytes are present.
-    * Stores results for each system into a :class:~kbkit.schema.kbit_metadata.KBIMetadata` container.
+    * Stores results for each system into a :class:`~kbkit.schema.kbit_metadata.KBIMetadata` container.
 """
 
 import numpy as np
