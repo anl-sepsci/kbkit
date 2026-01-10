@@ -1,10 +1,10 @@
 # KBKit: Kirkwood-Buff Analysis Toolkit
 
-[![License](https://img.shields.io/github/license/aperoutka/kbkit)](https://github.com/aperoutka/kbkit/blob/master/LICENSE)
+[![License](https://img.shields.io/github/license/anl-sepsci/kbkit)](https://github.com/anl-sepsci/kbkit/blob/master/LICENSE)
 [![PyPI version](https://img.shields.io/pypi/v/kbkit.svg)](https://pypi.org/project/kbkit/)
 [![Powered by: Pixi](https://img.shields.io/badge/Powered_by-Pixi-facc15)](https://pixi.sh)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Coverage Status](https://coveralls.io/repos/github/aperoutka/kbkit/badge.svg?branch=main)](https://coveralls.io/github/aperoutka/kbkit?branch=main)
+[![codecov](https://codecov.io/gh/anl-sepsci/kbkit/graph/badge.svg?token=XJ5LXJYP76)](https://codecov.io/gh/anl-sepsci/kbkit)
 [![docs](http://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://kbkit.readthedocs.io/)
 ![python 3.12](https://img.shields.io/badge/Python-3.12%2B-blue)
 
@@ -32,7 +32,7 @@ pip install kbkit
 Clone the GitHub repository and use the provided Makefile to set up your development environment:
 
 ```python
-git clone https://github.com/aperoutka/kbkit.git
+git clone https://github.com/anl-sepsci/kbkit.git
 cd kbkit
 make setup-dev
 ```
