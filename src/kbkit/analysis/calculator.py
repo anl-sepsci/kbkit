@@ -88,7 +88,7 @@ class KBICalculator:
         Each KBI value :math:`G_{ij}` is computed by integrating the RDF between molecule types :math:`i, j`:
 
         .. math::
-            G_{ij} = 4\\pi \\int_0^\\infty (g_{ij}(r) - 1) r^2 \\, dr
+            G_{ij} = \int_0^{\infty} 4\pi r^2 (g_{ij}(r) - 1) dr
 
         * If an RDF directory is missing, the corresponding system's values remain NaN, if ignore_convergence_errors is True.
         * Populates `kbi_metadata` with integration results for each RDF file.

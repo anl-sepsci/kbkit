@@ -5,7 +5,7 @@ Compute thermodynamic properties and structure factors from Kirkwood-Buff integr
     * hessians of Gibbs mixing free energy,
     * activity coefficient derivatives,
     * decouples enthalpic vs. entropic contribution to Gibbs mixing free energy,
-    * structure factors (partial, Bhatia-Thorton),
+    * structure factors (partial, Bhatia-Thornton),
     * and related x-ray intensities.
 
 The class operates at constant temperature and uses system metadata (densities, compositions, species identities) provided by a :class:`~kbkit.systems.state.SystemState` object.
@@ -710,16 +710,16 @@ class KBThermo:
         """
         return self.A_inv_matrix.value
 
-    @register_property("s0_cc", "")
-    def s0_cc(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from Bhatia-Thorton concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
+    @register_property("s0_x", "")
+    def s0_x(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Contribution from Bhatia-Thornton concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{CC}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{ij}^{x}(0)`, is a 3D matrix (composition x n-1 x n-1 components) and is calculated via:
 
         .. math::
-            \hat{S}_{CC}(0) = \hat{S}_{ij}(0) - x_i \sum_{k=1}^n \hat{S}_{kj}(0) - x_j \sum_{k=1}^n \hat{S}_{ki}(0) + x_i x_j \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
+            \hat{S}_{ij}^{x}(0) = \hat{S}_{ij}(0) - x_i \sum_{k=1}^n \hat{S}_{kj}(0) - x_j \sum_{k=1}^n \hat{S}_{ki}(0) + x_i x_j \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
 
         for `i` and `j` from 1 to n-1.
         """
@@ -733,16 +733,16 @@ class KBThermo:
         n = self.state.n_comp - 1
         return (t1 + t2 + t3 + t4)[:, :n, :n]
 
-    @register_property("s0_nc", "")
-    def s0_nc(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from Bhatia-Thorton number-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
+    @register_property("s0_xp", "")
+    def s0_xp(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Contribution from Bhatia-Thornton number-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{NC}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}_{i}^{x\rho}(0)`, is a 2D array (composition x n-1 components) and is calculated via:
 
         .. math::
-            \hat{S}_{NC}(0) = \sum_{k=1}^n \hat{S}_{ik}(0)  - x_i \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
+            \hat{S}_{i}^{x\rho}(0) = \sum_{k=1}^n \hat{S}_{ik}(0)  - x_i \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
 
         for i from 1 to n-1.
         """
@@ -752,16 +752,16 @@ class KBThermo:
         dz_sign = np.sign(self._delta_z)
         return dz_sign[np.newaxis, :] * (t1 + t2)[:, :n]
 
-    @register_property("s0_nn", "")
-    def s0_nn(self) -> NDArray[np.float64]:
+    @register_property("s0_p", "")
+    def s0_p(self) -> NDArray[np.float64]:
         r"""ThermoProperty: Contribution from number-number fluctuations to structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{NN}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}^{\rho}(0)`, is a 1D vector (composition) and is calculated via:
 
         .. math::
-            \hat{S}_{NN}(0) = \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
+            \hat{S}^{\rho}(0) = \sum_{k=1}^n \sum_{l=1}^n \hat{S}_{kl}(0)
         """
         return np.nansum(self.s0_ij.value, axis=(2, 1))
 
@@ -771,10 +771,10 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{\kappa_T}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}^{\kappa_T}(0)`, is calculated via:
 
         .. math::
-            \hat{S}_{\kappa_T}(0) = \frac{RT \kappa_T}{\bar{V}}
+            \hat{S}^{\kappa_T}(0) = \frac{RT \kappa_T}{\bar{V}}
         """
         return (
             self.gas_constant
@@ -783,59 +783,59 @@ class KBThermo:
             / self.state.ideal_molar_volume.to("m^3/mol")
         )
 
-    @register_property("s0_cc_e", "")
-    def s0_cc_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from Bhatia-Thorton concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+    @register_property("s0_x_e", "")
+    def s0_x_e(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Contribution from Bhatia-Thornton concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{CC}^e(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}^{x,e}(0)`, is a 1D vector (composition) and is calculated via:
 
         .. math::
-            \hat{S}_{CC}^e(0) = \sum_{i=1}^{n-1}\sum_{j=1}^{n-1} \left( Z_i - Z_n \right) \left( Z_j - Z_n \right) \hat{S}_{CC}(0)
+            \hat{S}^{x,e}(0) = \sum_{i=1}^{n-1}\sum_{j=1}^{n-1} \left( Z_i - Z_n \right) \left( Z_j - Z_n \right) \hat{S}_{ij}^{x}(0)
         """
         dz_sq = self._delta_z[:, np.newaxis] * self._delta_z[np.newaxis, :]
-        t1 = dz_sq[np.newaxis, :, :] * self.s0_cc.value
+        t1 = dz_sq[np.newaxis, :, :] * self.s0_x.value
         return np.nansum(t1, axis=(2, 1))
 
-    @register_property("s0_nc_e", "")
-    def s0_nc_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from Bhatia-Thorton number-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+    @register_property("s0_xp_e", "")
+    def s0_xp_e(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Contribution from Bhatia-Thornton number-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{NC}^e(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}^{x\rho,e}(0)`, is a 1D vector (composition) and is calculated via:
 
         .. math::
-            \hat{S}_{NC}^e(0) = 2 \bar{Z} \sum_{i=1}^{n-1} \left( Z_i - Z_n \right)  \hat{S}_{NC}(0)
+            \hat{S}^{x\rho,e}(0) = 2 \bar{Z} \sum_{i=1}^{n-1} \left( Z_i - Z_n \right)  \hat{S}_{i}^{x\rho}(0)
         """
         dz_sign = np.sign(self._delta_z)
-        t1 = self._delta_z[np.newaxis, :] * dz_sign[np.newaxis, :] * self.s0_nc.value
+        t1 = self._delta_z[np.newaxis, :] * dz_sign[np.newaxis, :] * self.s0_xp.value
         return 2 * self._zbar * np.nansum(t1, axis=1)
 
-    @register_property("s0_nn_e", "")
-    def s0_nn_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from Bhatia-Thorton number-number fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+    @register_property("s0_p_e", "")
+    def s0_p_e(self) -> NDArray[np.float64]:
+        r"""ThermoProperty: Contribution from Bhatia-Thornton number-number fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{NN}^e(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}^{\rho,e}(0)`, is a 1D vector (composition) and is calculated via:
 
         .. math::
-            \hat{S}_{NN}^e(0) = \bar{Z}^2 \hat{S}_{NN}(0)
+            \hat{S}^{\rho,e}(0) = \bar{Z}^2 \hat{S}^{\rho}(0)
         """
-        return self._zbar**2 * self.s0_nn.value
+        return self._zbar**2 * self.s0_p.value
 
     @register_property("s0_kappa_e", "")
     def s0_kappa_e(self) -> NDArray[np.float64]:
-        r"""ThermoProperty: Contribution from isothermal compressibility to Bhatia-Thorton number-number fluctuations electron density structure factor as q :math:`\rightarrow` 0.
+        r"""ThermoProperty: Contribution from isothermal compressibility to Bhatia-Thornton number-number fluctuations electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}_{\kappa_T}^e(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}^{\kappa_T, e}(0)`, is calculated via:
 
         .. math::
-            \hat{S}_{\kappa_T}^e(0) = \bar{Z}^2 \hat{S}_{\kappa_T}(0)
+            \hat{S}^{\kappa_T, e}(0) = \bar{Z}^2 \hat{S}^{\kappa_T}(0)
         """
         return self._zbar**2 * self.s0_kappa.value
 
@@ -845,10 +845,13 @@ class KBThermo:
 
         Notes
         -----
-        Structure factor, :math:`\hat{S}^{e}(0)`, is calcuted via:
+        Structure factor, :math:`\hat{S}^{e}(0)`, can be calculated via partial or from Bhatia-Thornton structure factors (both are equivalent):
 
         .. math::
-            \hat{S}^{e}(0) = \sum_{i=1}^n \sum_{j=1}^n Z_i Z_j \hat{S}_{ij}(0)
+            \begin{aligned}
+            \hat{S}^{e}(0) &= \sum_{i=1}^n \sum_{j=1}^n Z_i Z_j \hat{S}_{ij}(0) \\
+                           &= \hat{S}^{x,e}(0) + \hat{S}^{x\rho,e}(0) + \hat{S}^{\rho,e}(0)
+            \end{aligned}
 
         """
         ne = self.state.unique_electrons
@@ -862,44 +865,44 @@ class KBThermo:
         N_A = float(self.state.ureg("N_A").to("1/mol").magnitude)
         return re**2 * (1 / vbar) * N_A * s0_elec
 
-    @register_property("i0_cc", "1/cm")
-    def i0_cc(self) -> NDArray[np.float64]:
+    @register_property("i0_x", "1/cm")
+    def i0_x(self) -> NDArray[np.float64]:
         r"""ThermoProperty:  Contribution from concentration-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        X-ray intensity, :math:`I_{CC}(0)`, is calcuted via:
+        X-ray intensity, :math:`I^{x}(0)`, is calculated via:
 
         .. math::
-            I_{CC}(0) = r_e^2 \rho N_A \hat{S}_{CC}^e(0)
+            I^{x}(0) = r_e^2 \rho N_A \hat{S}^{x,e}(0)
         """
-        return self._calculate_i0_from_s0e(self.s0_cc_e.value)
+        return self._calculate_i0_from_s0e(self.s0_x_e.value)
 
-    @register_property("i0_nc", "1/cm")
-    def i0_nc(self) -> NDArray[np.float64]:
+    @register_property("i0_xp", "1/cm")
+    def i0_xp(self) -> NDArray[np.float64]:
         r"""ThermoProperty:  Contribution from number-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        X-ray intensity, :math:`I_{NC}(0)`, is calcuted via:
+        X-ray intensity, :math:`I^{x\rho}(0)`, is calculated via:
 
         .. math::
-            I_{NC}(0) = r_e^2 \rho N_A \hat{S}_{NC}^e(0)
+            I^{x\rho}(0) = r_e^2 \rho N_A \hat{S}^^{x\rho,e}(0)
         """
-        return self._calculate_i0_from_s0e(self.s0_nc_e.value)
+        return self._calculate_i0_from_s0e(self.s0_xp_e.value)
 
-    @register_property("i0_nn", "1/cm")
-    def i0_nn(self) -> NDArray[np.float64]:
+    @register_property("i0_p", "1/cm")
+    def i0_p(self) -> NDArray[np.float64]:
         r"""ThermoProperty:  Contribution from number-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
         -----
-        X-ray intensity, :math:`I_{NN}(0)`, is calcuted via:
+        X-ray intensity, :math:`I^{\rho}(0)`, is calculated via:
 
         .. math::
-            I_{NN}(0) = r_e^2 \rho N_A \hat{S}_{NN}^e(0)
+            I^{\rho}(0) = r_e^2 \rho N_A \hat{S}^{\rho,e}(0)
         """
-        return self._calculate_i0_from_s0e(self.s0_nn_e.value)
+        return self._calculate_i0_from_s0e(self.s0_p_e.value)
 
     @register_property("i0_kappa", "1/cm")
     def i0_kappa(self) -> NDArray[np.float64]:
@@ -907,25 +910,12 @@ class KBThermo:
 
         Notes
         -----
-        X-ray intensity, :math:`I_{\kappa_T}(0)`, is calcuted via:
+        X-ray intensity, :math:`I^{\kappa_T}(0)`, is calculated via:
 
         .. math::
-            I_{\kappa_T}(0) = r_e^2 \rho N_A \hat{S}_{\kappa_T}^e(0)
+            I^{\kappa_T}(0) = r_e^2 \rho N_A \hat{S}^{\kappa_T,e}(0)
         """
         return self._calculate_i0_from_s0e(self.s0_kappa_e.value)
-
-    @register_property("i0_x", "1/cm")
-    def i0_x(self) -> NDArray[np.float64]:
-        r"""ThermoProperty:  Contribution from concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
-
-        Notes
-        -----
-        X-ray intensity, :math:`I_{x}(0)`, is calcuted via:
-
-        .. math::
-            I_{x}(0) = I(0) - I_{\kappa_T}(0)
-        """
-        return self.i0.value - self.i0_kappa.value
 
     @register_property("i0", "1/cm")
     def i0(self) -> NDArray[np.float64]:
@@ -933,9 +923,12 @@ class KBThermo:
 
         Notes
         -----
-        X-ray intensity, :math:`I(0)`, is calcuted via:
+        X-ray intensity, :math:`I(0)`, is calculated via:
 
         .. math::
-            I(0) = r_e^2 \rho N_A \hat{S}^e
+            \begin{aligned}
+            I(0) &= r_e^2 \rho N_A \hat{S}^e \\
+                 &= I^x(0) + I^{x\rho}(0) + I^{\rho}(0)
+            \end{aligned}
         """
         return self._calculate_i0_from_s0e(self.s0_e.value)

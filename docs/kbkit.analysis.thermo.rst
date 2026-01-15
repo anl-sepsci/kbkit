@@ -14,3 +14,5 @@ References
 - Venetsanos, F. (2019). Mixing Thermodynamics and Flory-Huggins Interaction Parameter of Polyethylene Oxide/Polyethylene Oligomeric Blends from Kirkwood-Buff Theory and Molecular Simulations. https://doi.org/10.1021/acs.macromol.2c00642
 - Petris, P.; et al. (2019). Thermodynamic Analysis of n -Hexane-Ethanol Binary Mixtures Using the Kirkwood-Buff Theory. https://doi.org/10.1021/acs.jpcb.8b10425
 - Shimizu, S.; & Matubayasi, N. (2020). Intensive nature of fluctuations: Reconceptualizing Kirkwood-Buff theory via elementary algebra. https://doi.org/10.1016/j.molliq.2020.114225
+- Bhatia, A. B.; & Thornton, D. E. (1970). Structural Aspects of the Electrical resistivity of Binary Alloys. https://doi.org/10.1103/PhysRevB.2.3004
+- Mazo, R. M. (2008). Concentration fluctuations in fluid mixtures. https://doi.org/10.1063/1.2992130
