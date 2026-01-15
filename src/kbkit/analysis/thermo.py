@@ -887,7 +887,7 @@ class KBThermo:
         X-ray intensity, :math:`I^{x\rho}(0)`, is calculated via:
 
         .. math::
-            I^{x\rho}(0) = r_e^2 \rho N_A \hat{S}^^{x\rho,e}(0)
+            I^{x\rho}(0) = r_e^2 \rho N_A \hat{S}^{x\rho,e}(0)
         """
         return self._calculate_i0_from_s0e(self.s0_xp_e.value)
 
