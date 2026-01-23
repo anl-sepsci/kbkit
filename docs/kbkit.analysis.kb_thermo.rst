@@ -1,7 +1,7 @@
 Kirkwood-Buff Thermodynamics and Structure Factors
 ===================================================
 
-.. automodule:: kbkit.analysis.thermo
+.. automodule:: kbkit.analysis.kb_thermo
    :members:
    :undoc-members:
    :show-inheritance:

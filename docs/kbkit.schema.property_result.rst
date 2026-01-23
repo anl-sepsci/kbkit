@@ -1,7 +1,7 @@
-Io
+Property Result
 =====================================
 
-.. automodule:: kbkit.utils.io
+.. automodule:: kbkit.schema.property_result
    :members:
    :undoc-members:
    :show-inheritance:

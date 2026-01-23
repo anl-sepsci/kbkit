@@ -9,12 +9,11 @@ Check out our `latest release <https://github.com/anl-sepsci/kbkit/releases>`_ o
     :titlesonly:
 
     kbkit.analysis
-    kbkit.calculators
+    kbkit.core
+    kbkit.plotter
     kbkit.parsers
     kbkit.schema
-    kbkit.systems
     kbkit.utils
-    kbkit.workflow
 
 
 Installation
@@ -79,7 +78,7 @@ For a full list of available commands:
 File Organization
 ------------------
 
-For running `kbkit.core.KBPipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
+For running `kbkit.core.pipeline.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
 
 * NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
 
@@ -114,7 +113,7 @@ An example of file organization:
     * .edr energy file
     * all other files (optional)
 
-These inputs are parsed by `kbkit.parsers` and fed into `kbkit.calculators` for Kirkwood-Buff integrals and thermodynamic predictions. The layout is designed for:
+These inputs are parsed by `kbkit.parsers` and fed into `kbkit.analysis` for Kirkwood-Buff integrals and thermodynamic predictions. The layout is designed for:
 
 - **Discoverability**: Clear separation of mixed vs. pure systems
 - **Reproducibility**: Consistent file naming and structure

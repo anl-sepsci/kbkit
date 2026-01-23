@@ -1,7 +1,7 @@
-File Resolver
+Activity Metadata
 =====================================
 
-.. automodule:: kbkit.utils.file_resolver
+.. automodule:: kbkit.schema.activity_metadata
    :members:
    :undoc-members:
    :show-inheritance:

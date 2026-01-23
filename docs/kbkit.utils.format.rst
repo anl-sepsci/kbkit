@@ -1,7 +1,7 @@
-Thermo Property
+Formatting
 =====================================
 
-.. automodule:: kbkit.schema.thermo_property
+.. automodule:: kbkit.utils.format
    :members:
    :undoc-members:
    :show-inheritance:

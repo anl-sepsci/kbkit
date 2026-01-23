@@ -1,7 +1,7 @@
-Thermo State
+Decorators
 =====================================
 
-.. automodule:: kbkit.schema.thermo_state
+.. automodule:: kbkit.utils.decorators
    :members:
    :undoc-members:
    :show-inheritance:
