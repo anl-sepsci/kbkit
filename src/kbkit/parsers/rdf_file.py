@@ -3,11 +3,10 @@
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.typing import NDArray
+from scipy.stats import linregress
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.utils.validation import validate_path
@@ -23,32 +22,60 @@ class RDFParser:
 
     Parameters
     ----------
-    rdf_file : str
-        Path to the RDF file containing radial distances and corresponding g(r) values.
-    use_fixed_rmin : bool, optional
-        Used fixed rmin (last 0.5 nm) for fitting running KBI. (default: False)
+    filepath : str
+        Path to the RDF text file.
+    convergence_thresholds: tuple, optional
+        Thresholds for convergence requirements.
+    tail_length: float, optional
+        Optional tail length to enforce if ``use_fixed_tail`` is `True`.
+
+    Attributes
+    ----------
+    fname: str
+        File name.
+    r: np.ndarray
+        Array of radial distances (nm).
+    g: np.ndarray
+        Array of radial distribution function values.
+    mask: np.ndarray
+        Boolean mask for RDF tail.
     """
 
     def __init__(
-        self, rdf_file: str | Path, use_fixed_rmin: bool = False, convergence_threshold: float = 0.005
+        self,
+        path: str,
+        convergence_thresholds: tuple = (1e-3, 1e-2),
+        tail_length: float | None = None,
     ) -> None:
-        self.rdf_file = validate_path(rdf_file, suffix=".xvg")
-        # read rdf_file
-        self._read()
-        # make sure rdf is converged
-        self.is_converged = self.convergence_check(convergence_threshold=convergence_threshold)
-        # optionally fix rmin to max possible value
-        if use_fixed_rmin:
-            self._rmin = self.rmax - 1
+        # first validate file
+        fpath = Path(path)
+        self.filepath = validate_path(fpath, suffix=fpath.suffix)
+        self.fname = self.filepath.name
 
-    def _read(self) -> None:
+        # read file
+        self.r, self.g = self._read()
+
+        # get convergence
+        if not tail_length:
+            min_distance = 2  # nm
+            tail_lengths = np.arange(0.5, self.r.max() - min_distance, 0.1)[::-1]
+            self.mask, self._tail_slope, self._total_change, self._grade = self.find_converged_tail(
+                tail_lengths, thresholds=convergence_thresholds
+            )
+        else:
+            self.mask, self._tail_slope, self._total_change, self._grade = self.find_converged_tail(
+                [tail_length], thresholds=convergence_thresholds
+            )
+
+    def _read(self) -> tuple[np.ndarray, np.ndarray]:
         """Read RDF file and extracts radial distances (r) and g(r) values.
 
         The file is expected to have two columns: r and g(r).
         It filters out noise from the tail of the RDF curve.
         """
         try:
-            r, g = np.loadtxt(self.rdf_file, comments=["@", "#"], unpack=True)
+            r, g = np.loadtxt(self.filepath, comments=["@", "#"], unpack=True)
+            return r[:-3], g[:-3]
         except FileNotFoundError as e:
             raise FileNotFoundError(f"RDF file '{self.rdf_file}' not found.") from e
         except IOError as ioe:
@@ -58,131 +85,87 @@ class RDFParser:
         except Exception as e:
             raise RuntimeError(f"Unexpected error reading '{self.rdf_file}': {e}") from e
 
-        self._r = r[:-3]
-        self._g = g[:-3]
-        self._rmin = self._r.max() - 1
+    @property
+    def r_tail(self) -> np.ndarray:
+        """np.ndarray: filtered r values of RDF tail."""
+        return self.r[self.mask]
 
     @property
-    def r(self) -> NDArray[np.float64]:
-        """np.ndarray: Radial distances in nm."""
-        if isinstance(self._r, np.ndarray):
-            return self._r
-        else:
-            raise TypeError(f"Expected an np.ndarray, r type({type(self._r)})")
+    def g_tail(self) -> np.ndarray:
+        """np.ndarray: filtered g(r) values of RDF tail."""
+        return self.g[self.mask]
 
-    @property
-    def rmax(self) -> float:
-        """float: Maximum radial distance in nm."""
-        r_max = self._r.max()
-        if isinstance(r_max, float):
-            return r_max
-        else:
-            raise TypeError(f"Expected an np.ndarray, r-max type({type(r_max)})")
-
-    @property
-    def g(self) -> NDArray[np.float64]:
-        """np.ndarray: g(r) values corresponding to the radial distances."""
-        if isinstance(self._g, np.ndarray):
-            return self._g
-        else:
-            raise TypeError(f"Expected an np.ndarray, g type({type(self._g)})")
-
-    @property
-    def rmin(self) -> float:
-        """float: Lower bound for the radial distance, used in convergence checks."""
-        if isinstance(self._rmin, float):
-            return self._rmin
-        else:
-            raise TypeError(f"Expected an np.ndarray, r-min type({type(self._rmin)})")
-
-    @rmin.setter
-    def rmin(self, value: float) -> None:
-        if not isinstance(value, (int, float)):
-            raise TypeError(f"Value must be float or int, type {type(value)} detected.")
-        if value < 0:
-            raise ValueError("Lower bound must be non-negative.")
-        if value > self.rmax:
-            raise ValueError(f"Lower bound {value} exceeds rmax {self.rmax}.")
-        self._rmin = value
-
-    @property
-    def r_mask(self) -> NDArray[np.bool]:
-        """np.ndarray: Boolean mask for radial distances within the range [rmin, rmax]."""
-        return (self.r >= self.rmin) & (self.r <= self.rmax)
-
-    @property
-    def r_fit(self) -> NDArray[np.float64]:
-        """np.ndarray: Radial distances within the range [rmin, rmax]."""
-        return self.r[self.r_mask]
-
-    @property
-    def g_fit(self) -> NDArray[np.float64]:
-        """np.ndarray: g(r) values within the range [rmin, rmax]."""
-        return self.g[self.r_mask]
-
-    def convergence_check(
-        self,
-        convergence_threshold: float = 5e-3,
-        max_attempts: int = 10,
-    ) -> bool:
-        """
-        Check if the RDF is converged based on the slope of g(r) and its standard deviation.
+    def find_converged_tail(self, tail_lengths: list, thresholds: tuple = (1e-3, 1e-2)) -> tuple:
+        """Iteratively searches for the largest tail window that meets convergence criteria.
 
         Parameters
         ----------
-        convergence_threshold : float, optional
-            Threshold for the slope of g(r) to determine convergence. Default is 5e-3.
-        flatness_threshold : float, optional
-            Threshold for the standard deviation of g(r) to determine flatness. Default is 5e-3.
-        max_attempts : int, optional
-            Maximum number of attempts to check convergence by adjusting the lower bound (rmin). Default is 10.
+        tail_length: float, optional
+            Optionally takes in a tail length to evaluate convergence at.
+        """
+        for tail_length in tail_lengths:
+            mask, slope, total_change, grade = self._get_tail_drift(tail_length, thresholds)
+            if grade == "PASS":
+                return mask, slope, total_change, grade
+            elif grade == "MARGINAL" and tail_length == tail_lengths[-1]:
+                return mask, slope, total_change, grade
+        return mask, slope, total_change, "FAIL"
+
+    def _get_tail_drift(self, tail_length: float, thresholds: tuple = (1e-3, 1e-2)) -> tuple:
+        """
+        Get the tail mask, tail slope, and total drift of the tail for a given RDF ``tail_length``, and check if convergence threshold is passed.
+
+        Parameters
+        ----------
+        tail_length: float
+            Length of RDF tail to evaluate.
 
         Returns
         -------
-        bool
-            True if the RDF is converged, False otherwise.
+        tuple
+            Result for convergence evaluation.
+
+        .. note::
+            Convergence criteria is set to a slope < 1e-3 of the tail section with < 1e-2 acceptable for last step (grade: `PASS`). If convergence threshold is not passed, a grade of `FAIL` is assigned while still recording the values at the last step.
         """
-        MIN_PTS = 3  # min # points accepted for tail check
+        # get mask
+        mask = self.r > (self.r.max() - tail_length)
 
-        for _ in range(max_attempts):
-            r = self._r[self.r_mask]
-            g = self._g[self.r_mask]
+        # perform linear regression on tail to get slope
+        slope, intercept, r_value, p_value, std_err = linregress(self.r[mask], self.g[mask])
 
-            if len(r) < MIN_PTS:
-                raise ValueError("Not enough points for convergence check.")
+        # Calculate the total "rise" or "fall" over the tail
+        total_change = slope * tail_length
 
-            # get slope of tail
-            try:
-                slope, _ = np.polyfit(r, g, 1)
-            except Exception as e:
-                raise RuntimeError(f"Failed to cpute slope via polyfit: {e}") from e
+        min_thresh, max_thresh = min(thresholds), max(thresholds)
+        if abs(total_change) < min_thresh:
+            return mask, slope, total_change, "PASS"
+        elif abs(total_change) < max_thresh:
+            return mask, slope, total_change, "MARGINAL"
+        else:
+            return mask, slope, total_change, "FAIL"
 
-            # perform checks
-            if abs(slope) < convergence_threshold:
-                return True
+    @property
+    def is_converged(self) -> bool:
+        """bool: Checks if RDF tail convergenced passes check."""
+        return True if self._grade in ("PASS", "MARGINAL") else False
 
-            # Adjust rmin to expand cutoff region slightly
-            self.rmin += 0.1 * (self.rmax - self.rmin)
-
-            # if rmin too close to rmax stop iterating
-            if self.rmin >= self.rmax - 0.5:
-                break
-
-        # if convergence not acheived
-        print(
-            f"Convergence not achieved after {max_attempts} attempts for {self.rdf_file.name} "
-            f"in system {self.rdf_file.parent.parent.name}; "
-            f"slope (thresh={convergence_threshold:.4g}) {slope:.4g}, "
-        )
-        self.rmin = self.rmax - 0.5  # reset rmin to max possible safe value
-        return False
+    @property
+    def convergence_report(self) -> str:
+        """str: Convergence report of the RDF tail."""
+        line1 = f"--- RDF Plateau Analysis: {self.fname} ---"
+        line2 = f"Tail Range: {self.r_tail.min():.2f} to {self.r_tail.max():.2f} nm"
+        line3 = f"Slope:      {self._tail_slope:.4f} g(r)/nm"
+        line4 = f"Avg Drift:  {self._total_change:.4f} over the tail"
+        line5 = f"Result:     {self._grade}"
+        return f"""{line1}\n{line2}\n{line3}\n{line4}\n{line5}"""
 
     def plot(
         self,
         xlim: tuple[float, float] = (4, 5),
         ylim: tuple[float, float] = (0.99, 1.01),
         line: bool = False,
-        save_dir: Optional[str] = None,
+        save_dir: str | None = None,
     ) -> None:
         """
         Plot RDF with an inset showing a zoomed-in view of the specified region.
@@ -221,7 +204,7 @@ class RDFParser:
         main_ax.set_xlabel(r"$r$ [$nm$]")
         main_ax.set_ylabel(r"$g(r)$")
         if save_dir is not None:
-            rdf_name = str(self.rdf_file.name).strip(".xvg")
+            rdf_name = str(self.fname).strip(".xvg")
             fig.savefig(os.path.join(save_dir, rdf_name + ".pdf"))
 
     @staticmethod

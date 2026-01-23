@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 
-from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
 MAX_MOLECULE_PARTS = 2
@@ -20,16 +19,11 @@ class TopFileParser:
     ----------
     top_path : str
         Path to the topology (.top) file.
-    verbose : bool, optional
-        If True, enables detailed logging output.
     """
 
-    def __init__(self, top_path: str, verbose: bool = False):
-        self.filepath = validate_path(top_path, suffix=".top")
-        self.verbose = verbose
+    def __init__(self, path: str) -> None:
+        self.filepath = validate_path(path, suffix=".top")
         self.skipped_lines: list[Any] = []
-        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
-        self.logger.info(f"Validated .top file: {self.filepath}")
 
     def _is_valid_molecule_name(self, name: str) -> bool:
         # Allow letters, numbers, underscores, and hyphens
@@ -47,60 +41,48 @@ class TopFileParser:
         dict
             Dictionary containing molecules present and their number.
         """
-        self.logger.info(f"Reading topology file: {self.filepath}")
         lines = self.filepath.read_text().splitlines()
         molecules = {}
         in_molecules_section = False
 
         # extract molecule name and numbers from file
-        for line_num, original_line in enumerate(lines, start=1):
+        for _line_num, original_line in enumerate(lines, start=1):
             # Remove comments (anything after a semicolon) and leading/trailing whitespace
             line = original_line.split(";")[0].strip()
             if not line:
-                self.logger.debug(f"[Line {line_num}] Skipped empty or comment line.")
                 continue  # Skip empty lines
 
             # search for 'molecules' line
             if line.lower().startswith("[ molecules ]"):
                 in_molecules_section = True
-                self.logger.debug(f"[Line {line_num}] Found '[ molecules ]' section.")
                 continue
 
             if in_molecules_section:
                 if line.startswith("["):
-                    self.logger.debug(f"[Line {line_num}] Encountered new section. Stopping molecule parsing.")
                     break  # Stop parsing if we encounter another section
 
                 # Split the line by spaces and tabs, filtering out empty strings
                 parts = re.split(r"\s+", line)
 
                 if len(parts) < MAX_MOLECULE_PARTS:
-                    self.logger.warning(
-                        f"[Line {line_num}] Skipped: Missing molecule name or count → '{original_line}'"
-                    )
                     self.skipped_lines.append((original_line, "Missing molecule name or count"))
                     continue
 
                 molecule_name, count_str = parts[0], parts[1]
 
                 if not self._is_valid_molecule_name(molecule_name):
-                    self.logger.warning(f"[Line {line_num}] Skipped: Invalid molecule name => '{molecule_name}'")
                     self.skipped_lines.append((original_line, "Invalid molecule name format"))
                     continue
 
                 if not self._is_valid_count(count_str):
-                    self.logger.warning(f"[Line {line_num}] Skipped: Invalid molecule count → '{count_str}'")
                     self.skipped_lines.append((original_line, "Invalid molecule count"))
                     continue
 
                 molecules[molecule_name] = int(count_str)
-                self.logger.debug(f"[Line {line_num}] Parsed molecule: {molecule_name} => {count_str}")
 
         if not molecules:
-            self.logger.error("No molecules found in topology file.")
             raise ValueError("No molecules found in topology file.")
 
-        self.logger.info(f"Successfully parsed {len(molecules)} molecules.")
         self._molecule_count = molecules
 
     def report_skipped(self) -> None:

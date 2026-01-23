@@ -1,7 +1,13 @@
 """Scientific computation and transformation."""
 
-from kbkit.analysis.calculator import KBICalculator
-from kbkit.analysis.integrator import KBIntegrator
-from kbkit.analysis.thermo import KBThermo
+from kbkit.analysis.kb_integrator import KBIntegrator
+from kbkit.analysis.kb_thermo import KBThermo
+from kbkit.analysis.property_calculator import PropertyCalculator
+from kbkit.analysis.system_properties import SystemProperties
 
-__all__ = ["KBICalculator", "KBIntegrator", "KBThermo"]
+__all__ = [
+    "KBIntegrator",
+    "KBThermo",
+    "PropertyCalculator",
+    "SystemProperties",
+]

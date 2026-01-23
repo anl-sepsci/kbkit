@@ -25,17 +25,10 @@ class SystemMetadata:
         Parsed properties including topology, thermodynamics, and metadata.
     rdf_path : Path, optional
         Path to RDF directory if available (used for structural analysis).
-    tags : list[str], optional
-        Optional semantic tags for filtering, grouping, or annotation.
-
-    Methods
-    -------
-    has_rdf() -> bool
-        Return True if an RDF path is defined and non-empty.
 
     Notes
     -----
-    - Used by SystemRegistry, SystemConfig, and SystemAnalyzer to organize and filter systems.
+    - Used by SystemRegistry to organize and filter systems.
     - Supports reproducible analysis by encapsulating both structure and metadata.
     """
 
@@ -44,8 +37,11 @@ class SystemMetadata:
     path: Path
     props: "SystemProperties"  # not Optional
     rdf_path: Path = field(default_factory=Path)
-    tags: list[str] = field(default_factory=list)
 
     def has_rdf(self) -> bool:
         """Return True if an RDF path is defined and non-empty."""
         return any(self.rdf_path.glob("*.xvg"))
+
+    def is_pure(self) -> bool:
+        """Return True if ``kind`` is a pure molecule."""
+        return self.kind.lower() == "pure"

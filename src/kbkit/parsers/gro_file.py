@@ -6,7 +6,6 @@ import MDAnalysis
 import numpy as np
 
 from kbkit.utils.chem import get_atomic_number
-from kbkit.utils.logging import get_logger
 from kbkit.utils.validation import validate_path
 
 
@@ -18,14 +17,10 @@ class GroFileParser:
     ----------
     gro_path: str
         Path to the .gro file.
-    verbose: bool, optional
-        If True, enables detailed logging output.
     """
 
-    def __init__(self, gro_path: str, verbose: bool = False) -> None:
-        self.filepath = validate_path(gro_path, suffix=".gro")
-        self.logger = get_logger(f"{__name__}.{self.__class__.__name__}", verbose=verbose)
-        self.logger.info(f"Validated .gro file: {self.filepath}")
+    def __init__(self, path: str) -> None:
+        self.filepath = validate_path(path, suffix=".gro")
         self._universe = MDAnalysis.Universe(self.filepath)
 
     @property
@@ -70,27 +65,10 @@ class GroFileParser:
             residue_electrons[resname] = total_electrons
         return residue_electrons
 
-    @property
+    @cached_property
     def box_volume(self) -> float:
-        """float: Box volume from last line of GROMACS .gro file."""
-        return self._calculate_box_volume()
-
-    def _calculate_box_volume(self) -> float:
-        """
-        Compute box volume from the last line of a GROMACS .gro file.
-
-        Parameters
-        ----------
-        gro_path : str or Path
-            Path to the .gro file.
-
-        Returns
-        -------
-        float
-            Box volume in nanometers cubed (nm^3).
-        """
+        """float: Compute box volume (nm^3) from the last line of a GROMACS .gro file."""
         box_A = np.asarray(self._universe.dimensions[:3])
         box_nm = box_A / 10.0  # convert from Angstroms to nm
         volume_nm3 = np.prod(box_nm)
-        self.logger.info("Successfully parsed .gro file for box dimensions.")
         return float(volume_nm3)
