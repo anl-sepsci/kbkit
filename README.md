@@ -59,7 +59,7 @@ make help
 
 ## File Organization
 
-For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components. 
+For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components.
 This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
 
 * NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
@@ -103,85 +103,46 @@ See examples for a more complete example on the ethanol/water binary system.
 
 ```python
 import os
-from kbkit.analysis import KBIntegrator
-from kbkit.systems import SystemProperties
+from kbkit.analysis import KBIntegrator, SystemProperties
+from kbkit.parsers import RDFParser
 
 syspath = "./examples/test_data/ethanol_water_26C/sys_405"
 rdf_path = os.path.join(sys_path, "kbi_rdf_files_gmx25", "rdf_ETHOL_SPCEW.xvg")
 
 # create integrator object from single RDF file
-integrator = KBIntegrator(
-    rdf_file=rdf_path,
+rdf = RDFParser(path=rdf_path)
+integrator = KBIntegrator.from_system_properties(
+    rdf=rdf,
     system_properties=SystemProperties(sys_path),
-    use_fixed_rmin=False,
 )
 
 # calculate KBI in thermodynamic limit
-kbi = integrator.kbi_limit(mol_j="SPCEW")
+kbi = integrator.compute_kbi(mol_j="SPCEW")
 ```
 
 ### Run an automated pipeline for batch analysis
 
 ```python
-from kbkit import Pipeline
+from kbkit.core import Pipeline
 
 # Set up and run the pipeline
 pipe = Pipeline(
-    base_path="./examples/test_data/ethanol_water_26C", # directory with system data
-    pure_path="./examples/test_data/pure_components",   # directory with pure component data
-    pure_systems=["ETHOL_300", "SPCEW_300"],            # list of pure systems
-    ensemble="npt",                                     # ensemble type: npt or nvt
-    gamma_integration_type="numerical",                 # integration method
-    verbose=False                                       # logging verbosity
+    base_path="./examples/test_data/ethanol_water_26C", 
+    pure_path="./examples/test_data/pure_components",   
+    pure_systems=["ETHOL_300", "SPCEW_300"],            
+    include_mode="npt",                                 
+    activity_integration_type="numerical",                 
 )
 
-# run kbkit pipeline
-pipe.run()
-
-# Access the results properties
-# stored in dataclass (ThermoProperty); attributes: name, value, units
-# example for excess energy
-ge_obj = pipe.get("ge")
-print("GE summary: ", ge_array.shape)
+# Access the properties in PropertyResults objects
+res = pipe.results
 
 # Convert units from kJ/mol -> kcal/mol
-# default units will be those from GROMACS
-pipe.convert_units("ge", "kcal/mol")
+# current units will be read from existing PropertyResult object
+g_ex_res = res["g_ex"].to("kJ/mol")
 
-# make figures for select thermodynamic properties
-pipe.plot(
-    molecule_map={"ETHOL": "ethanol", "SPCEW": "water"}, # dictionary mapping MD names to label names
-    x_mol="ETHOL"                                        # MD name of molecule for x-axis
-)
-```
-
-### Parse GROMACS files
-
-```python
-import os
-from kbkit.parsers import TopFileParser, EdrFileParser, GroFileParser
-
-syspath = "./examples/test_data/ethanol_water_26C/sys_405"
-top_file = os.path.join(syspath, "sys_405.top")
-gro_file = os.path.join(syspath, "sys_405.gro")
-edr_file = os.path.join(syspath, "sys_405_npt.edr")
-
-# determines molecules present in simulation and their counts
-top_parser = TopFileParser(top_file)
-print("molecule dict: ", top_parser.molecule_counts)
-print("molecule names: ", top_parser.molecules)
-print("total molecule number: ", top_parser.total_molecules)
-
-# determines electron count for each molecule type
-gro_parser = GroFileParser(gro_file)
-print("electron dict: ", gro_parser.electron_count)
-print("box volume: ", gro_parser.compute_box_volume())
-
-# computes energy properties by calling gmx energy
-edr_parser = EdrFileParser(edr_file)
-print("List of available properties: ", edr_parser.available_properties())
-print("Density array over simulation time: ", edr_parser.extract_timeseries("density"))
-print("Average density with std deviation: ", edr_parser.average_property("density", return_std=True))
+# make figures for KBI analysis and select thermodynamic properties
+pipe.make_figures(xmol="ETHOL")
 ```
 
 ## Credits
