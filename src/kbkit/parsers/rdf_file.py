@@ -57,8 +57,8 @@ class RDFParser:
 
         # get convergence
         if not tail_length:
-            min_distance = 2  # nm
-            tail_lengths = np.arange(0.5, self.r.max() - min_distance, 0.1)[::-1]
+            max_length = 2  # nm
+            tail_lengths = np.arange(0.5, max_length, 0.1)[::-1]
             self.mask, self._tail_slope, self._total_change, self._grade = self.find_converged_tail(
                 tail_lengths, thresholds=convergence_thresholds
             )

@@ -132,7 +132,7 @@ class ThermoPlotter:
         ax.legend()
         if savepath:
             fpath = Path(savepath)
-            fpath = fpath if fpath.is_file() else fpath / "thermo_property.pdf"
+            fpath = fpath if fpath.suffix else fpath / "thermo_property.pdf"
             fig.savefig(fpath, dpi=100)
 
         if show:
@@ -209,7 +209,7 @@ class ThermoPlotter:
 
         if savepath:
             fpath = Path(savepath)
-            fpath = fpath if fpath.is_file() else fpath / f"{name.lower()}.pdf"
+            fpath = fpath if fpath.suffix else fpath / f"{name.lower()}.pdf"
 
         return self.plot(x, values, xlabel, ylabel, xlim, ylim, lw, ls, marker, cmap, figsize, savepath, show)
 
@@ -276,7 +276,7 @@ class ThermoPlotter:
 
         if savepath:
             fpath = Path(savepath)
-            fpath = fpath if fpath.is_file() else fpath / "ternary_property.pdf"
+            fpath = fpath if fpath.suffix else fpath / "ternary_property.pdf"
             fig.savefig(fpath, dpi=100)
 
         if show:
@@ -363,7 +363,7 @@ class ThermoPlotter:
             Display the figure.
         """
         fig, ax = self.plot_property(
-            "activity_coef_deriv",
+            "ln_activity_coef_deriv",
             xlabel=r"$x_i$",
             ylabel=r"$\partial \ln \gamma_i / \partial x_i$",
             xlim=xlim,
@@ -383,7 +383,7 @@ class ThermoPlotter:
 
         if savepath:
             fpath = Path(savepath)
-            fpath = fpath if fpath.is_file() else fpath / "activity_coef_deriv_fits.pdf"
+            fpath = fpath if fpath.suffix else fpath / "activity_coef_deriv_fits.pdf"
             fig.savefig(fpath, dpi=100)
 
         if show:
@@ -434,15 +434,15 @@ class ThermoPlotter:
         cmap_obj = plt.get_cmap(cmap)
         colors = cmap_obj(np.linspace(0, 1, 5))
         xmol_mix = xmol or self.thermo.systems.molecules[0]
-        xi = self.systems.x[:, self.thermo.systems.get_mol_index(xmol_mix)]
+        xi = self.thermo.systems.x[:, self.thermo.systems.get_mol_index(xmol_mix)]
         ax.set_prop_cycle(cycler(color=colors))
         ax.plot(xi, self.thermo.h_mix(), lw=lw, ls=ls, marker=marker, label=r"$\Delta H_{mix}$")
-        ax.plot(xi, self.thermo.s_ex(), lw=lw, ls=ls, marker=marker, label=r"$S^{EX}$")
+        ax.plot(xi, -self.thermo.temperature() * self.thermo.s_ex(), lw=lw, ls=ls, marker=marker, label=r"$-TS^{EX}$")
         ax.plot(xi, self.thermo.g_ex(), lw=lw, ls=ls, marker=marker, label=r"$G^{EX}$")
-        ax.plot(xi, -1 * self.thermo.g_id() / self.thermo.temperature(), lw=lw, ls=ls, marker=marker, label=r"$S^{id}$")
+        ax.plot(xi, -self.thermo.temperature() * self.thermo.g_id() / self.thermo.temperature(), lw=lw, ls=ls, marker=marker, label=r"$-TS^{id}$")
         ax.plot(xi, self.thermo.g_mix(), lw=lw, ls=ls, marker=marker, label=r"$\Delta G_{mix}$")
         ax.set_xlabel(rf"$x_{{{xmol_mix}}}$")
-        ax.set_ylabel(r"Thermodynamic Properties")
+        ax.set_ylabel(fr"Thermodynamic Properties ({format_unit_str("kJ/mol")})")
         ax.legend()
 
         if xlim:
@@ -452,7 +452,7 @@ class ThermoPlotter:
 
         if savepath:
             fpath = Path(savepath)
-            fpath = fpath if fpath.is_file() else fpath / "thermodyanmic_mixing_properties.pdf"
+            fpath = fpath if fpath.suffix else fpath / "thermodyanmic_mixing_properties.pdf"
             fig.savefig(fpath, dpi=100)
 
         if show:
@@ -463,9 +463,9 @@ class ThermoPlotter:
 
     def make_figures(
         self,
+        savepath: str,
         xmol: str | None = None,
         cmap: str = "jet",
-        savepath: str | None = None,
     ) -> None:
         """
         Create default figures for a binary or ternary system.
@@ -479,6 +479,8 @@ class ThermoPlotter:
         savepath: str, optional
             File location to save figure.
         """
+        savepath = Path(savepath)
+
         # plot kbis
         self.plot_property(
             name="kbi",
@@ -493,15 +495,15 @@ class ThermoPlotter:
         # plot activity coeffs.
         if self.thermo.activity_integration_type == "polynomial":
             self.plot_activity_coef_deriv_fits(
-                cmap=cmap, savepath=savepath / "activity_coef_deriv_fits.pdf", show=False
+                cmap=cmap, savepath=savepath / "ln_activity_coef_deriv_fits.pdf", show=False
             )
         else:
             self.plot_property(
-                name="activity_coef_deriv",
+                name="ln_activity_coef_deriv",
                 xmol=xmol,
                 ylabel=r"$\partial \ln \gamma_i / \partial x_i$",
                 cmap=cmap,
-                savepath=savepath / "activity_coef_derivs.pdf",
+                savepath=savepath / "ln_activity_coef_derivs.pdf",
                 show=False,
             )
 
@@ -525,10 +527,10 @@ class ThermoPlotter:
         )
 
         system_types = {BINARY: "BINARY", TERNARY: "TERNARY"}
-        if self.systems.n_i not in system_types:
+        if self.thermo.systems.n_i not in system_types:
             return
 
-        sys_type = system_types[self.systems.n_i]
+        sys_type = system_types[self.thermo.systems.n_i]
         if sys_type == "BINARY":
             # plot structure factors
             self.plot_property(

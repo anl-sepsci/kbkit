@@ -74,8 +74,8 @@ class KBIAnalysisPlotter:
         ax[0].legend(loc="best", ncol=1, fontsize="small", frameon=True)
         if savepath:
             savepath = Path(savepath)
-            savepath = savepath if savepath.is_file() else savepath / f"{system_name}.pdf"
-            plt.savefig(savepath, dpi=100)
+            fpath = savepath if not savepath.is_dir() else savepath / f"{system_name}.pdf"
+            plt.savefig(fpath, dpi=100)
         if show:
             plt.show()
         else:
@@ -99,4 +99,5 @@ class KBIAnalysisPlotter:
 
         # plot all systems
         for sys, _ in self.metadata.items():
-            self.plot(system_name=sys, units=units, savepath=savepath / f"{sys}.pdf", show=show)
+            fpath = savepath / f"{sys}.pdf"
+            self.plot(system_name=sys, units=units, savepath=fpath, show=show)

@@ -241,7 +241,7 @@ class Pipeline:
         """
         # get savepath
         savepath = validate_path(savepath or self.base_path)
-        savepath = savepath / "kb_analysis" if savepath == self.base_path else savepath
+        savepath = savepath / "kb_analysis" if savepath == validate_path(self.base_path) else savepath
         savepath.mkdir(parents=True, exist_ok=True)
 
         # plot all kbi_analysis
