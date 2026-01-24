@@ -6,20 +6,20 @@ from re import Match
 
 # Default alias map (can be extended or replaced)
 ENERGY_ALIASES: dict[str, set[str]] = {
-    "Isothermal-Compressibility": {"kappa", "kT", "kt", "isothermal_compressibility"},
-    "Cp": {"cp", "c_p", "C_p", "Cp", "heat_capacity", "heat_cap_cp"},
-    "Cv": {"cv", "c_v", "C_v", "Cv", "heat_capacity_v", "heat_cap_cv"},
-    "Time": {"time", "timestep", "dt"},
-    "Enthalpy": {"enthalpy", "enth", "h", "H"},
-    "Temperature": {"temperature", "temp", "t"},
-    "Volume": {"volume", "vol", "v"},
-    "Pressure": {"pressure", "pres", "p"},
-    "Density": {"density", "mass_volume"},
-    "Potential": {"potential_energy", "potential", "pe", "U"},
-    "Kinetic-En": {"kinetic_energy", "kinetic", "ke"},
-    "Total-Energy": {"total_energy", "etot", "total", "E"},
-    "Number-Density": {"number_density", "rho", "num_rho", "molec_per_volume"},
-    "Molar-Volume": {"molar_volume", "mol_vol", "partial_volume"},
+    "isothermal-compressibility": {"kappa", "kT", "kt", "isothermal_compressibility"},
+    "cp": {"cp", "c_p", "C_p", "Cp", "heat_capacity", "heat_cap_cp"},
+    "cv": {"cv", "c_v", "C_v", "Cv", "heat_capacity_v", "heat_cap_cv"},
+    "time": {"time", "timestep", "dt"},
+    "enthalpy": {"enthalpy", "enth", "h", "H"},
+    "temperature": {"temperature", "temp", "t"},
+    "volume": {"volume", "vol", "v"},
+    "pressure": {"pressure", "pres", "p"},
+    "density": {"density", "mass_volume"},
+    "potential": {"potential_energy", "potential", "pe", "U"},
+    "kinetic-en": {"kinetic_energy", "kinetic", "ke"},
+    "total-energy": {"total_energy", "etot", "total", "E"},
+    "number-density": {"number_density", "rho", "num_rho", "molec_per_volume"},
+    "molar-volume": {"molar_volume", "mol_vol", "partial_volume"},
 }
 
 

@@ -103,8 +103,9 @@ See examples for a more complete example on the ethanol/water binary system.
 
 ```python
 import os
-from kbkit.analysis import KBIntegrator, SystemProperties
-from kbkit.parsers import RDFParser
+from kbkit.kbi import KBIntegrator
+from kbkit.systems import SystemProperties
+from kbkit.io import RdfParser
 
 syspath = "./examples/test_data/ethanol_water_26C/sys_405"
 rdf_path = os.path.join(sys_path, "kbi_rdf_files_gmx25", "rdf_ETHOL_SPCEW.xvg")
@@ -123,7 +124,7 @@ kbi = integrator.compute_kbi(mol_j="SPCEW")
 ### Run an automated pipeline for batch analysis
 
 ```python
-from kbkit.core import Pipeline
+from kbkit.api import Pipeline
 
 # Set up and run the pipeline
 pipe = Pipeline(

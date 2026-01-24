@@ -1,11 +1,12 @@
 """Structured representation of scalar properties with units and semantic tags."""
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Any
 
 import numpy as np
 
 from kbkit.config.unit_registry import load_unit_registry
+from kbkit.schema.kbi_metadata import KBIMetadata
 
 
 @dataclass
@@ -15,31 +16,191 @@ class PropertyResult:
 
     Parameters
     ----------
-    value: np.ndarray
+    name : str
+        Name of the property (e.g., "density", "kbi", "activity_coefficient")
+    value : np.ndarray
         Calculated property values.
-    property_type: str
-        String for type of property calculated.
-    units: str
-        Units of the property.
-    metadata: dict, optional
-        Additional calculation metadata, i.e., mixing rules.
+    property_type : {"ideal", "excess", "pure", "simulated"}, optional
+        Type of property calculated.
+    units : str, optional
+        Units of the property (e.g., "kg/m^3", "kJ/mol").
+    metadata : dict, optional
+        Additional calculation metadata (e.g., mixing rules, KBI metadata).
+
+    Examples
+    --------
+    >>> result = PropertyResult(
+    ...     name="density",
+    ...     value=np.array([1000.0, 950.0]),
+    ...     units="kg/m^3",
+    ...     property_type="simulated"
+    ... )
+    >>> result_si = result.to("g/cm^3")
     """
 
     name: str
     value: np.ndarray
     property_type: Literal["ideal", "excess", "pure", "simulated"] | None = None
     units: str | None = None
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
-    def to(self, units: str | None = None):
-        """Convert property to desired units."""
-        units = units or self.units
+    def __post_init__(self):
+        """Validate inputs after initialization."""
+        if not isinstance(self.value, np.ndarray):
+            self.value = np.asarray(self.value)
+
+    def to(self, units: str) -> "PropertyResult":
+        """
+        Convert property to desired units.
+
+        For KBI properties, also converts KBIMetadata values.
+
+        Parameters
+        ----------
+        units : str
+            Target units for conversion.
+
+        Returns
+        -------
+        PropertyResult
+            New PropertyResult with converted values and units.
+
+        Raises
+        ------
+        ValueError
+            If current units are not set or conversion is not possible.
+
+        Examples
+        --------
+        >>> result = PropertyResult(name="density", value=np.array([1.0]), units="g/cm^3")
+        >>> result_si = result.to("kg/m^3")
+        >>> result_si.value
+        array([1000.])
+        """
+        if self.units is None:
+            raise ValueError(
+                f"Cannot convert PropertyResult '{self.name}' without units. "
+                "Original units were not specified."
+            )
+
+        if units == self.units:
+            # No conversion needed, return self
+            return self
+
         ureg = load_unit_registry()
 
-        # Convert the magnitude
-        new_value = ureg.Quantity(self.value, self.units).to(units).magnitude
+        try:
+            # Convert the main value
+            quantity = ureg.Quantity(self.value, self.units)
+            new_value = quantity.to(units).magnitude
+        except Exception as e:
+            raise ValueError(
+                f"Cannot convert '{self.name}' from '{self.units}' to '{units}': {e}"
+            ) from e
 
-        # Return a copy with new values and units
+        # Handle metadata conversion
+        new_metadata = None
+        if self.metadata:
+            if self.name.lower() == "kbi":
+                # Special handling for KBI metadata
+                new_metadata = self._convert_kbi_metadata(units, ureg)
+            else:
+                # For other properties, just copy metadata
+                new_metadata = self.metadata.copy() if self.metadata else None
+
+        # Return a new PropertyResult with converted values
         return PropertyResult(
-            name=self.name, value=new_value, property_type=self.property_type, units=units, metadata=self.metadata
+            name=self.name,
+            value=new_value,
+            property_type=self.property_type,
+            units=units,
+            metadata=new_metadata
         )
+
+    def _convert_kbi_metadata(self, target_units: str, ureg) -> dict[str, Any]:
+        """
+        Convert KBI metadata to target units.
+
+        Parameters
+        ----------
+        target_units : str
+            Target units for KBI values.
+        ureg : UnitRegistry
+            Pint unit registry.
+
+        Returns
+        -------
+        dict
+            Metadata with converted KBIMetadata objects.
+        """
+        new_metadata = {}
+
+        for system_name, pair_dict in self.metadata.items():
+            if not isinstance(pair_dict, dict):
+                # Not the expected structure, keep as-is
+                new_metadata[system_name] = pair_dict
+                continue
+
+            new_metadata[system_name] = {}
+            for pair_name, kbi_meta in pair_dict.items():
+                if isinstance(kbi_meta, KBIMetadata):
+                    # Convert KBIMetadata
+                    new_metadata[system_name][pair_name] = self._convert_single_kbi_metadata(
+                        kbi_meta, target_units, ureg
+                    )
+                else:
+                    # Keep non-KBIMetadata as-is
+                    new_metadata[system_name][pair_name] = kbi_meta
+
+        return new_metadata
+
+    def _convert_single_kbi_metadata(
+        self, kbi_meta: KBIMetadata, target_units: str, ureg
+    ) -> KBIMetadata:
+        """
+        Convert a single KBIMetadata object to target units.
+
+        Parameters
+        ----------
+        kbi_meta : KBIMetadata
+            Original KBIMetadata object.
+        target_units : str
+            Target units for KBI values.
+        ureg : UnitRegistry
+            Pint unit registry.
+
+        Returns
+        -------
+        KBIMetadata
+            New KBIMetadata with converted values.
+        """
+        # Convert volume-based quantities (KBI values)
+        new_rkbi = ureg.Quantity(kbi_meta.rkbi, self.units).to(target_units).magnitude
+        new_scaled_rkbi = ureg.Quantity(kbi_meta.scaled_rkbi, self.units).to(target_units).magnitude
+        new_scaled_rkbi_fit = ureg.Quantity(kbi_meta.scaled_rkbi_fit, self.units).to(target_units).magnitude
+        new_scaled_rkbi_est = ureg.Quantity(kbi_meta.scaled_rkbi_est, self.units).to(target_units).magnitude
+        new_kbi_limit = ureg.Quantity(kbi_meta.kbi_limit, self.units).to(target_units).magnitude
+
+        # Create new KBIMetadata with converted values
+        return KBIMetadata(
+            mols=kbi_meta.mols,
+            r=kbi_meta.r,  # Distance units (nm) - unchanged
+            g=kbi_meta.g,  # Dimensionless - unchanged
+            rkbi=new_rkbi,
+            scaled_rkbi=new_scaled_rkbi,
+            r_fit=kbi_meta.r_fit,  # Distance units - unchanged
+            scaled_rkbi_fit=new_scaled_rkbi_fit,
+            scaled_rkbi_est=new_scaled_rkbi_est,
+            kbi_limit=new_kbi_limit,
+        )
+
+    def __repr__(self) -> str:
+        """String representation of PropertyResult."""
+        value_str = f"shape={self.value.shape}" if self.value.ndim > 0 else f"value={self.value}"
+        units_str = f", units='{self.units}'" if self.units else ""
+        type_str = f", type='{self.property_type}'" if self.property_type else ""
+        return f"PropertyResult(name='{self.name}', {value_str}{units_str}{type_str})"
+
+    def __str__(self) -> str:
+        """User-friendly string representation."""
+        return f"{self.name}: {self.value} {self.units or '(dimensionless)'}"

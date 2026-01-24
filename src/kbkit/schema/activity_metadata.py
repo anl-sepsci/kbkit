@@ -92,10 +92,5 @@ class ActivityMetadata:
         property_type: str
             Type of activity coefficient property.
         """
-        keys = list(self.by_types.keys())
-
-        for key in keys:
-            if property_type.lower().startswith("d") and key.lower().startswith("d"):
-                return self._by_types[key][mol]
-
-            return self._by_types[key][mol]
+        key = "derivative" if property_type.lower().startswith("d") else "integrated"
+        return self.by_types[key][mol]
