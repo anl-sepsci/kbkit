@@ -1,7 +1,7 @@
 Property Calculator 
 =============================
 
-.. automodule:: kbkit.analysis.property_calculator
+.. automodule:: kbkit.kbi.calculator
    :members:
    :undoc-members:
    :show-inheritance:

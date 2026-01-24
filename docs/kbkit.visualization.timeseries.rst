@@ -1,7 +1,7 @@
 Timeseries Plotter
 =====================
 
-.. automodule:: kbkit.plotter.timeseries
+.. automodule:: kbkit.visualization.timeseries
    :members:
    :undoc-members:
    :show-inheritance:

@@ -8,12 +8,14 @@ Check out our `latest release <https://github.com/anl-sepsci/kbkit/releases>`_ o
     :caption: API Reference:
     :titlesonly:
 
-    kbkit.analysis
-    kbkit.core
-    kbkit.plotter
-    kbkit.parsers
+    kbkit.api
+    kbkit.config
+    kbkit.io
+    kbkit.kbi
     kbkit.schema
+    kbkit.systems
     kbkit.utils
+    kbkit.visualization
 
 
 Installation

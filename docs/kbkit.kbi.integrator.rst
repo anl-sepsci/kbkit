@@ -1,7 +1,7 @@
 Kirkwood-Buff Integrator
 =============================
 
-.. automodule:: kbkit.analysis.kb_integrator
+.. automodule:: kbkit.kbi.integrator
    :members:
    :undoc-members:
    :show-inheritance:

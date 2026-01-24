@@ -1,7 +1,7 @@
 Pipeline
 =========
 
-.. automodule:: kbkit.workflow.pipeline
+.. automodule:: kbkit.api.pipeline
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,7 +1,7 @@
-Thermo Plotter
+KBI Analysis Plotter
 =====================
 
-.. automodule:: kbkit.plotter.thermo
+.. automodule:: kbkit.visualization.kbi
    :members:
    :undoc-members:
    :show-inheritance:

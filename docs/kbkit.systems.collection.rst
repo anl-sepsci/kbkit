@@ -1,7 +1,7 @@
-System Properties
+System Collection 
 ==================
 
-.. automodule:: kbkit.analysis.system_properties
+.. automodule:: kbkit.systems.collection
    :members:
    :undoc-members:
    :show-inheritance:
