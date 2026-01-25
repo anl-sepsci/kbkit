@@ -5,19 +5,21 @@ This test suite provides comprehensive coverage of the Pipeline class,
 including initialization, system building, property calculations, and plotting.
 """
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, PropertyMock, call
+from unittest.mock import Mock, patch
+
 import numpy as np
+import pytest
 
 from kbkit.api.pipeline import Pipeline
-from kbkit.systems.collection import SystemCollection
 from kbkit.kbi.calculator import KBICalculator
 from kbkit.kbi.thermodynamics import KBThermo
 from kbkit.schema.property_result import PropertyResult
+from kbkit.systems.collection import SystemCollection
 from kbkit.visualization.kbi import KBIAnalysisPlotter
 from kbkit.visualization.thermo import ThermoPlotter
 from kbkit.visualization.timeseries import TimeseriesPlotter
@@ -37,7 +39,7 @@ def mock_system_collection():
         "Density": "kg/m^3",
         "Time": "ps"  # Should be skipped
     }
-    
+
     # Mock property methods
     mock_sc.simulated_property.return_value = PropertyResult(
         name="Temperature",
@@ -57,7 +59,7 @@ def mock_system_collection():
         units="K",
         property_type="excess"
     )
-    
+
     return mock_sc
 
 
@@ -65,7 +67,7 @@ def mock_system_collection():
 def mock_kbi_calculator():
     """Create a mock KBICalculator."""
     mock_calc = Mock(spec=KBICalculator)
-    
+
     # Mock KBI result
     mock_kbi_result = PropertyResult(
         name="kbi",
@@ -74,7 +76,7 @@ def mock_kbi_calculator():
         metadata={}
     )
     mock_calc.kbi.return_value = mock_kbi_result
-    
+
     return mock_calc
 
 
@@ -82,7 +84,7 @@ def mock_kbi_calculator():
 def mock_kb_thermo():
     """Create a mock KBThermo."""
     mock_thermo = Mock(spec=KBThermo)
-    
+
     # Mock results
     mock_thermo.results = {
         "kbi": PropertyResult(
@@ -102,7 +104,7 @@ def mock_kb_thermo():
         ),
         "non_property_result": "should be filtered"
     }
-    
+
     return mock_thermo
 
 
@@ -112,7 +114,7 @@ class TestPipelineInitialization:
     def test_init_with_minimal_parameters(self):
         """Test initialization with minimal parameters."""
         pipeline = Pipeline()
-        
+
         assert pipeline.base_path is None
         assert pipeline.base_systems is None
         assert pipeline.pure_path is None
@@ -141,7 +143,7 @@ class TestPipelineInitialization:
             activity_polynomial_degree=7,
             molecule_map={"MOL1": "Molecule 1"}
         )
-        
+
         assert pipeline.base_path == "/path/to/base"
         assert pipeline.base_systems == ["sys1", "sys2"]
         assert pipeline.pure_path == "/path/to/pure"
@@ -162,14 +164,14 @@ class TestPipelineInitialization:
     def test_init_converts_activity_integration_type_to_string(self):
         """Test that activity_integration_type is converted to string."""
         pipeline = Pipeline(activity_integration_type="numerical")
-        
+
         assert isinstance(pipeline.activity_integration_type, str)
         assert pipeline.activity_integration_type == "numerical"
 
     def test_init_converts_polynomial_degree_to_int(self):
         """Test that activity_polynomial_degree is converted to int."""
         pipeline = Pipeline(activity_polynomial_degree=5.0)
-        
+
         assert isinstance(pipeline.activity_polynomial_degree, int)
         assert pipeline.activity_polynomial_degree == 5
 
@@ -182,7 +184,7 @@ class TestPipelineBuildSystems:
         """Test that _build_systems calls SystemCollection.load."""
         mock_sc = Mock(spec=SystemCollection)
         mock_load.return_value = mock_sc
-        
+
         pipeline = Pipeline(
             base_path="/path/to/base",
             base_systems=["sys1"],
@@ -192,9 +194,9 @@ class TestPipelineBuildSystems:
             start_time=5000,
             include_mode="nvt"
         )
-        
+
         result = pipeline._build_systems()
-        
+
         mock_load.assert_called_once_with(
             base_path="/path/to/base",
             base_systems=["sys1"],
@@ -211,10 +213,10 @@ class TestPipelineBuildSystems:
         """Test _build_systems with default parameters."""
         mock_sc = Mock(spec=SystemCollection)
         mock_load.return_value = mock_sc
-        
+
         pipeline = Pipeline()
         result = pipeline._build_systems()
-        
+
         mock_load.assert_called_once_with(
             base_path=None,
             base_systems=None,
@@ -233,11 +235,11 @@ class TestPipelineSystemsProperty:
     def test_systems_property_calls_build_systems(self, mock_load, mock_system_collection):
         """Test that systems property calls _build_systems."""
         mock_load.return_value = mock_system_collection
-        
+
         pipeline = Pipeline()
-        
+
         result = pipeline.systems
-        
+
         assert result == mock_system_collection
         mock_load.assert_called_once()
 
@@ -245,12 +247,12 @@ class TestPipelineSystemsProperty:
     def test_systems_property_is_cached(self, mock_load, mock_system_collection):
         """Test that systems property is cached."""
         mock_load.return_value = mock_system_collection
-        
+
         pipeline = Pipeline()
-        
+
         result1 = pipeline.systems
         result2 = pipeline.systems
-        
+
         assert result1 is result2
         mock_load.assert_called_once()
 
@@ -266,7 +268,7 @@ class TestPipelineCalculatorProperty:
         """Test that calculator property creates KBICalculator."""
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
-        
+
         pipeline = Pipeline(
             ignore_convergence_errors=True,
             rdf_convergence_thresholds=(1e-4, 1e-3),
@@ -275,9 +277,9 @@ class TestPipelineCalculatorProperty:
             kbi_apply_damping=False,
             kbi_extrapolate_thermodynamic_limit=False
         )
-        
+
         result = pipeline.calculator
-        
+
         mock_calc_class.assert_called_once_with(
             systems=mock_system_collection,
             ignore_convergence_errors=True,
@@ -297,12 +299,12 @@ class TestPipelineCalculatorProperty:
         """Test that calculator property is cached."""
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
-        
+
         pipeline = Pipeline()
-        
+
         result1 = pipeline.calculator
         result2 = pipeline.calculator
-        
+
         assert result1 is result2
         mock_calc_class.assert_called_once()
 
@@ -318,18 +320,18 @@ class TestPipelineKBIResProperty:
         """Test that kbi_res property calls calculator.kbi()."""
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         pipeline = Pipeline()
-        
+
         result = pipeline.kbi_res
-        
+
         mock_kbi_calculator.kbi.assert_called_once_with(units="cm^3/mol")
         assert result == mock_kbi_result
 
@@ -341,19 +343,19 @@ class TestPipelineKBIResProperty:
         """Test that kbi_res property is not cached (calls kbi each time)."""
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         pipeline = Pipeline()
-        
+
         result1 = pipeline.kbi_res
         result2 = pipeline.kbi_res
-        
+
         # Should call kbi twice (not cached)
         assert mock_kbi_calculator.kbi.call_count == 2
 
@@ -372,21 +374,21 @@ class TestPipelineThermoProperty:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         pipeline = Pipeline(
             activity_integration_type="polynomial",
             activity_polynomial_degree=7
         )
-        
+
         result = pipeline.thermo
-        
+
         mock_thermo_class.assert_called_once_with(
             systems=mock_system_collection,
             kbi=mock_kbi_result,
@@ -406,19 +408,19 @@ class TestPipelineThermoProperty:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         pipeline = Pipeline()
-        
+
         result1 = pipeline.thermo
         result2 = pipeline.thermo
-        
+
         assert result1 is result2
         mock_thermo_class.assert_called_once()
 
@@ -437,18 +439,18 @@ class TestPipelineResultsProperty:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         pipeline = Pipeline()
-        
+
         results = pipeline.results
-        
+
         # Should include PropertyResult objects from thermo.results
         assert "kbi" in results
         assert "ln_activity_coef" in results
@@ -467,18 +469,18 @@ class TestPipelineResultsProperty:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         pipeline = Pipeline()
-        
+
         results = pipeline.results
-        
+
         # Should include simulated, ideal, and excess for each property
         assert "simulated_temperature" in results
         assert "ideal_temperature" in results
@@ -501,18 +503,18 @@ class TestPipelineResultsProperty:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         pipeline = Pipeline()
-        
+
         results = pipeline.results
-        
+
         # Should not include time-related properties
         assert "simulated_time" not in results
         assert "ideal_time" not in results
@@ -529,21 +531,21 @@ class TestPipelineResultsProperty:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         # Add property with uppercase and hyphens
         mock_system_collection.units["Coul-SR"] = "kJ/mol"
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         pipeline = Pipeline()
-        
+
         results = pipeline.results
-        
+
         # Should normalize to lowercase and replace hyphens
         assert "simulated_coul_sr" in results
 
@@ -557,14 +559,14 @@ class TestPipelineTimeseriesPlotter:
     ):
         """Test that timeseries_plotter calls systems.timeseries_plotter."""
         mock_load.return_value = mock_system_collection
-        
+
         mock_plotter = Mock(spec=TimeseriesPlotter)
         mock_system_collection.timeseries_plotter.return_value = mock_plotter
-        
+
         pipeline = Pipeline()
-        
+
         result = pipeline.timeseries_plotter("system_1", start_time=5000)
-        
+
         mock_system_collection.timeseries_plotter.assert_called_once_with(
             "system_1", 5000
         )
@@ -582,21 +584,21 @@ class TestPipelineKBIPlotter:
         """Test that kbi_plotter calls calculator.kbi_plotter."""
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         mock_plotter = Mock(spec=KBIAnalysisPlotter)
         mock_kbi_calculator.kbi_plotter.return_value = mock_plotter
-        
+
         pipeline = Pipeline(molecule_map={"MOL1": "Molecule 1"})
-        
+
         result = pipeline.kbi_plotter
-        
+
         mock_kbi_calculator.kbi_plotter.assert_called_once_with(
             molecule_map={"MOL1": "Molecule 1"}
         )
@@ -610,22 +612,19 @@ class TestPipelineKBIPlotter:
         """Test kbi_plotter without molecule_map."""
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         mock_plotter = Mock(spec=KBIAnalysisPlotter)
         mock_kbi_calculator.kbi_plotter.return_value = mock_plotter
-        
+
         pipeline = Pipeline()
-        
-        pipeline.kbi_plotter
-        
-        mock_kbi_calculator.kbi_plotter.assert_called_once_with(
+        pipeline.kbi_plotter.assert_called_once_with(
             molecule_map=None
         )
 
@@ -644,21 +643,21 @@ class TestPipelineThermoPlotter:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         mock_plotter = Mock(spec=ThermoPlotter)
         mock_kb_thermo.plotter.return_value = mock_plotter
-        
+
         pipeline = Pipeline(molecule_map={"MOL1": "Molecule 1"})
-        
+
         result = pipeline.thermo_plotter
-        
+
         mock_kb_thermo.plotter.assert_called_once_with(
             molecule_map={"MOL1": "Molecule 1"}
         )
@@ -680,30 +679,30 @@ class TestPipelineMakeFigures:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         # Mock plotters
         mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
         mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
-        
+
         mock_thermo_plotter = Mock(spec=ThermoPlotter)
         mock_kb_thermo.plotter.return_value = mock_thermo_plotter
-        
+
         # Setup path mocking
         base_path = tmp_path / "base"
         base_path.mkdir()
         mock_validate_path.return_value = base_path
-        
+
         pipeline = Pipeline(base_path=str(base_path))
-        
+
         pipeline.make_figures()
-        
+
         # Check that directories were created
         assert (base_path / "kb_analysis").exists()
         assert (base_path / "kb_analysis" / "system_figures").exists()
@@ -720,28 +719,28 @@ class TestPipelineMakeFigures:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
         mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
-        
+
         mock_thermo_plotter = Mock(spec=ThermoPlotter)
         mock_kb_thermo.plotter.return_value = mock_thermo_plotter
-        
+
         base_path = tmp_path / "base"
         base_path.mkdir()
         mock_validate_path.return_value = base_path
-        
+
         pipeline = Pipeline(base_path=str(base_path))
-        
+
         pipeline.make_figures()
-        
+
         # Verify plot_all was called
         mock_kbi_plotter.plot_all.assert_called_once()
         call_kwargs = mock_kbi_plotter.plot_all.call_args[1]
@@ -761,28 +760,28 @@ class TestPipelineMakeFigures:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
         mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
-        
+
         mock_thermo_plotter = Mock(spec=ThermoPlotter)
         mock_kb_thermo.plotter.return_value = mock_thermo_plotter
-        
+
         base_path = tmp_path / "base"
         base_path.mkdir()
         mock_validate_path.return_value = base_path
-        
+
         pipeline = Pipeline(base_path=str(base_path))
-        
+
         pipeline.make_figures(xmol="MOL1", cmap="viridis")
-        
+
         # Verify make_figures was called
         mock_thermo_plotter.make_figures.assert_called_once()
         call_kwargs = mock_thermo_plotter.make_figures.call_args[1]
@@ -802,33 +801,33 @@ class TestPipelineMakeFigures:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
         mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
-        
+
         mock_thermo_plotter = Mock(spec=ThermoPlotter)
         mock_kb_thermo.plotter.return_value = mock_thermo_plotter
-        
+
         custom_path = tmp_path / "custom"
         custom_path.mkdir()
-        
+
         # Mock validate_path to return different paths
         def validate_side_effect(path):
             return Path(path) if path else tmp_path
-        
+
         mock_validate_path.side_effect = validate_side_effect
-        
+
         pipeline = Pipeline()
-        
+
         pipeline.make_figures(savepath=str(custom_path))
-        
+
         # Should use custom path directly (not append kb_analysis)
         mock_thermo_plotter.make_figures.assert_called_once()
         call_kwargs = mock_thermo_plotter.make_figures.call_args[1]
@@ -849,27 +848,27 @@ class TestPipelineIntegration:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         # Create pipeline
         pipeline = Pipeline(
             base_path="/path/to/base",
             activity_integration_type="polynomial"
         )
-        
+
         # Access all major components
         systems = pipeline.systems
         calculator = pipeline.calculator
         kbi_res = pipeline.kbi_res
         thermo = pipeline.thermo
         results = pipeline.results
-        
+
         # Verify all components were created
         assert systems == mock_system_collection
         assert calculator == mock_kbi_calculator
@@ -889,31 +888,31 @@ class TestPipelineIntegration:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
         mock_thermo_class.return_value = mock_kb_thermo
-        
+
         mock_kbi_result = PropertyResult(
             name="kbi",
             value=np.random.rand(3, 2, 2),
             units="cm^3/mol"
         )
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-        
+
         # Mock plotters
         mock_ts_plotter = Mock(spec=TimeseriesPlotter)
         mock_system_collection.timeseries_plotter.return_value = mock_ts_plotter
-        
+
         mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
         mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
-        
+
         mock_thermo_plotter = Mock(spec=ThermoPlotter)
         mock_kb_thermo.plotter.return_value = mock_thermo_plotter
-        
+
         pipeline = Pipeline()
-        
+
         # Access all plotters
         ts_plotter = pipeline.timeseries_plotter("system_1")
         kbi_plotter = pipeline.kbi_plotter
         thermo_plotter = pipeline.thermo_plotter
-        
+
         assert ts_plotter == mock_ts_plotter
         assert kbi_plotter == mock_kbi_plotter
         assert thermo_plotter == mock_thermo_plotter

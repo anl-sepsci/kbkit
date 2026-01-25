@@ -25,10 +25,10 @@ import numpy as np
 from scipy.integrate import cumulative_trapezoid
 
 from kbkit.config.unit_registry import load_unit_registry
-from kbkit.visualization.thermo import ThermoPlotter
 from kbkit.schema.activity_metadata import ActivityCoefficientResult, ActivityMetadata
 from kbkit.schema.property_result import PropertyResult
 from kbkit.utils.decorators import cached_property_value
+from kbkit.visualization.thermo import ThermoPlotter
 
 if TYPE_CHECKING:
     from kbkit.systems.collection import SystemCollection

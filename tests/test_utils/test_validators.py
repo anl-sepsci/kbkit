@@ -3,21 +3,20 @@ Complete test coverage for kbkit.utils.validation module.
 Target: >95% coverage
 """
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
-import pytest
 import os
 from pathlib import Path
-from kbkit.utils.validation import validate_path, GRO_MIN_LENGTH
 
+import pytest
 
+from kbkit.utils.validation import GRO_MIN_LENGTH, validate_path
 
 
 class TestValidatePath:
     """Test validate_path function."""
-
-
 
     def test_valid_directory_path(self, test_data_dir):
         """Test validation of a valid directory path."""
@@ -39,7 +38,7 @@ class TestValidatePath:
         # Create a test file with .txt suffix
         test_file = test_data_dir / "test.txt"
         test_file.write_text("test content")
-        
+
         result = validate_path(test_file, suffix=".txt")
         assert isinstance(result, Path)
         assert result.is_file()
@@ -85,14 +84,14 @@ class TestValidatePath:
         # Create a file in test directory
         test_file = test_data_dir / "test.txt"
         test_file.write_text("content")
-        
+
         # Use relative path
         original_dir = os.getcwd()
         try:
             os.chdir(test_data_dir.parent)
             relative_path = test_data_dir.name
             result = validate_path(relative_path)
-            
+
             # Should be resolved to absolute path
             assert result.is_absolute()
         finally:
@@ -102,17 +101,17 @@ class TestValidatePath:
         """Test that invalid types raise TypeError."""
         with pytest.raises(TypeError, match="Expected a string path"):
             validate_path(123)
-        
+
         with pytest.raises(TypeError, match="Expected a string path"):
             validate_path(["/path/to/dir"])
-        
+
         with pytest.raises(TypeError, match="Expected a string path"):
             validate_path(None)
 
     def test_nonexistent_file_with_suffix(self, test_data_dir):
         """Test that nonexistent file raises FileNotFoundError."""
         nonexistent = test_data_dir / "nonexistent.txt"
-        
+
         with pytest.raises(FileNotFoundError, match="Path is not a file"):
             validate_path(nonexistent, suffix=".txt")
 
@@ -120,7 +119,7 @@ class TestValidatePath:
         """Test that wrong suffix raises ValueError."""
         test_file = test_data_dir / "test.txt"
         test_file.write_text("content")
-        
+
         with pytest.raises(ValueError, match="Suffix .gro does not match file suffix"):
             validate_path(test_file, suffix=".gro")
 
@@ -133,7 +132,7 @@ class TestValidatePath:
         """Test that file path without suffix (expecting directory) raises error."""
         test_file = test_data_dir / "test.txt"
         test_file.write_text("content")
-        
+
         with pytest.raises(ValueError, match="Path is not a directory"):
             validate_path(test_file)
 
@@ -142,7 +141,7 @@ class TestValidatePath:
         gro_file = test_data_dir / "short.gro"
         # Create a .gro file with fewer than GRO_MIN_LENGTH lines
         gro_file.write_text("Line 1\nLine 2\n")
-        
+
         with pytest.raises(ValueError, match="too short to be a valid .gro file"):
             validate_path(gro_file, suffix=".gro")
 
@@ -152,7 +151,7 @@ class TestValidatePath:
         # Create exactly GRO_MIN_LENGTH lines
         lines = "\n".join([f"Line {i}" for i in range(GRO_MIN_LENGTH)])
         gro_file.write_text(lines)
-        
+
         result = validate_path(gro_file, suffix=".gro")
         assert isinstance(result, Path)
 
@@ -166,20 +165,20 @@ class TestValidatePath:
         # Mock os.access to return False
         def mock_access(path, mode):
             return False
-        
+
         monkeypatch.setattr(os, "access", mock_access)
-        
+
         with pytest.raises(PermissionError, match="Cannot read files in path"):
             validate_path(test_data_dir)
 
     def test_various_file_suffixes(self, test_data_dir):
         """Test validation with various file suffixes."""
         suffixes = [".txt", ".csv", ".json", ".dat", ".log"]
-        
+
         for suffix in suffixes:
             test_file = test_data_dir / f"test{suffix}"
             test_file.write_text("content")
-            
+
             result = validate_path(test_file, suffix=suffix)
             assert result.suffix == suffix
 
@@ -193,7 +192,7 @@ class TestValidatePath:
         """Test path with spaces in name."""
         dir_with_spaces = test_data_dir / "dir with spaces"
         dir_with_spaces.mkdir()
-        
+
         result = validate_path(dir_with_spaces)
         assert result.is_dir()
         assert "spaces" in str(result)
@@ -202,7 +201,7 @@ class TestValidatePath:
         """Test path with special characters."""
         special_dir = test_data_dir / "dir-with_special.chars"
         special_dir.mkdir()
-        
+
         result = validate_path(special_dir)
         assert result.is_dir()
 
@@ -211,8 +210,6 @@ class TestValidatePath:
 
 class TestGroMinLength:
     """Test GRO_MIN_LENGTH constant."""
-
-
 
     def test_gro_min_length_value(self):
         """Test that GRO_MIN_LENGTH has expected value."""
@@ -232,13 +229,11 @@ class TestGroMinLength:
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
 
-
-
     def test_hidden_directory(self, test_data_dir):
         """Test validation of hidden directory (starts with .)."""
         hidden_dir = test_data_dir / ".hidden"
         hidden_dir.mkdir()
-        
+
         result = validate_path(hidden_dir)
         assert result.is_dir()
 
@@ -246,7 +241,7 @@ class TestEdgeCases:
         """Test validation of hidden file."""
         hidden_file = test_data_dir / ".hidden.txt"
         hidden_file.write_text("content")
-        
+
         result = validate_path(hidden_file, suffix=".txt")
         assert result.is_file()
 
@@ -254,7 +249,7 @@ class TestEdgeCases:
         """Test deeply nested directory structure."""
         nested = test_data_dir / "a" / "b" / "c" / "d"
         nested.mkdir(parents=True)
-        
+
         result = validate_path(nested)
         assert result.is_dir()
 
@@ -262,7 +257,7 @@ class TestEdgeCases:
         """Test file with multiple dots in name."""
         multi_dot_file = test_data_dir / "file.name.with.dots.txt"
         multi_dot_file.write_text("content")
-        
+
         result = validate_path(multi_dot_file, suffix=".txt")
         assert result.suffix == ".txt"
 
@@ -270,7 +265,7 @@ class TestEdgeCases:
         """Test file without extension."""
         no_ext_file = test_data_dir / "README"
         no_ext_file.write_text("content")
-        
+
         # Should work if we don't specify suffix
         # But since no suffix means expecting directory, this will fail
         with pytest.raises(ValueError, match="Path is not a directory"):
@@ -281,7 +276,7 @@ class TestEdgeCases:
         long_name = "a" * 100
         long_dir = test_data_dir / long_name
         long_dir.mkdir()
-        
+
         result = validate_path(long_dir)
         assert result.is_dir()
 
@@ -289,7 +284,7 @@ class TestEdgeCases:
         """Test path with unicode characters."""
         unicode_dir = test_data_dir / "dir_with_unicode_测试"
         unicode_dir.mkdir()
-        
+
         result = validate_path(unicode_dir)
         assert result.is_dir()
 
@@ -317,11 +312,11 @@ class TestEdgeCases:
         """Test that suffix matching is case-sensitive."""
         test_file = test_data_dir / "test.TXT"
         test_file.write_text("content")
-        
+
         # Should fail because .TXT != .txt
         with pytest.raises(ValueError, match="Suffix .txt does not match"):
             validate_path(test_file, suffix=".txt")
-        
+
         # Should succeed with correct case
         result = validate_path(test_file, suffix=".TXT")
         assert result.suffix == ".TXT"
@@ -342,7 +337,7 @@ class TestEdgeCases:
             f = test_data_dir / f"file{i}.txt"
             f.write_text(f"content {i}")
             files.append(f)
-        
+
         # Validate each file
         for f in files:
             result = validate_path(f, suffix=".txt")
@@ -353,7 +348,7 @@ class TestEdgeCases:
         # First validate directory
         dir_result = validate_path(test_data_dir)
         assert dir_result.is_dir()
-        
+
         # Create and validate file within
         test_file = test_data_dir / "test.txt"
         test_file.write_text("content")
@@ -386,14 +381,14 @@ class TestEdgeCases:
         """Test that error messages contain useful information."""
         test_file = test_data_dir / "test.txt"
         test_file.write_text("content")
-        
+
         # Wrong suffix
         try:
             validate_path(test_file, suffix=".gro")
         except ValueError as e:
             assert ".gro" in str(e)
             assert ".txt" in str(e)
-        
+
         # File instead of directory
         try:
             validate_path(test_file)

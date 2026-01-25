@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.config.unit_registry import load_unit_registry
@@ -50,16 +49,16 @@ class KBIAnalysisPlotter:
         """
         # convert units if desired
         converted_result = self.result.to(units=units)
-        
+
         fig, ax = plt.subplots(1, 3, figsize=(12, 3.6))
         lines = []
         for _, meta in converted_result.metadata[system_name].items():
             molmap = self.molecule_map or {m: m for m in meta.mols}
-            l = ax[0].plot(meta.r, meta.g, lw=2.5, label="-".join(molmap[mol] for mol in meta.mols))
+            line = ax[0].plot(meta.r, meta.g, lw=2.5, label="-".join(molmap[mol] for mol in meta.mols))
             ax[1].plot(meta.r, meta.rkbi, lw=2.5)
             ax[2].plot(meta.r, meta.scaled_rkbi, lw=2.5)
             ax[2].plot(meta.r_fit, meta.scaled_rkbi_est, lw=3, ls="--", c="k")
-            lines.append(l)
+            lines.append(line)
 
         # if no lines are found just be done
         if lines:

@@ -1,33 +1,26 @@
 """
 Unit tests for the SystemProperties module.
 
-
-
-
 This test suite provides comprehensive coverage of the SystemProperties class,
 including file discovery, property access, unit conversion, and plotting.
 """
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
 
 
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
+from unittest.mock import Mock, patch
+
 import numpy as np
-import pandas as pd
+import pytest
 
-
-
-
-from kbkit.systems.properties import SystemProperties
 from kbkit.io import EdrParser, GroParser, TopParser
+from kbkit.systems.properties import SystemProperties
 from kbkit.visualization.timeseries import TimeseriesPlotter
-
-
 
 
 @pytest.fixture
@@ -80,24 +73,22 @@ def mock_top_parser():
 class TestSystemPropertiesInitialization:
     """Test SystemProperties initialization."""
 
-
-
     @patch('kbkit.systems.properties.SystemProperties.find_files')
     def test_init_with_system_path(self, mock_find_files, tmp_path):
         """Test initialization with system_path."""
         edr_file = tmp_path / "system.edr"
         gro_file = tmp_path / "system.gro"
         top_file = tmp_path / "system.top"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [edr_file],
             '.gro': [gro_file],
             '.top': [top_file]
         }.get(kwargs.get('suffix'), [])
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
-        
+
         assert props.system_path == tmp_path
         assert props.start_time == 0.0
 
@@ -107,22 +98,22 @@ class TestSystemPropertiesInitialization:
         edr_file = tmp_path / "system.edr"
         gro_file = tmp_path / "system.gro"
         top_file = tmp_path / "system.top"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [edr_file],
             '.gro': [gro_file],
             '.top': [top_file]
         }.get(kwargs.get('suffix'), [])
-        
+
         with patch('kbkit.systems.properties.validate_path') as mock_validate:
             mock_validate.side_effect = lambda x, *args: Path(x) if x else None
-            
+
             props = SystemProperties(
                 edr_path=str(edr_file),
                 gro_path=str(gro_file),
                 top_path=str(top_file),
             )
-        
+
         assert len(props.edr_paths) > 0
         assert len(props.gro_paths) > 0
         assert len(props.top_paths) > 0
@@ -132,16 +123,16 @@ class TestSystemPropertiesInitialization:
         """Test initialization with custom start_time."""
         edr_file = tmp_path / "system.edr"
         gro_file = tmp_path / "system.gro"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [edr_file],
             '.gro': [gro_file],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path), start_time=5000)
-        
+
         assert props.start_time == 5000.0
 
     @patch('kbkit.systems.properties.SystemProperties.find_files')
@@ -149,16 +140,16 @@ class TestSystemPropertiesInitialization:
         """Test that start_time is converted to float."""
         edr_file = tmp_path / "system.edr"
         gro_file = tmp_path / "system.gro"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [edr_file],
             '.gro': [gro_file],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path), start_time=1000)
-        
+
         assert isinstance(props.start_time, float)
         assert props.start_time == 1000.0
 
@@ -166,9 +157,9 @@ class TestSystemPropertiesInitialization:
     def test_init_without_system_path_validation(self, mock_find_files):
         """Test initialization without system_path doesn't validate."""
         mock_find_files.return_value = []
-        
+
         props = SystemProperties()
-        
+
         assert props.system_path is None
 
 
@@ -177,42 +168,40 @@ class TestSystemPropertiesInitialization:
 class TestSystemPropertiesFindFiles:
     """Test the find_files static method."""
 
-
-
     def test_find_files_with_filepath(self, tmp_path):
         """Test find_files with explicit filepath."""
         edr_file = tmp_path / "system.edr"
         edr_file.touch()
-        
+
         with patch('kbkit.systems.properties.validate_path') as mock_validate:
             mock_validate.side_effect = lambda x, *args: Path(x)
-            
+
             files = SystemProperties.find_files(suffix=".edr", filepath=str(edr_file))
-        
+
         assert len(files) == 1
         assert files[0] == edr_file
 
     def test_find_files_with_system_path(self, tmp_path):
         """Test find_files searching in system_path."""
         (tmp_path / "system.edr").touch()
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             files = SystemProperties.find_files(suffix=".edr", system_path=str(tmp_path))
-        
+
         assert len(files) == 1
 
     def test_find_files_with_include_filter(self, tmp_path):
         """Test find_files with include filter."""
         (tmp_path / "npt_system.edr").touch()
         (tmp_path / "nvt_system.edr").touch()
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             files = SystemProperties.find_files(
-                suffix=".edr", 
-                system_path=str(tmp_path), 
+                suffix=".edr",
+                system_path=str(tmp_path),
                 include="npt"
             )
-        
+
         assert len(files) == 1
         assert "npt" in files[0].name
 
@@ -221,14 +210,14 @@ class TestSystemPropertiesFindFiles:
         (tmp_path / "system.edr").touch()
         (tmp_path / "init_system.edr").touch()
         (tmp_path / "eq_system.edr").touch()
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             files = SystemProperties.find_files(
                 suffix=".edr",
                 system_path=str(tmp_path),
                 exclude=["init", "eq"]
             )
-        
+
         # Should exclude init and eq files
         assert len(files) >= 1
         assert not any("init" in f.name or "eq" in f.name for f in files)
@@ -247,11 +236,11 @@ class TestSystemPropertiesFindFiles:
     def test_find_files_strips_dot_from_suffix(self, tmp_path):
         """Test that find_files handles suffix with or without dot."""
         (tmp_path / "system.edr").touch()
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             files1 = SystemProperties.find_files(suffix=".edr", system_path=str(tmp_path))
             files2 = SystemProperties.find_files(suffix="edr", system_path=str(tmp_path))
-        
+
         assert files1 == files2
 
     def test_find_files_returns_sorted(self, tmp_path):
@@ -259,10 +248,10 @@ class TestSystemPropertiesFindFiles:
         (tmp_path / "c_system.edr").touch()
         (tmp_path / "a_system.edr").touch()
         (tmp_path / "b_system.edr").touch()
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             files = SystemProperties.find_files(suffix=".edr", system_path=str(tmp_path))
-        
+
         file_names = [f.name for f in files]
         assert file_names == sorted(file_names)
 
@@ -272,27 +261,25 @@ class TestSystemPropertiesFindFiles:
 class TestSystemPropertiesEnergyProperty:
     """Test the energy cached property."""
 
-
-
     @patch('kbkit.systems.properties.EdrParser')
     @patch('kbkit.systems.properties.SystemProperties.find_files')
     def test_energy_creates_parsers(self, mock_find_files, mock_edr_class, tmp_path):
         """Test that energy property creates EdrParser instances."""
         edr_file = tmp_path / "system.edr"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [edr_file],
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_parser = Mock(spec=EdrParser)
         mock_edr_class.return_value = mock_parser
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             energy_parsers = props.energy
-        
+
         assert len(energy_parsers) > 0
         mock_edr_class.assert_called()
 
@@ -300,11 +287,11 @@ class TestSystemPropertiesEnergyProperty:
     def test_energy_raises_when_no_files(self, mock_find_files, tmp_path):
         """Test that energy raises error when no EDR files found."""
         mock_find_files.return_value = []
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             props.edr_paths = []
-        
+
         with pytest.raises(FileNotFoundError, match="Energy file\\(s\\) do not exist"):
             _ = props.energy
 
@@ -313,22 +300,22 @@ class TestSystemPropertiesEnergyProperty:
     def test_energy_is_cached(self, mock_find_files, mock_edr_class, tmp_path):
         """Test that energy property is cached."""
         edr_file = tmp_path / "system.edr"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [edr_file],
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_parser = Mock(spec=EdrParser)
         mock_edr_class.return_value = mock_parser
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
-            
+
             energy1 = props.energy
             energy2 = props.energy
-        
+
         # Should only create parsers once
         assert energy1 is energy2
 
@@ -338,29 +325,27 @@ class TestSystemPropertiesEnergyProperty:
 class TestSystemPropertiesTopologyProperty:
     """Test the topology cached property."""
 
-
-
     @patch('kbkit.systems.properties.GroParser')
     @patch('kbkit.systems.properties.SystemProperties.find_files')
     def test_topology_prefers_gro_file(self, mock_find_files, mock_gro_class, tmp_path):
         """Test that topology prefers GRO file over TOP file."""
         gro_file = tmp_path / "system.gro"
         top_file = tmp_path / "system.top"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [tmp_path / "system.edr"],
             '.gro': [gro_file],
             '.top': [top_file]
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro_class.return_value = mock_gro
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             topology = props.topology
-        
+
         mock_gro_class.assert_called()
         assert topology == mock_gro
 
@@ -369,20 +354,20 @@ class TestSystemPropertiesTopologyProperty:
     def test_topology_uses_top_when_no_gro(self, mock_find_files, mock_top_class, tmp_path):
         """Test that topology uses TOP file when no GRO file."""
         top_file = tmp_path / "system.top"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [tmp_path / "system.edr"],
             '.gro': [],
             '.top': [top_file]
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_top = Mock(spec=TopParser)
         mock_top_class.return_value = mock_top
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             topology = props.topology
-        
+
         mock_top_class.assert_called()
         assert topology == mock_top
 
@@ -391,22 +376,22 @@ class TestSystemPropertiesTopologyProperty:
     def test_topology_skips_invalid_gro(self, mock_find_files, mock_gro_class, tmp_path):
         """Test that topology skips GRO files with invalid molecules."""
         gro_file = tmp_path / "system.gro"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [tmp_path / "system.edr"],
             '.gro': [gro_file],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         # First GRO has empty molecules
         mock_gro_invalid = Mock(spec=GroParser)
         mock_gro_invalid.molecules = [[]]
-        
+
         mock_gro_class.return_value = mock_gro_invalid
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
-            
+
             with pytest.raises(FileNotFoundError):
                 _ = props.topology
 
@@ -418,10 +403,10 @@ class TestSystemPropertiesTopologyProperty:
             '.gro': [],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
-        
+
         with pytest.raises(FileNotFoundError, match="No topology or structure file found"):
             _ = props.topology
 
@@ -431,30 +416,28 @@ class TestSystemPropertiesTopologyProperty:
 class TestSystemPropertiesTopologyProperties:
     """Test the topology_properties property."""
 
-
-
     @patch('kbkit.systems.properties.GroParser')
     @patch('kbkit.systems.properties.SystemProperties.find_files')
     def test_topology_properties_lists_attributes(self, mock_find_files, mock_gro_class, tmp_path):
         """Test that topology_properties lists topology attributes."""
         gro_file = tmp_path / "system.gro"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [tmp_path / "system.edr"],
             '.gro': [gro_file],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.total_molecules = 10
         mock_gro.box_volume = 100.0
         mock_gro_class.return_value = mock_gro
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             topology_props = props.topology_properties
-        
+
         assert isinstance(topology_props, list)
         assert "total_molecules" in topology_props
         assert "box_volume" in topology_props
@@ -464,22 +447,22 @@ class TestSystemPropertiesTopologyProperties:
     def test_topology_properties_excludes_private(self, mock_find_files, mock_gro_class, tmp_path):
         """Test that topology_properties excludes private attributes."""
         gro_file = tmp_path / "system.gro"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [tmp_path / "system.edr"],
             '.gro': [gro_file],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro._private_attr = "private"
         mock_gro_class.return_value = mock_gro
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             topology_props = props.topology_properties
-        
+
         assert not any(name.startswith("_") for name in topology_props)
 
 
@@ -487,8 +470,6 @@ class TestSystemPropertiesTopologyProperties:
 
 class TestSystemPropertiesGet:
     """Test the get method."""
-
-
 
     @patch('kbkit.systems.properties.GroParser')
     @patch('kbkit.systems.properties.SystemProperties.find_files')
@@ -499,16 +480,16 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("total_molecules")
-        
+
         assert result == 100
 
     @patch('kbkit.systems.properties.GroParser')
@@ -520,15 +501,15 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.electron_count = {"MOL1": 10}
         mock_gro_class.return_value = mock_gro
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
-            
+
             for alias in ["electron", "elec", "z_count", "z-count"]:
                 result = props.get(alias)
                 assert result == {"MOL1": 10}
@@ -543,19 +524,19 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.units = {"Temperature": "K"}
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("units")
-        
+
         assert result == {"Temperature": "K"}
 
     @patch('kbkit.systems.properties.EdrParser')
@@ -568,21 +549,21 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.get.return_value = np.array([298.0, 299.0, 300.0])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("Temperature", avg=True)
-        
+
         assert isinstance(result, float)
         assert result == pytest.approx(299.0)
 
@@ -596,23 +577,23 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.get.side_effect = lambda prop, **kwargs: (
             np.array([0, 1, 2]) if prop == "time" else np.array([298.0, 299.0, 300.0])
         )
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             times, values = props.get("Temperature", avg=False, time_series=True)
-        
+
         assert isinstance(times, np.ndarray)
         assert isinstance(values, np.ndarray)
         assert len(times) == len(values)
@@ -627,21 +608,21 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.cp.return_value = np.array([75.0, 75.5, 76.0])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("cp", avg=True)
-        
+
         assert isinstance(result, float)
         mock_edr.cp.assert_called_once()
 
@@ -655,21 +636,21 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.cv.return_value = np.array([50.0, 50.5, 51.0])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("cv", avg=True)
-        
+
         assert isinstance(result, float)
         mock_edr.cv.assert_called_once()
 
@@ -683,21 +664,21 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.molar_enthalpy.return_value = np.array([10.0, 10.5, 11.0])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("enthalpy", avg=True)
-        
+
         assert isinstance(result, float)
         mock_edr.molar_enthalpy.assert_called_once()
 
@@ -711,21 +692,21 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.isothermal_compressibility.return_value = np.array([1e-5, 1.1e-5, 1.2e-5])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("isothermal-compressibility", avg=True)
-        
+
         assert isinstance(result, float)
         mock_edr.isothermal_compressibility.assert_called_once()
 
@@ -739,22 +720,22 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.units = {"molar-volume": "cm^3/mol"}
         mock_edr.molar_volume.return_value = np.array([18.0, 18.1, 18.2])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("molar-volume", avg=True)
-        
+
         assert isinstance(result, float)
         mock_edr.molar_volume.assert_called_once()
 
@@ -768,22 +749,22 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.units = {"molar-volume": "cm^3/mol"}
         mock_edr.molar_volume.return_value = np.array([18.0, 18.0, 18.0])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("number-density", avg=True)
-        
+
         assert isinstance(result, float)
         assert result == pytest.approx(1.0 / 18.0)
 
@@ -797,21 +778,21 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.get.return_value = np.array([298.0, 299.0, 300.0])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("Temperature", units="K", avg=True)
-        
+
         mock_edr.get.assert_called()
         call_kwargs = mock_edr.get.call_args[1]
         assert call_kwargs['units'] == "K"
@@ -826,24 +807,24 @@ class TestSystemPropertiesGet:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         # Return duplicate times
         mock_edr.get.side_effect = lambda prop, **kwargs: (
             np.array([0, 1, 1, 2]) if prop == "time" else np.array([298.0, 299.0, 299.5, 300.0])
         )
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             values = props.get("Temperature", avg=False, time_series=False)
-        
+
         # Should have removed duplicate at time=1
         assert len(values) == 3
 
@@ -853,12 +834,10 @@ class TestSystemPropertiesGet:
 class TestSystemPropertiesTimeseriesPlotter:
     """Test the timeseries_plotter method."""
 
-
-
     @patch('kbkit.systems.properties.TimeseriesPlotter')
     @patch('kbkit.systems.properties.GroParser')
     @patch('kbkit.systems.properties.SystemProperties.find_files')
-    def test_timeseries_plotter_creates_plotter(self, mock_find_files, mock_gro_class, 
+    def test_timeseries_plotter_creates_plotter(self, mock_find_files, mock_gro_class,
                                                 mock_plotter_class, tmp_path):
         """Test that timeseries_plotter creates TimeseriesPlotter."""
         mock_find_files.side_effect = lambda **kwargs: {
@@ -866,25 +845,25 @@ class TestSystemPropertiesTimeseriesPlotter:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro_class.return_value = mock_gro
-        
+
         mock_plotter = Mock(spec=TimeseriesPlotter)
         mock_plotter_class.return_value = mock_plotter
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             plotter = props.timeseries_plotter(start_time=5000)
-        
+
         mock_plotter_class.assert_called_once_with(props, start_time=5000)
         assert plotter == mock_plotter
 
     @patch('kbkit.systems.properties.TimeseriesPlotter')
     @patch('kbkit.systems.properties.GroParser')
     @patch('kbkit.systems.properties.SystemProperties.find_files')
-    def test_timeseries_plotter_default_start_time(self, mock_find_files, mock_gro_class, 
+    def test_timeseries_plotter_default_start_time(self, mock_find_files, mock_gro_class,
                                                 mock_plotter_class, tmp_path):
         """Test timeseries_plotter with default start_time."""
         mock_find_files.side_effect = lambda **kwargs: {
@@ -892,18 +871,18 @@ class TestSystemPropertiesTimeseriesPlotter:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro_class.return_value = mock_gro
-        
+
         mock_plotter = Mock(spec=TimeseriesPlotter)
         mock_plotter_class.return_value = mock_plotter
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             props.timeseries_plotter()
-        
+
         mock_plotter_class.assert_called_once_with(props, start_time=0)
 
 
@@ -911,8 +890,6 @@ class TestSystemPropertiesTimeseriesPlotter:
 
 class TestSystemPropertiesIntegration:
     """Integration tests for SystemProperties."""
-
-
 
     @patch('kbkit.systems.properties.EdrParser')
     @patch('kbkit.systems.properties.GroParser')
@@ -924,7 +901,7 @@ class TestSystemPropertiesIntegration:
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         # Setup mocks
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 50, ["MOL2"] * 50]
@@ -932,24 +909,24 @@ class TestSystemPropertiesIntegration:
         mock_gro.box_volume = 125.0
         mock_gro.molecule_count = {"MOL1": 50, "MOL2": 50}
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr = Mock(spec=EdrParser)
         mock_edr.units = {"Temperature": "K", "Pressure": "bar"}
         mock_edr.get.return_value = np.array([298.0, 299.0, 300.0])
         mock_edr_class.return_value = mock_edr
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             # Create SystemProperties
             props = SystemProperties(system_path=str(tmp_path), start_time=1000)
-            
+
             # Access topology properties
             assert props.topology.total_molecules == 100
             assert props.topology.box_volume == 125.0
-            
+
             # Access energy properties
             temp = props.get("Temperature", avg=True)
             assert isinstance(temp, float)
-            
+
             # Get time series
             mock_edr.get.side_effect = lambda prop, **kwargs: (
                 np.array([0, 1, 2]) if prop == "time" else np.array([298.0, 299.0, 300.0])
@@ -964,31 +941,31 @@ class TestSystemPropertiesIntegration:
         """Test handling multiple EDR files."""
         edr_file1 = tmp_path / "system1.edr"
         edr_file2 = tmp_path / "system2.edr"
-        
+
         mock_find_files.side_effect = lambda **kwargs: {
             '.edr': [edr_file1, edr_file2],
             '.gro': [tmp_path / "system.gro"],
             '.top': []
         }.get(kwargs.get('suffix'), [])
-        
+
         mock_gro = Mock(spec=GroParser)
         mock_gro.molecules = [["MOL1"] * 10]
         mock_gro.box_volume = 100.0
         mock_gro.total_molecules = 100
         mock_gro_class.return_value = mock_gro
-        
+
         mock_edr1 = Mock(spec=EdrParser)
         mock_edr1.get.return_value = np.array([298.0, 299.0])
-        
+
         mock_edr2 = Mock(spec=EdrParser)
         mock_edr2.get.return_value = np.array([300.0, 301.0])
-        
+
         mock_edr_class.side_effect = [mock_edr1, mock_edr2]
-        
+
         with patch('kbkit.systems.properties.validate_path', return_value=tmp_path):
             props = SystemProperties(system_path=str(tmp_path))
             result = props.get("Temperature", avg=True)
-        
+
         # Should average across both files
         assert isinstance(result, float)
 

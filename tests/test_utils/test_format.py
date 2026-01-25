@@ -3,24 +3,17 @@ Complete test coverage for kbkit.utils.format module.
 Target: >95% coverage
 """
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
 import pytest
-from kbkit.utils.format import (
-    resolve_attr_key,
-    resolve_units,
-    format_unit_str,
-    ENERGY_ALIASES
-)
 
-
+from kbkit.utils.format import ENERGY_ALIASES, format_unit_str, resolve_attr_key, resolve_units
 
 
 class TestResolveAttrKey:
     """Test resolve_attr_key function."""
-
-
 
     def test_exact_match_lowercase(self):
         """Test exact match with lowercase alias."""
@@ -41,10 +34,10 @@ class TestResolveAttrKey:
         """Test matching through alias."""
         result = resolve_attr_key("temp", ENERGY_ALIASES)
         assert result == "temperature"
-        
+
         result = resolve_attr_key("pres", ENERGY_ALIASES)
         assert result == "pressure"
-        
+
         result = resolve_attr_key("vol", ENERGY_ALIASES)
         assert result == "volume"
 
@@ -52,7 +45,7 @@ class TestResolveAttrKey:
         """Test fuzzy matching with high similarity."""
         result = resolve_attr_key("temperatur", ENERGY_ALIASES)
         assert result == "temperature"
-        
+
         result = resolve_attr_key("pressur", ENERGY_ALIASES)
         assert result == "pressure"
 
@@ -66,7 +59,7 @@ class TestResolveAttrKey:
         """Test that unmatched keys are formatted."""
         result = resolve_attr_key("custom_property", ENERGY_ALIASES)
         assert result == "Custom-Property"
-        
+
         result = resolve_attr_key("my.new.property", ENERGY_ALIASES)
         assert result == "Mynewproperty"
 
@@ -103,13 +96,13 @@ class TestResolveAttrKey:
         result1 = resolve_attr_key("TEMPERATURE", ENERGY_ALIASES)
         result2 = resolve_attr_key("temperature", ENERGY_ALIASES)
         result3 = resolve_attr_key("Temperature", ENERGY_ALIASES)
-        
+
         assert result1 == result2 == result3 == "temperature"
 
     def test_all_energy_aliases(self):
         """Test all canonical keys can be resolved."""
         canonical_keys = list(ENERGY_ALIASES.keys())
-        
+
         for key in canonical_keys:
             result = resolve_attr_key(key, ENERGY_ALIASES)
             assert result == key
@@ -137,8 +130,6 @@ class TestResolveAttrKey:
 
 class TestResolveUnits:
     """Test resolve_units function."""
-
-
 
     def test_requested_units_provided(self):
         """Test that requested units are returned when provided."""
@@ -185,8 +176,6 @@ class TestResolveUnits:
 
 class TestFormatUnitStr:
     """Test format_unit_str function."""
-
-
 
     def test_simple_unit(self):
         """Test simple unit formatting."""
@@ -235,7 +224,7 @@ class TestFormatUnitStr:
         assert result.endswith("$")
         # Check that it contains the key elements
         assert "kg" in result
-    
+
     def test_complex_unit(self):
         """Test complex unit string."""
         result = format_unit_str("kg*m/s**2")
@@ -268,7 +257,7 @@ class TestFormatUnitStr:
         class UnconvertibleType:
             def __str__(self):
                 raise TypeError("Cannot convert")
-        
+
         with pytest.raises(TypeError, match="Could not convert"):
             format_unit_str(UnconvertibleType())
 
@@ -317,8 +306,6 @@ class TestFormatUnitStr:
 class TestEnergyAliases:
     """Test ENERGY_ALIASES constant."""
 
-
-
     def test_aliases_is_dict(self):
         """Test that ENERGY_ALIASES is a dictionary."""
         assert isinstance(ENERGY_ALIASES, dict)
@@ -344,7 +331,7 @@ class TestEnergyAliases:
         all_aliases = []
         for aliases in ENERGY_ALIASES.values():
             all_aliases.extend(aliases)
-        
+
         # Check for duplicates
         assert len(all_aliases) == len(set(all_aliases))
 
@@ -354,7 +341,7 @@ class TestEnergyAliases:
             "temperature", "pressure", "volume", "density",
             "enthalpy", "potential", "kinetic-en", "total-energy"
         ]
-        
+
         for key in expected_keys:
             assert key in ENERGY_ALIASES
 
@@ -369,18 +356,16 @@ class TestEnergyAliases:
 class TestIntegration:
     """Integration tests combining multiple functions."""
 
-
-
     def test_resolve_and_format_workflow(self):
         """Test typical workflow of resolving and formatting."""
         # Resolve attribute
         attr = resolve_attr_key("temp", ENERGY_ALIASES)
         assert attr == "temperature"
-        
+
         # Resolve units
         units = resolve_units("K", "C")
         assert units == "K"
-        
+
         # Format units
         formatted = format_unit_str(units)
         assert "$" in formatted
@@ -391,7 +376,7 @@ class TestIntegration:
         attr = resolve_attr_key("my_custom_prop", ENERGY_ALIASES)
         assert "Custom" in attr
         assert "Prop" in attr
-        
+
         # Use default units
         units = resolve_units(None, "dimensionless")
         assert units == "dimensionless"
@@ -401,7 +386,7 @@ class TestIntegration:
         # Fuzzy match
         attr = resolve_attr_key("densty", ENERGY_ALIASES)  # typo
         assert attr == "density"
-        
+
         # Format units
         units = format_unit_str("kg/m**3")
         assert "^{" in units
@@ -413,7 +398,7 @@ class TestIntegration:
                 # Resolve
                 resolved = resolve_attr_key(alias, ENERGY_ALIASES)
                 assert resolved == canonical
-                
+
                 # Format some example units
                 formatted = format_unit_str("unit")
                 assert formatted.startswith("$")
@@ -424,8 +409,6 @@ class TestIntegration:
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
-
-
 
     def test_resolve_attr_key_with_numbers(self):
         """Test resolve_attr_key with numbers in key."""

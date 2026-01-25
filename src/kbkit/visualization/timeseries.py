@@ -14,8 +14,8 @@ from kbkit.utils.format import ENERGY_ALIASES, format_unit_str, resolve_attr_key
 warnings.filterwarnings("ignore")
 
 if TYPE_CHECKING:
-    from kbkit.systems.properties import SystemProperties
     from kbkit.systems.collection import SystemCollection
+    from kbkit.systems.properties import SystemProperties
 
 load_mplstyle()
 

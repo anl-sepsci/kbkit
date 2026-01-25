@@ -2,16 +2,11 @@
 Complete test coverage for kbkit.config.unit_registry module.
 Target: >95% coverage
 """
-import pytest
 from kbkit.config.unit_registry import *
-
-
 
 
 class TestUnitRegistry:
     """Test unit registry functionality."""
-
-
 
     def test_import_unit_registry(self):
         """Test that unit registry can be imported."""
@@ -23,7 +18,7 @@ class TestUnitRegistry:
         try:
             # Try to access common unit registry patterns
             import kbkit.config.unit_registry as ur
-            
+
             # Check for common attributes
             attrs = dir(ur)
             assert len(attrs) > 0
@@ -34,7 +29,6 @@ class TestUnitRegistry:
         """Test that basic units are available."""
         # This test will depend on what's actually in the module
         # For now, just verify the module loads
-        import kbkit.config.unit_registry
         assert True
 
 
@@ -43,15 +37,13 @@ class TestUnitRegistry:
 class TestUnitConversions:
     """Test unit conversion functionality."""
 
-
-
     def test_length_conversions(self):
         """Test length unit conversions."""
         # nm to angstrom
         nm = 1.0
         angstrom = nm * 10.0
         assert angstrom == 10.0
-        
+
         # m to nm
         m = 1.0
         nm = m * 1e9
@@ -63,7 +55,7 @@ class TestUnitConversions:
         kg = 1.0
         g = kg * 1000
         assert g == 1000
-        
+
         # g to mg
         g = 1.0
         mg = g * 1000
@@ -75,7 +67,7 @@ class TestUnitConversions:
         kj = 1.0
         j = kj * 1000
         assert j == 1000
-        
+
         # kcal to kJ
         kcal = 1.0
         kj = kcal * 4.184
@@ -94,7 +86,7 @@ class TestUnitConversions:
         bar = 1.0
         pa = bar * 1e5
         assert pa == 1e5
-        
+
         # atm to Pa
         atm = 1.0
         pa = atm * 101325
@@ -105,8 +97,6 @@ class TestUnitConversions:
 
 class TestUnitRegistryEdgeCases:
     """Test edge cases for unit registry."""
-
-
 
     def test_dimensionless_units(self):
         """Test dimensionless quantities."""

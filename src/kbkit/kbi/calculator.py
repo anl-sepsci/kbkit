@@ -1,15 +1,16 @@
 """
-Calculator for molecular dynamic properties and Kirkwood-Buff Integrals (KBIs) as a function of composition.
+Calculator for Kirkwood-Buff Integrals (KBIs) as a function of composition.
 
 This calculator operates on a :class:`~kbkit.core.system_collection.SystemCollection` that contains molecular dynamics properties from structure (.gro) and energy (.edr) files.
-Additional inputs to :func:`~kbkit.analysis.property_calculator.PropertyCalculator.kbi` are key parameters used for the KBI corrections provided in :class:`~kbkit.analysis.kb_integrator.KBIntegrator`.
+Additional inputs are key parameters used for the KBI corrections provided in :class:`~kbkit.analysis.kb_integrator.KBIntegrator`.
 """
 
 from typing import TYPE_CHECKING
+
 import numpy as np
 
-from kbkit.kbi.integrator import KBIntegrator
 from kbkit.io.rdf import RdfParser
+from kbkit.kbi.integrator import KBIntegrator
 from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.schema.property_result import PropertyResult
 from kbkit.visualization.kbi import KBIAnalysisPlotter
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 
 class KBICalculator:
     """KBI calculator for system collections.
-    
+
     Parameters
     ----------
     systems: SystemCollection
@@ -40,7 +41,7 @@ class KBICalculator:
     """
 
     def __init__(
-            self, 
+            self,
             systems: "SystemCollection",
             ignore_convergence_errors: bool = False,
             convergence_thresholds: tuple = (1e-3, 1e-2),
@@ -78,7 +79,6 @@ class KBICalculator:
         units: str, optional
             Units to compute KBI in, molar volume units.
 
-
         Returns
         -------
         PropertyResult
@@ -95,7 +95,7 @@ class KBICalculator:
         cached = self._get_from_cache(cache_key, units)
         if cached:
             return cached
-        
+
         # kbis are calculated in nm^3/molecule
         kbis = np.full((len(self.systems), len(self.systems.molecules), len(self.systems.molecules)), fill_value=np.nan)
         kbi_metadata: dict[str, dict[str, KBIMetadata]] = {}
@@ -156,7 +156,7 @@ class KBICalculator:
 
         self._cache[cache_key] = result
         return result.to(units)
-    
+
 
     def kbi_plotter(self, molecule_map: dict[str, str] | None = None) -> KBIAnalysisPlotter:
         """

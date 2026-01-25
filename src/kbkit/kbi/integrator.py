@@ -10,11 +10,12 @@ Each of the corrections can be turned off by setting the attribute to ``False``.
 """
 
 import os
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
-from typing import TYPE_CHECKING
+
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.io.rdf import RdfParser
 

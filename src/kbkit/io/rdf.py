@@ -3,6 +3,7 @@
 import os
 import re
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import linregress
@@ -228,7 +229,7 @@ class RdfParser:
                 text = str(text)
             except TypeError as e:
                 raise TypeError("Could not convert filename to type str.") from e
-            
+
         if not mol_list:
             raise ValueError("Unable to match molecules to an empty list.")
 

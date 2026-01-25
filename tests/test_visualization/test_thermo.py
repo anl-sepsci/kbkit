@@ -1,14 +1,14 @@
 """Unit tests for ThermoPlotter class."""
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
 from itertools import combinations_with_replacement
+from unittest.mock import Mock, patch
+
+import numpy as np
+import pytest
 
 from kbkit.visualization.thermo import ThermoPlotter
 
@@ -17,7 +17,7 @@ from kbkit.visualization.thermo import ThermoPlotter
 def mock_kb_thermo():
     """Create a mock KBThermo object."""
     thermo = Mock()
-    
+
     # Mock systems
     mock_systems = Mock()
     mock_systems.molecules = ["Water", "Ethanol"]
@@ -25,13 +25,13 @@ def mock_kb_thermo():
     mock_systems.x = np.array([[0.0, 1.0], [0.25, 0.75], [0.5, 0.5], [0.75, 0.25], [1.0, 0.0]])
     mock_systems.get_mol_index = Mock(side_effect=lambda mol: 0 if mol == "Water" else 1)
     thermo.systems = mock_systems
-    
+
     # Mock results
     mock_result = Mock()
     mock_result.units = "cm^3/mol"
     thermo.results = Mock()
     thermo.results.get = Mock(return_value=mock_result)
-    
+
     # Mock properties
     thermo.kbi = Mock(return_value=np.random.rand(5, 2, 2))
     thermo.ln_activity_coef = Mock(return_value=np.random.rand(5, 2))
@@ -44,7 +44,7 @@ def mock_kb_thermo():
     thermo.g_id = Mock(return_value=np.random.rand(5))
     thermo.g_mix = Mock(return_value=np.random.rand(5))
     thermo.temperature = Mock(return_value=298.15)
-    
+
     # Mock activity metadata
     mock_activity_meta = Mock()
     mock_meta_item = Mock()
@@ -54,7 +54,7 @@ def mock_kb_thermo():
     mock_activity_meta._by_types = {"derivative": {"test": mock_meta_item}}
     thermo.activity_metadata = mock_activity_meta
     thermo.activity_integration_type = "polynomial"
-    
+
     return thermo
 
 
@@ -62,7 +62,7 @@ def mock_kb_thermo():
 def mock_ternary_thermo():
     """Create a mock KBThermo object for ternary system."""
     thermo = Mock()
-    
+
     # Mock systems
     mock_systems = Mock()
     mock_systems.molecules = ["Water", "Ethanol", "Methanol"]
@@ -76,13 +76,13 @@ def mock_ternary_thermo():
     mock_systems.x = np.array(x_data)
     mock_systems.get_mol_index = Mock(side_effect=lambda mol: {"Water": 0, "Ethanol": 1, "Methanol": 2}[mol])
     thermo.systems = mock_systems
-    
+
     # Mock results
     mock_result = Mock()
     mock_result.units = "kJ/mol"
     thermo.results = Mock()
     thermo.results.get = Mock(return_value=mock_result)
-    
+
     # Mock properties
     thermo.h_mix = Mock(return_value=np.random.rand(len(x_data)))
     thermo.s_ex = Mock(return_value=np.random.rand(len(x_data)))
@@ -90,7 +90,7 @@ def mock_ternary_thermo():
     thermo.g_id = Mock(return_value=np.random.rand(len(x_data)))
     thermo.g_mix = Mock(return_value=np.random.rand(len(x_data)))
     thermo.hessian_determinant = Mock(return_value=np.random.rand(len(x_data)))
-    
+
     return thermo
 
 
@@ -107,7 +107,7 @@ class TestThermoPlotterInitialization:
     def test_basic_initialization(self, mock_kb_thermo, mock_mplstyle):
         """Test basic initialization with KBThermo."""
         plotter = ThermoPlotter(mock_kb_thermo)
-        
+
         assert plotter.thermo == mock_kb_thermo
         assert plotter.molecule_map is not None
         assert plotter.molecules == ["Water", "Ethanol"]
@@ -116,14 +116,14 @@ class TestThermoPlotterInitialization:
         """Test initialization with custom molecule map."""
         molecule_map = {"Water": "H2O", "Ethanol": "EtOH"}
         plotter = ThermoPlotter(mock_kb_thermo, molecule_map=molecule_map)
-        
+
         assert plotter.molecule_map == molecule_map
         assert plotter.molecules == ["H2O", "EtOH"]
 
     def test_initialization_default_molecule_map(self, mock_kb_thermo, mock_mplstyle):
         """Test that default molecule map uses original names."""
         plotter = ThermoPlotter(mock_kb_thermo)
-        
+
         assert plotter.molecule_map == {"Water": "Water", "Ethanol": "Ethanol"}
 
 
@@ -139,17 +139,17 @@ class TestPlotMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10)
-        
+
         fig, ax = plotter.plot(x, y, show=False)
-        
+
         assert mock_ax.plot.called
         assert fig == mock_fig
         assert ax == mock_ax
@@ -163,17 +163,17 @@ class TestPlotMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10, 2)
-        
+
         fig, ax = plotter.plot(x, y, show=False)
-        
+
         assert mock_ax.plot.called
 
     @patch('matplotlib.pyplot.subplots')
@@ -185,17 +185,17 @@ class TestPlotMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10, 2, 2)
-        
+
         fig, ax = plotter.plot(x, y, show=False)
-        
+
         # Should plot all combinations
         combos = list(combinations_with_replacement(range(2), 2))
         assert mock_ax.plot.call_count == len(combos)
@@ -209,17 +209,17 @@ class TestPlotMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10)
-        
+
         plotter.plot(x, y, xlabel="X Label", ylabel="Y Label", show=False)
-        
+
         mock_ax.set_xlabel.assert_called_with("X Label")
         mock_ax.set_ylabel.assert_called_with("Y Label")
 
@@ -232,17 +232,17 @@ class TestPlotMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10)
-        
+
         plotter.plot(x, y, xlim=(0, 1), ylim=(0, 2), show=False)
-        
+
         mock_ax.set_xlim.assert_called_with((0, 1))
         mock_ax.set_ylim.assert_called_with((0, 2))
 
@@ -255,18 +255,18 @@ class TestPlotMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10)
-        
+
         save_path = tmp_path / "test.pdf"
         plotter.plot(x, y, savepath=str(save_path), show=False)
-        
+
         assert mock_fig.savefig.called
 
 
@@ -282,14 +282,14 @@ class TestPlotPropertyMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         fig, ax = plotter.plot_property("kbi", show=False)
-        
+
         assert mock_ax.plot.called
 
     @patch('matplotlib.pyplot.subplots')
@@ -301,14 +301,14 @@ class TestPlotPropertyMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_property("kbi", units="L/mol", show=False)
-        
+
         # Should call the property with units
         mock_kb_thermo.kbi.assert_called_with("L/mol")
 
@@ -321,14 +321,14 @@ class TestPlotPropertyMethod:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_property("ln_activity_coef", xmol="Water", show=False)
-        
+
         # Should get mol index
         mock_kb_thermo.systems.get_mol_index.assert_called_with("Water")
 
@@ -345,13 +345,13 @@ class TestPlotTernaryMethod:
         mock_ax = Mock()
         mock_ax.tricontourf = Mock(return_value=Mock())
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         x = mock_ternary_thermo.systems.x
         y = np.random.rand(len(x))
-        
+
         fig, ax = plotter.plot_ternary(x, y, show=False)
-        
+
         assert mock_ax.tricontourf.called
 
     @patch('matplotlib.pyplot.subplots')
@@ -362,11 +362,11 @@ class TestPlotTernaryMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.random.rand(10, 2)  # Binary, not ternary
         y = np.random.rand(10)
-        
+
         with pytest.raises(ValueError, match="not a ternary system"):
             plotter.plot_ternary(x, y, show=False)
 
@@ -378,11 +378,11 @@ class TestPlotTernaryMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         x = mock_ternary_thermo.systems.x
         y = np.random.rand(len(x), 2)  # 2D y values
-        
+
         with pytest.raises(ValueError, match="only available for 1D"):
             plotter.plot_ternary(x, y, show=False)
 
@@ -399,14 +399,14 @@ class TestPlotActivityCoefDerivFits:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         fig, ax = plotter.plot_activity_coef_deriv_fits(show=False)
-        
+
         # Should plot data and fits
         assert mock_ax.plot.call_count >= 2
 
@@ -423,14 +423,14 @@ class TestPlotBinaryMixing:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         fig, ax = plotter.plot_binary_mixing("Water", show=False)
-        
+
         # Should plot 5 properties
         assert mock_ax.plot.call_count == 5
 
@@ -447,14 +447,14 @@ class TestMakeFigures:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.make_figures(str(tmp_path))
-        
+
         # Should create multiple figures
         assert mock_subplots.call_count > 5
 
@@ -467,15 +467,15 @@ class TestMakeFigures:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_ax.tricontourf = Mock(return_value=Mock())
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         plotter.make_figures(str(tmp_path))
-        
+
         # Should create multiple figures including ternary plots
         assert mock_subplots.call_count > 5
 
@@ -492,31 +492,27 @@ class TestIntegration:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         # Initialize plotter
         molecule_map = {"Water": "H2O", "Ethanol": "EtOH"}
         plotter = ThermoPlotter(mock_kb_thermo, molecule_map=molecule_map)
-        
+
         # Create various plots
         plotter.plot_property("kbi", show=False)
         plotter.plot_binary_mixing("Water", show=False)
         plotter.make_figures(str(tmp_path))
-        
+
         assert mock_subplots.call_count > 5
 
 """Additional unit tests for ThermoPlotter to increase coverage."""
 
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
+from unittest.mock import patch
 
-from kbkit.visualization.thermo import ThermoPlotter
+import pytest
 
 
 class TestPlotMethodEdgeCases:
@@ -531,17 +527,17 @@ class TestPlotMethodEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.random.rand(10, 2)  # 2D x
         y = np.random.rand(10)     # 1D y
-        
+
         fig, ax = plotter.plot(x, y, show=False)
-        
+
         # Should use first column of x
         call_args = mock_ax.plot.call_args[0]
         assert len(call_args[0]) == 10
@@ -555,17 +551,17 @@ class TestPlotMethodEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.random.rand(10, 2)    # 2D x
         y = np.random.rand(10, 2, 2) # 3D y
-        
+
         fig, ax = plotter.plot(x, y, show=False)
-        
+
         # Should plot combinations
         assert mock_ax.plot.called
 
@@ -578,15 +574,15 @@ class TestPlotMethodEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10)
-        
+
         plotter.plot(
             x, y,
             lw=2.5,
@@ -596,7 +592,7 @@ class TestPlotMethodEdgeCases:
             figsize=(8, 6),
             show=False
         )
-        
+
         # Check that plot was called with style parameters
         call_kwargs = mock_ax.plot.call_args[1]
         assert call_kwargs['lw'] == 2.5
@@ -612,18 +608,18 @@ class TestPlotMethodEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10)
-        
+
         # Save to directory (no suffix)
         plotter.plot(x, y, savepath=str(tmp_path), show=False)
-        
+
         # Should save with default filename
         call_args = mock_fig.savefig.call_args[0][0]
         assert "thermo_property.pdf" in str(call_args)
@@ -637,17 +633,17 @@ class TestPlotMethodEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         x = np.linspace(0, 1, 10)
         y = np.random.rand(10, 2)
-        
+
         plotter.plot(x, y, show=False)
-        
+
         # Should include labels
         call_kwargs = mock_ax.plot.call_args[1]
         assert 'label' in call_kwargs
@@ -665,17 +661,17 @@ class TestPlotPropertyEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         # Make property raise exception when called with units
         mock_kb_thermo.kbi = Mock(side_effect=Exception("Unit error"))
-        
+
         # Should fall back to calling without units
         plotter = ThermoPlotter(mock_kb_thermo)
-        
+
         # This should not raise, should catch exception and call without units
         with pytest.raises(Exception):
             plotter.plot_property("kbi", units="L/mol", show=False)
@@ -689,14 +685,14 @@ class TestPlotPropertyEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_property("ln_activity_coef", xmol="Ethanol", show=False)
-        
+
         # Should get mol index for Ethanol
         mock_kb_thermo.systems.get_mol_index.assert_called_with("Ethanol")
 
@@ -709,14 +705,14 @@ class TestPlotPropertyEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_property("kbi", show=False)  # 3D data, no xmol specified
-        
+
         # Should use first molecule as default
         mock_kb_thermo.systems.get_mol_index.assert_called_with("Water")
 
@@ -730,17 +726,17 @@ class TestPlotPropertyEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         # Mock property that returns None for units
         mock_kb_thermo.results.get.return_value.units = None
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_property("kbi", ylabel="Test Label", show=False)
-        
+
         # ylabel should be used without units
         assert mock_ax.set_ylabel.called
 
@@ -757,18 +753,18 @@ class TestPlotTernaryEdgeCases:
         mock_ax = Mock()
         mock_ax.tricontourf = Mock(return_value=Mock())
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         x = mock_ternary_thermo.systems.x
         y = np.random.rand(len(x))
-        
+
         # Add some invalid values
         y[0] = np.nan
         y[1] = np.inf
         y[2] = -np.inf
-        
+
         fig, ax = plotter.plot_ternary(x, y, show=False)
-        
+
         # Should still plot (with filtered data)
         assert mock_ax.tricontourf.called
 
@@ -781,13 +777,13 @@ class TestPlotTernaryEdgeCases:
         mock_ax = Mock()
         mock_ax.tricontourf = Mock(return_value=Mock())
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         x = mock_ternary_thermo.systems.x
         y = np.random.rand(len(x))
-        
+
         plotter.plot_ternary(x, y, cbar_label="Test Label", show=False)
-        
+
         # Should add colorbar with label
         assert mock_fig.colorbar.called
 
@@ -800,13 +796,13 @@ class TestPlotTernaryEdgeCases:
         mock_ax = Mock()
         mock_ax.tricontourf = Mock(return_value=Mock())
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         x = mock_ternary_thermo.systems.x
         y = np.random.rand(len(x))
-        
+
         plotter.plot_ternary(x, y, savepath=str(tmp_path), show=False)
-        
+
         # Should save with default filename
         call_args = mock_fig.savefig.call_args[0][0]
         assert "ternary_property.pdf" in str(call_args)
@@ -824,10 +820,10 @@ class TestPlotPropertyTernary:
         mock_ax = Mock()
         mock_ax.tricontourf = Mock(return_value=Mock())
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         plotter.plot_property_ternary("h_mix", show=False)
-        
+
         assert mock_ax.tricontourf.called
 
     @patch('matplotlib.pyplot.subplots')
@@ -839,10 +835,10 @@ class TestPlotPropertyTernary:
         mock_ax = Mock()
         mock_ax.tricontourf = Mock(return_value=Mock())
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         plotter.plot_property_ternary("h_mix", units="kcal/mol", show=False)
-        
+
         # Should call property with units
         mock_ternary_thermo.h_mix.assert_called_with("kcal/mol")
 
@@ -855,10 +851,10 @@ class TestPlotPropertyTernary:
         mock_ax = Mock()
         mock_ax.tricontourf = Mock(return_value=Mock())
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_ternary_thermo)
         plotter.plot_property_ternary("h_mix", show=False)
-        
+
         # Should replace underscores in name
         # The cbar_label should contain "h mix" not "h_mix"
         assert mock_ax.tricontourf.called
@@ -876,17 +872,17 @@ class TestMakeFiguresEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         # Set integration type to non-polynomial
         mock_kb_thermo.activity_integration_type = "trapezoid"
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.make_figures(str(tmp_path))
-        
+
         # Should still create figures
         assert mock_subplots.call_count > 0
 
@@ -899,17 +895,17 @@ class TestMakeFiguresEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         # Set to quaternary system (4 components)
         mock_kb_thermo.systems.n_i = 4
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.make_figures(str(tmp_path))
-        
+
         # Should create basic figures but not system-specific ones
         assert mock_subplots.call_count > 0
 
@@ -922,14 +918,14 @@ class TestMakeFiguresEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.make_figures(str(tmp_path), xmol="Ethanol")
-        
+
         # Should use specified xmol
         assert mock_subplots.call_count > 0
 
@@ -946,14 +942,14 @@ class TestPlotBinaryMixingEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_binary_mixing(None, show=False)
-        
+
         # Should use first molecule as default
         assert mock_ax.plot.call_count == 5
 
@@ -966,14 +962,14 @@ class TestPlotBinaryMixingEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_binary_mixing("Water", savepath=str(tmp_path), show=False)
-        
+
         # Should save with default filename
         call_args = mock_fig.savefig.call_args[0][0]
         assert "thermodyanmic_mixing_properties.pdf" in str(call_args)
@@ -991,17 +987,17 @@ class TestActivityCoefDerivFitsEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         # Set has_fn to False
         mock_kb_thermo.activity_metadata._by_types["derivative"]["test"].has_fn = False
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         fig, ax = plotter.plot_activity_coef_deriv_fits(show=False)
-        
+
         # Should still plot data, but not fit line
         assert mock_ax.plot.called
 
@@ -1014,14 +1010,14 @@ class TestActivityCoefDerivFitsEdgeCases:
         mock_cmap_obj = Mock()
         mock_cmap_obj.return_value = np.array([[1, 0, 0, 1]] * 5)
         mock_cmap.return_value = mock_cmap_obj
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_activity_coef_deriv_fits(savepath=str(tmp_path), show=False)
-        
+
         # Should save with default filename
         call_args = mock_fig.savefig.call_args[0][0]
         assert "activity_coef_deriv_fits.pdf" in str(call_args)

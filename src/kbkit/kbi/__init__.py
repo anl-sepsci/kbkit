@@ -1,11 +1,11 @@
 """Kirkwood-Buff Analysis."""
 
+from kbkit.kbi.calculator import KBICalculator
 from kbkit.kbi.integrator import KBIntegrator
 from kbkit.kbi.thermodynamics import KBThermo
-from kbkit.kbi.calculator import KBICalculator
 
 __all__ = [
+    "KBICalculator",
     "KBIntegrator",
     "KBThermo",
-    "KBICalculator",
 ]

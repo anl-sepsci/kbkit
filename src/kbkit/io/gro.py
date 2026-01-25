@@ -1,11 +1,11 @@
 """Parses a GROMACS .gro file to extract residue electron counts and box volume."""
 
 from functools import cached_property
+from typing import ClassVar
 
 import MDAnalysis
 import numpy as np
 from rdkit.Chem import GetPeriodicTable
-from typing import ClassVar
 
 from kbkit.utils.validation import validate_path
 
@@ -75,7 +75,7 @@ class GroParser:
         box_nm = box_A / 10.0  # convert from Angstroms to nm
         volume_nm3 = np.prod(box_nm)
         return float(volume_nm3)
-    
+
     @staticmethod
     def is_valid_element(symbol: str) -> bool:
         """

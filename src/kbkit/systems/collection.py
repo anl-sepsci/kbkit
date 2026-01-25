@@ -16,14 +16,15 @@ from typing import Any, Literal
 
 import numpy as np
 
-from kbkit.systems.properties import SystemProperties
 from kbkit.io import EdrParser
-from kbkit.visualization.timeseries import TimeseriesPlotter
 from kbkit.schema.property_result import PropertyResult
 from kbkit.schema.system_metadata import SystemMetadata
-from kbkit.utils.validation import validate_path
-from kbkit.utils.format import ENERGY_ALIASES, resolve_attr_key
+from kbkit.systems.properties import SystemProperties
 from kbkit.utils.decorators import cached_property_result
+from kbkit.utils.format import ENERGY_ALIASES, resolve_attr_key
+from kbkit.utils.validation import validate_path
+from kbkit.visualization.timeseries import TimeseriesPlotter
+
 
 class SystemCollection:
     """
@@ -599,7 +600,7 @@ class SystemCollection:
         units = units or self.get_units(name)
 
         # Logic: Excess = Simulated - Ideal
-        sim_res = self.simulated_property(name=name, units=units, avg=avg) 
+        sim_res = self.simulated_property(name=name, units=units, avg=avg)
         ideal_res = self.ideal_property(name=name, units=units, mixing_rule=mixing_rule, avg=avg)
 
         # Subtract in base units

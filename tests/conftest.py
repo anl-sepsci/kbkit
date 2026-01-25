@@ -2,13 +2,14 @@
 Pytest configuration and shared fixtures for kbkit tests.
 """
 
-import pytest
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
-from typing import Generator, Dict, Any
+from typing import Any, Dict, Generator
+
 import numpy as np
 import pandas as pd
+import pytest
 
 
 @pytest.fixture(scope="session")
@@ -54,19 +55,19 @@ def mock_cache():
     class MockCache:
         def __init__(self):
             self._cache = {}
-        
+
         def get(self, key, default=None):
             return self._cache.get(key, default)
-        
+
         def set(self, key, value):
             self._cache[key] = value
-        
+
         def clear(self):
             self._cache.clear()
-        
+
         def __contains__(self, key):
             return key in self._cache
-    
+
     return MockCache()
 
 
@@ -115,9 +116,11 @@ def reset_environment():
     os.environ.clear()
     os.environ.update(original_env)
 
-import pytest
 import warnings
+
 import numpy as np
+import pytest
+
 
 @pytest.fixture(autouse=True)
 def configure_test_warnings():
@@ -130,10 +133,9 @@ def configure_test_warnings():
         warnings.filterwarnings('ignore', message="Polyfit may be poorly conditioned")
 
     # Other warnings
-    warnings.filterwarnings('ignore', category=UserWarning, 
+    warnings.filterwarnings('ignore', category=UserWarning,
                         message=".*input contained no data.*")
-    warnings.filterwarnings('ignore', category=RuntimeWarning, 
+    warnings.filterwarnings('ignore', category=RuntimeWarning,
                         message="Mean of empty slice")
-    yield
 
 

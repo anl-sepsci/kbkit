@@ -1,7 +1,7 @@
 """Structured representation of scalar properties with units and semantic tags."""
 
 from dataclasses import dataclass
-from typing import Literal, Any
+from typing import Any, Literal
 
 import numpy as np
 

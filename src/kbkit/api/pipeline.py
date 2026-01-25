@@ -59,10 +59,10 @@ The pipeline stores all intermediate objects for reproducibility and supports hi
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal
 
-from kbkit.kbi.thermodynamics import KBThermo
 from kbkit.kbi.calculator import KBICalculator
-from kbkit.systems.collection import SystemCollection
+from kbkit.kbi.thermodynamics import KBThermo
 from kbkit.schema.property_result import PropertyResult
+from kbkit.systems.collection import SystemCollection
 from kbkit.utils.validation import validate_path
 
 if TYPE_CHECKING:
@@ -164,7 +164,7 @@ class Pipeline:
     def systems(self) -> SystemCollection:
         """SystemCollection: Configuration for set of systems."""
         return self._build_systems()
-    
+
     @cached_property
     def calculator(self) -> KBICalculator:
         """KBICalculator: Calculator for KBIs."""
@@ -213,16 +213,6 @@ class Pipeline:
                 name=prop, units=units, avg=True
             )
         return res
-    
-    def run(self) -> None:
-        """Runs the pipeline.
-        
-        The following tasks are performed:
-            * Builds systems (SystemCollection) and gets properties as a function of composition
-            * Initializes KBICalculator and computes KBIs
-            * Computes KBI-derived thermodynamic properties (KBThermo)
-        """
-        self.thermo.results
 
     def timeseries_plotter(self, system: str, start_time: int = 0) -> "TimeseriesPlotter":
         """TimeseriesPlotter: Plotter for visualizing property timeseries."""

@@ -3,20 +3,17 @@ Complete test coverage for kbkit.schema.property_result module.
 Target: >95% coverage
 """
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
-import pytest
 import numpy as np
+
 from kbkit.schema.property_result import PropertyResult
-
-
 
 
 class TestPropertyResultCreation:
     """Test PropertyResult object creation."""
-
-
 
     def test_create_basic_property_result(self):
         """Test creating basic PropertyResult."""
@@ -25,7 +22,7 @@ class TestPropertyResultCreation:
             value=np.array([1000.0]),
             units="kg/m^3"
         )
-        
+
         assert result.name == "density"
         assert result.units == "kg/m^3"
         np.testing.assert_array_equal(result.value, np.array([1000.0]))
@@ -38,7 +35,7 @@ class TestPropertyResultCreation:
             property_type="density",
             units="kg/m^3"
         )
-        
+
         assert result.property_type == "density"
 
     def test_create_with_metadata(self):
@@ -50,7 +47,7 @@ class TestPropertyResultCreation:
             units="kg/m^3",
             metadata=metadata
         )
-        
+
         assert result.metadata == metadata
         assert result.metadata["temperature"] == 298.15
 
@@ -60,7 +57,7 @@ class TestPropertyResultCreation:
             name="count",
             value=np.array([42])
         )
-        
+
         assert result.units is None
 
     def test_create_with_scalar_value(self):
@@ -70,7 +67,7 @@ class TestPropertyResultCreation:
             value=298.15,
             units="K"
         )
-        
+
         assert result.value == 298.15
 
     def test_create_with_array_value(self):
@@ -81,7 +78,7 @@ class TestPropertyResultCreation:
             value=values,
             units="m"
         )
-        
+
         np.testing.assert_array_equal(result.value, values)
 
 
@@ -90,8 +87,6 @@ class TestPropertyResultCreation:
 class TestPropertyResultUnitConversion:
     """Test PropertyResult unit conversion."""
 
-
-
     def test_convert_to_different_units(self):
         """Test converting to different units."""
         result = PropertyResult(
@@ -99,7 +94,7 @@ class TestPropertyResultUnitConversion:
             value=np.array([1000.0]),
             units="kg/m^3"
         )
-        
+
         # Test that to() method exists and can be called
         try:
             converted = result.to("g/cm^3")
@@ -115,7 +110,7 @@ class TestPropertyResultUnitConversion:
             value=np.array([42]),
             units=None
         )
-        
+
         # Should handle None units gracefully
         assert result.units is None
 
@@ -125,8 +120,6 @@ class TestPropertyResultUnitConversion:
 class TestPropertyResultMethods:
     """Test PropertyResult methods."""
 
-
-
     def test_string_representation(self):
         """Test string representation."""
         result = PropertyResult(
@@ -134,7 +127,7 @@ class TestPropertyResultMethods:
             value=np.array([1000.0]),
             units="kg/m^3"
         )
-        
+
         str_repr = str(result)
         assert "density" in str_repr or "PropertyResult" in str_repr
 
@@ -145,7 +138,7 @@ class TestPropertyResultMethods:
             value=np.array([1000.0]),
             units="kg/m^3"
         )
-        
+
         repr_str = repr(result)
         assert len(repr_str) >= 0
 
@@ -161,7 +154,7 @@ class TestPropertyResultMethods:
             value=np.array([1000.0]),
             units="kg/m^3"
         )
-        
+
         # Test if equality is implemented
         assert result1.name == result2.name
         assert result1.units == result2.units
@@ -172,15 +165,13 @@ class TestPropertyResultMethods:
 class TestPropertyResultAttributes:
     """Test PropertyResult attributes."""
 
-
-
     def test_access_name(self):
         """Test accessing name attribute."""
         result = PropertyResult(
             name="test_property",
             value=np.array([1.0])
         )
-        
+
         assert result.name == "test_property"
 
     def test_access_value(self):
@@ -190,7 +181,7 @@ class TestPropertyResultAttributes:
             name="test",
             value=value
         )
-        
+
         np.testing.assert_array_equal(result.value, value)
 
     def test_access_units(self):
@@ -200,7 +191,7 @@ class TestPropertyResultAttributes:
             value=np.array([1.0]),
             units="kg"
         )
-        
+
         assert result.units == "kg"
 
     def test_access_property_type(self):
@@ -210,7 +201,7 @@ class TestPropertyResultAttributes:
             value=np.array([1.0]),
             property_type="density"
         )
-        
+
         assert result.property_type == "density"
 
     def test_access_metadata(self):
@@ -221,7 +212,7 @@ class TestPropertyResultAttributes:
             value=np.array([1.0]),
             metadata=metadata
         )
-        
+
         assert result.metadata == metadata
 
 
@@ -230,8 +221,6 @@ class TestPropertyResultAttributes:
 class TestPropertyResultEdgeCases:
     """Test PropertyResult edge cases."""
 
-
-
     def test_empty_metadata(self):
         """Test with empty metadata."""
         result = PropertyResult(
@@ -239,7 +228,7 @@ class TestPropertyResultEdgeCases:
             value=np.array([1.0]),
             metadata={}
         )
-        
+
         assert result.metadata == {}
 
     def test_none_metadata(self):
@@ -249,7 +238,7 @@ class TestPropertyResultEdgeCases:
             value=np.array([1.0]),
             metadata=None
         )
-        
+
         assert result.metadata is None or result.metadata == {}
 
     def test_large_array_value(self):
@@ -259,7 +248,7 @@ class TestPropertyResultEdgeCases:
             name="large_data",
             value=large_array
         )
-        
+
         assert len(result.value) == 10000
 
     def test_multidimensional_array(self):
@@ -269,7 +258,7 @@ class TestPropertyResultEdgeCases:
             name="matrix",
             value=array_2d
         )
-        
+
         assert result.value.shape == (2, 2)
 
     def test_special_characters_in_name(self):
@@ -278,7 +267,7 @@ class TestPropertyResultEdgeCases:
             name="test_property-123",
             value=np.array([1.0])
         )
-        
+
         assert result.name == "test_property-123"
 
     def test_unicode_in_units(self):
@@ -288,7 +277,7 @@ class TestPropertyResultEdgeCases:
             value=np.array([1.0]),
             units="kg/m³"
         )
-        
+
         assert "³" in result.units or "3" in result.units
 
 

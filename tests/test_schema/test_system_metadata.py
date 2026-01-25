@@ -1,12 +1,14 @@
 """Unit tests for SystemMetadata dataclass."""
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
-import pytest
 from pathlib import Path
-from dataclasses import FrozenInstanceError
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock
+
+import pytest
+
 from kbkit.schema.system_metadata import SystemMetadata
 
 
@@ -48,7 +50,7 @@ class TestSystemMetadataInitialization:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.name == "water"
         assert system.kind == "pure"
         assert system.path == tmp_path
@@ -64,7 +66,7 @@ class TestSystemMetadataInitialization:
             props=mock_system_properties,
             rdf_path=temp_rdf_directory
         )
-        
+
         assert system.rdf_path == temp_rdf_directory
 
     def test_default_rdf_path(self, mock_system_properties, tmp_path):
@@ -75,7 +77,7 @@ class TestSystemMetadataInitialization:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.rdf_path == Path()
 
     def test_path_conversion(self, mock_system_properties):
@@ -87,7 +89,7 @@ class TestSystemMetadataInitialization:
             props=mock_system_properties,
             rdf_path=Path("/tmp/rdf")
         )
-        
+
         assert isinstance(system.path, Path)
         assert isinstance(system.rdf_path, Path)
 
@@ -104,7 +106,7 @@ class TestHasRdfMethod:
             props=mock_system_properties,
             rdf_path=temp_rdf_directory
         )
-        
+
         assert system.has_rdf() is True
 
     def test_has_rdf_empty_directory(self, mock_system_properties, tmp_path, empty_rdf_directory):
@@ -116,7 +118,7 @@ class TestHasRdfMethod:
             props=mock_system_properties,
             rdf_path=empty_rdf_directory
         )
-        
+
         assert system.has_rdf() is False
 
     def test_has_rdf_default_path(self, mock_system_properties, tmp_path):
@@ -127,7 +129,7 @@ class TestHasRdfMethod:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.has_rdf() is False
 
     def test_has_rdf_nonexistent_directory(self, mock_system_properties, tmp_path):
@@ -140,7 +142,7 @@ class TestHasRdfMethod:
             props=mock_system_properties,
             rdf_path=nonexistent_path
         )
-        
+
         assert system.has_rdf() is False
 
     def test_has_rdf_with_non_xvg_files(self, mock_system_properties, tmp_path):
@@ -149,7 +151,7 @@ class TestHasRdfMethod:
         rdf_dir.mkdir()
         (rdf_dir / "data.txt").write_text("not an xvg file")
         (rdf_dir / "readme.md").write_text("documentation")
-        
+
         system = SystemMetadata(
             name="test",
             kind="pure",
@@ -157,7 +159,7 @@ class TestHasRdfMethod:
             props=mock_system_properties,
             rdf_path=rdf_dir
         )
-        
+
         assert system.has_rdf() is False
 
     def test_has_rdf_mixed_files(self, mock_system_properties, tmp_path):
@@ -166,7 +168,7 @@ class TestHasRdfMethod:
         rdf_dir.mkdir()
         (rdf_dir / "rdf.xvg").write_text("RDF data")
         (rdf_dir / "data.txt").write_text("other data")
-        
+
         system = SystemMetadata(
             name="test",
             kind="pure",
@@ -174,7 +176,7 @@ class TestHasRdfMethod:
             props=mock_system_properties,
             rdf_path=rdf_dir
         )
-        
+
         assert system.has_rdf() is True
 
 
@@ -189,7 +191,7 @@ class TestIsPureMethod:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.is_pure() is True
 
     def test_is_pure_uppercase(self, mock_system_properties, tmp_path):
@@ -200,7 +202,7 @@ class TestIsPureMethod:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.is_pure() is True
 
     def test_is_pure_mixed_case(self, mock_system_properties, tmp_path):
@@ -211,7 +213,7 @@ class TestIsPureMethod:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.is_pure() is True
 
     def test_is_not_pure_mixture(self, mock_system_properties, tmp_path):
@@ -222,7 +224,7 @@ class TestIsPureMethod:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.is_pure() is False
 
     def test_is_not_pure_other(self, mock_system_properties, tmp_path):
@@ -233,7 +235,7 @@ class TestIsPureMethod:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.is_pure() is False
 
     def test_is_not_pure_empty_string(self, mock_system_properties, tmp_path):
@@ -244,7 +246,7 @@ class TestIsPureMethod:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.is_pure() is False
 
 
@@ -259,7 +261,7 @@ class TestSystemMetadataEdgeCases:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.name == "H2O-EtOH_mix@298K"
 
     def test_system_with_unicode_name(self, mock_system_properties, tmp_path):
@@ -270,7 +272,7 @@ class TestSystemMetadataEdgeCases:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.name == "système_α"
 
     def test_dataclass_equality(self, mock_system_properties, tmp_path):
@@ -287,7 +289,7 @@ class TestSystemMetadataEdgeCases:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system1 == system2
 
     def test_dataclass_inequality(self, mock_system_properties, tmp_path):
@@ -304,7 +306,7 @@ class TestSystemMetadataEdgeCases:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system1 != system2
 
     def test_repr_contains_key_info(self, mock_system_properties, tmp_path):
@@ -315,7 +317,7 @@ class TestSystemMetadataEdgeCases:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         repr_str = repr(system)
         assert "water" in repr_str
         assert "pure" in repr_str
@@ -333,7 +335,7 @@ class TestSystemMetadataIntegration:
             props=mock_system_properties,
             rdf_path=temp_rdf_directory
         )
-        
+
         assert system.is_pure() is True
         assert system.has_rdf() is True
         assert system.name == "argon"
@@ -347,7 +349,7 @@ class TestSystemMetadataIntegration:
             path=tmp_path,
             props=mock_system_properties
         )
-        
+
         assert system.is_pure() is False
         assert system.has_rdf() is False
         assert system.name == "water_methanol"
@@ -356,14 +358,14 @@ class TestSystemMetadataIntegration:
         """Test that Path operations work correctly."""
         system_dir = tmp_path / "simulation"
         system_dir.mkdir()
-        
+
         system = SystemMetadata(
             name="test",
             kind="pure",
             path=system_dir,
             props=mock_system_properties
         )
-        
+
         assert system.path.exists()
         assert system.path.is_dir()
         assert system.path.name == "simulation"

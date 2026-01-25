@@ -9,9 +9,9 @@ import pandas as pd
 
 from kbkit.config.unit_registry import load_unit_registry
 from kbkit.io import EdrParser, GroParser, TopParser
-from kbkit.visualization.timeseries import TimeseriesPlotter
 from kbkit.utils.format import ENERGY_ALIASES, resolve_attr_key
 from kbkit.utils.validation import validate_path
+from kbkit.visualization.timeseries import TimeseriesPlotter
 
 
 class SystemProperties:
@@ -65,7 +65,7 @@ class SystemProperties:
         self.Q_ = self.ureg.Quantity
 
         # validate system paths
-        self.system_path = validate_path(system_path) if system_path else system_path 
+        self.system_path = validate_path(system_path) if system_path else system_path
 
         # get files; first prioritize specified file; then search directory if files do not exist
         self.edr_paths = self.find_files(

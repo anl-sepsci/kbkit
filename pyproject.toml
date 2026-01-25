@@ -85,7 +85,29 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401", "F403"]
+"__init__.py" = [
+    "F401", 
+    "F403",
+]
+"tests/*" = [
+    "F401", 
+    "F403",
+    "F841",
+    "E402",
+    "PT011",
+    "PLR2004",
+    "S101",     # Use of assert detected
+    "D",        # All docstring rules (D100-D417)
+    "ANN",      # All type annotation rules
+    "SLF001",   # Private member accessed
+    "ARG001",   # Unused function argument
+    "B017",
+    "PT017",
+    "PLC0415",
+    "RUF001",
+    "E741",
+    "F601",
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

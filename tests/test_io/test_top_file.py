@@ -1,12 +1,13 @@
 """Unit tests for TopParser class."""
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
-import pytest
-import numpy as np
 from pathlib import Path
-from unittest.mock import Mock, patch, PropertyMock
+
+import numpy as np
+import pytest
 
 from kbkit.io.top import TopParser
 
@@ -113,7 +114,7 @@ class TestTopParserInitialization:
     def test_valid_top_file(self, sample_top_file):
         """Test initialization with valid .top file."""
         parser = TopParser(sample_top_file)
-        
+
         assert parser.filepath == Path(sample_top_file)
         assert isinstance(parser.skipped_lines, list)
         assert len(parser.skipped_lines) == 0
@@ -122,7 +123,7 @@ class TestTopParserInitialization:
         """Test that non-.top files raise an error."""
         txt_file = tmp_path / "test.txt"
         txt_file.touch()
-        
+
         with pytest.raises(ValueError, match=".*\\.top"):
             TopParser(str(txt_file))
 
@@ -143,7 +144,7 @@ class TestValidationMethods:
     def test_is_valid_molecule_name_valid(self, sample_top_file):
         """Test valid molecule names."""
         parser = TopParser(sample_top_file)
-        
+
         assert parser._is_valid_molecule_name("Water") is True
         assert parser._is_valid_molecule_name("H2O") is True
         assert parser._is_valid_molecule_name("Ethanol_123") is True
@@ -153,25 +154,25 @@ class TestValidationMethods:
     def test_is_valid_molecule_name_invalid(self, sample_top_file):
         """Test invalid molecule names."""
         parser = TopParser(sample_top_file)
-        
+
         # Too short (less than 2 characters)
         assert parser._is_valid_molecule_name("A") is False
-        
+
         # Contains invalid characters
         assert parser._is_valid_molecule_name("Water@123") is False
         assert parser._is_valid_molecule_name("H2O!") is False
         assert parser._is_valid_molecule_name("Name with spaces") is False
-        
+
         # Empty string
         assert parser._is_valid_molecule_name("") is False
-        
+
         # Too long (more than 50 characters)
         assert parser._is_valid_molecule_name("A" * 51) is False
 
     def test_is_valid_count_valid(self, sample_top_file):
         """Test valid count strings."""
         parser = TopParser(sample_top_file)
-        
+
         assert parser._is_valid_count("0") is True
         assert parser._is_valid_count("1") is True
         assert parser._is_valid_count("100") is True
@@ -180,7 +181,7 @@ class TestValidationMethods:
     def test_is_valid_count_invalid(self, sample_top_file):
         """Test invalid count strings."""
         parser = TopParser(sample_top_file)
-        
+
         assert parser._is_valid_count("abc") is False
         assert parser._is_valid_count("12.5") is False
         assert parser._is_valid_count("-10") is False
@@ -196,7 +197,7 @@ class TestParseMethod:
         """Test parsing a basic topology file."""
         parser = TopParser(sample_top_file)
         parser.parse()
-        
+
         assert hasattr(parser, '_molecule_count')
         assert isinstance(parser._molecule_count, dict)
         assert len(parser._molecule_count) == 3
@@ -205,7 +206,7 @@ class TestParseMethod:
         """Test that parse extracts correct molecule names."""
         parser = TopParser(sample_top_file)
         parser.parse()
-        
+
         assert "Water" in parser._molecule_count
         assert "Ethanol" in parser._molecule_count
         assert "Methanol" in parser._molecule_count
@@ -214,7 +215,7 @@ class TestParseMethod:
         """Test that parse extracts correct molecule counts."""
         parser = TopParser(sample_top_file)
         parser.parse()
-        
+
         assert parser._molecule_count["Water"] == 1000
         assert parser._molecule_count["Ethanol"] == 500
         assert parser._molecule_count["Methanol"] == 250
@@ -223,7 +224,7 @@ class TestParseMethod:
         """Test that parse correctly handles inline comments."""
         parser = TopParser(top_file_with_comments)
         parser.parse()
-        
+
         assert len(parser._molecule_count) == 3
         assert parser._molecule_count["Water"] == 1000
         assert parser._molecule_count["Ethanol"] == 500
@@ -233,10 +234,10 @@ class TestParseMethod:
         """Test that parse skips invalid lines and records them."""
         parser = TopParser(top_file_with_errors)
         parser.parse()
-        
+
         # Should have skipped some lines
         assert len(parser.skipped_lines) > 0
-        
+
         # Should still parse valid lines
         assert "Water" in parser._molecule_count
         assert "Valid_Name-123" in parser._molecule_count
@@ -244,14 +245,14 @@ class TestParseMethod:
     def test_parse_empty_molecules_section(self, empty_molecules_section):
         """Test parsing file with empty molecules section."""
         parser = TopParser(empty_molecules_section)
-        
+
         with pytest.raises(ValueError, match="No molecules found"):
             parser.parse()
 
     def test_parse_no_molecules_section(self, no_molecules_section):
         """Test parsing file without molecules section."""
         parser = TopParser(no_molecules_section)
-        
+
         with pytest.raises(ValueError, match="No molecules found"):
             parser.parse()
 
@@ -271,10 +272,10 @@ Methanol          250
 """
         top_file = tmp_path / "multiple_sections.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         # Should only parse first molecules section
         assert len(parser._molecule_count) == 2
         assert "Methanol" not in parser._molecule_count
@@ -286,10 +287,10 @@ Water             1000
 """
         top_file = tmp_path / "uppercase.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert "Water" in parser._molecule_count
 
     def test_parse_handles_tabs_and_spaces(self, tmp_path):
@@ -301,10 +302,10 @@ Methanol\t250
 """
         top_file = tmp_path / "mixed_whitespace.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert len(parser._molecule_count) == 3
         assert parser._molecule_count["Water"] == 1000
 
@@ -317,7 +318,7 @@ class TestReportSkipped:
         parser = TopParser(sample_top_file)
         parser.parse()
         parser.report_skipped()
-        
+
         captured = capsys.readouterr()
         # Should not print anything if no lines were skipped
         assert captured.out == ""
@@ -327,7 +328,7 @@ class TestReportSkipped:
         parser = TopParser(top_file_with_errors)
         parser.parse()
         parser.report_skipped()
-        
+
         captured = capsys.readouterr()
         assert "Skipped lines during parsing:" in captured.out
         assert "Reason:" in captured.out
@@ -337,7 +338,7 @@ class TestReportSkipped:
         parser = TopParser(top_file_with_errors)
         parser.parse()
         parser.report_skipped()
-        
+
         captured = capsys.readouterr()
         # Should show some of the invalid lines
         assert "Invalid" in captured.out or "BadCount" in captured.out
@@ -347,7 +348,7 @@ class TestReportSkipped:
         parser = TopParser(top_file_with_errors)
         parser.parse()
         parser.report_skipped()
-        
+
         captured = capsys.readouterr()
         # Should show reasons for skipping
         assert any(reason in captured.out for reason in [
@@ -363,24 +364,24 @@ class TestMoleculeCountProperty:
     def test_molecule_count_cached(self, sample_top_file):
         """Test that molecule_count is cached."""
         parser = TopParser(sample_top_file)
-        
+
         # Access twice
         count1 = parser.molecule_count
         count2 = parser.molecule_count
-        
+
         # Should be the same object (cached)
         assert count1 is count2
 
     def test_molecule_count_auto_parses(self, sample_top_file):
         """Test that accessing molecule_count triggers parse."""
         parser = TopParser(sample_top_file)
-        
+
         # Should not have _molecule_count yet
         assert "_molecule_count" not in parser.__dict__
-        
+
         # Access property
         count = parser.molecule_count
-        
+
         # Should now have _molecule_count
         assert "_molecule_count" in parser.__dict__
         assert count == parser._molecule_count
@@ -389,14 +390,14 @@ class TestMoleculeCountProperty:
         """Test that molecule_count returns a dictionary."""
         parser = TopParser(sample_top_file)
         count = parser.molecule_count
-        
+
         assert isinstance(count, dict)
 
     def test_molecule_count_values_are_ints(self, sample_top_file):
         """Test that all counts are integers."""
         parser = TopParser(sample_top_file)
         count = parser.molecule_count
-        
+
         for value in count.values():
             assert isinstance(value, int)
 
@@ -408,14 +409,14 @@ class TestMoleculesProperty:
         """Test that molecules returns a list."""
         parser = TopParser(sample_top_file)
         molecules = parser.molecules
-        
+
         assert isinstance(molecules, list)
 
     def test_molecules_contains_correct_names(self, sample_top_file):
         """Test that molecules contains correct molecule names."""
         parser = TopParser(sample_top_file)
         molecules = parser.molecules
-        
+
         assert "Water" in molecules
         assert "Ethanol" in molecules
         assert "Methanol" in molecules
@@ -424,14 +425,14 @@ class TestMoleculesProperty:
         """Test that molecules has correct length."""
         parser = TopParser(sample_top_file)
         molecules = parser.molecules
-        
+
         assert len(molecules) == 3
 
     def test_molecules_unique(self, sample_top_file):
         """Test that molecules list contains unique entries."""
         parser = TopParser(sample_top_file)
         molecules = parser.molecules
-        
+
         assert len(molecules) == len(set(molecules))
 
 
@@ -442,7 +443,7 @@ class TestTotalMoleculesProperty:
         """Test that total_molecules returns correct sum."""
         parser = TopParser(sample_top_file)
         total = parser.total_molecules
-        
+
         # 1000 + 500 + 250 = 1750
         assert total == 1750
 
@@ -450,7 +451,7 @@ class TestTotalMoleculesProperty:
         """Test that total_molecules returns an integer."""
         parser = TopParser(sample_top_file)
         total = parser.total_molecules
-        
+
         assert isinstance(total, int)
 
     def test_total_molecules_single_molecule(self, tmp_path):
@@ -460,10 +461,10 @@ Water             100
 """
         top_file = tmp_path / "single.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         total = parser.total_molecules
-        
+
         assert total == 100
 
 
@@ -474,7 +475,7 @@ class TestElectronCountProperty:
         """Test that electron_count returns empty dictionary."""
         parser = TopParser(sample_top_file)
         electron_count = parser.electron_count
-        
+
         assert isinstance(electron_count, dict)
         assert len(electron_count) == 0
 
@@ -486,7 +487,7 @@ class TestBoxVolumeProperty:
         """Test that box_volume returns NaN."""
         parser = TopParser(sample_top_file)
         volume = parser.box_volume
-        
+
         assert isinstance(volume, float)
         assert np.isnan(volume)
 
@@ -503,10 +504,10 @@ CH3OH             250
 """
         top_file = tmp_path / "numbers.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert "H2O" in parser._molecule_count
         assert "CO2" in parser._molecule_count
         assert "CH3OH" in parser._molecule_count
@@ -519,10 +520,10 @@ Ethanol_OPLS      500
 """
         top_file = tmp_path / "underscores.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert "Water_TIP3P" in parser._molecule_count
         assert "Ethanol_OPLS" in parser._molecule_count
 
@@ -534,10 +535,10 @@ Ethanol-AA        500
 """
         top_file = tmp_path / "hyphens.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert "Water-Model" in parser._molecule_count
         assert "Ethanol-AA" in parser._molecule_count
 
@@ -549,10 +550,10 @@ Ethanol           100
 """
         top_file = tmp_path / "zero.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert parser._molecule_count["Water"] == 0
         assert parser._molecule_count["Ethanol"] == 100
 
@@ -563,10 +564,10 @@ Water             999999999
 """
         top_file = tmp_path / "large.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert parser._molecule_count["Water"] == 999999999
 
     def test_empty_lines_in_molecules_section(self, tmp_path):
@@ -580,10 +581,10 @@ Ethanol           500
 """
         top_file = tmp_path / "empty_lines.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert len(parser._molecule_count) == 2
 
     def test_comment_only_lines(self, tmp_path):
@@ -597,10 +598,10 @@ Ethanol           500
 """
         top_file = tmp_path / "comments_only.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert len(parser._molecule_count) == 2
 
     def test_extra_whitespace(self, tmp_path):
@@ -612,10 +613,10 @@ Methanol\t\t\t250
 """
         top_file = tmp_path / "whitespace.top"
         top_file.write_text(top_content)
-        
+
         parser = TopParser(str(top_file))
         parser.parse()
-        
+
         assert len(parser._molecule_count) == 3
 
 
@@ -625,14 +626,14 @@ class TestIntegration:
     def test_complete_workflow(self, sample_top_file):
         """Test complete workflow from initialization to property access."""
         parser = TopParser(sample_top_file)
-        
+
         # Access all properties
         molecules = parser.molecules
         count = parser.molecule_count
         total = parser.total_molecules
         electrons = parser.electron_count
         volume = parser.box_volume
-        
+
         # Verify consistency
         assert len(molecules) == len(count)
         assert total == sum(count.values())
@@ -642,10 +643,10 @@ class TestIntegration:
     def test_parse_then_access_properties(self, sample_top_file):
         """Test explicit parse followed by property access."""
         parser = TopParser(sample_top_file)
-        
+
         # Explicit parse
         parser.parse()
-        
+
         # Access properties
         assert len(parser.molecules) == 3
         assert parser.total_molecules == 1750
@@ -653,44 +654,44 @@ class TestIntegration:
     def test_multiple_property_accesses(self, sample_top_file):
         """Test multiple accesses to properties."""
         parser = TopParser(sample_top_file)
-        
+
         # Access properties multiple times
         for _ in range(3):
             _ = parser.molecules
             _ = parser.molecule_count
             _ = parser.total_molecules
-        
+
         # Should not raise errors or re-parse
 
     def test_error_handling_workflow(self, top_file_with_errors, capsys):
         """Test complete workflow with error handling."""
         parser = TopParser(top_file_with_errors)
-        
+
         # Parse (will skip some lines)
         parser.parse()
-        
+
         # Check that valid molecules were parsed
         assert len(parser.molecules) > 0
-        
+
         # Report skipped lines
         parser.report_skipped()
-        
+
         captured = capsys.readouterr()
         assert "Skipped lines" in captured.out
 
     def test_property_consistency(self, sample_top_file):
         """Test that all properties are consistent with each other."""
         parser = TopParser(sample_top_file)
-        
+
         # Get all properties
         molecules = parser.molecules
         count = parser.molecule_count
         total = parser.total_molecules
-        
+
         # Verify consistency
         assert set(molecules) == set(count.keys())
         assert total == sum(count.values())
-        
+
         # Each molecule in list should be in count dict
         for mol in molecules:
             assert mol in count

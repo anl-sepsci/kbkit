@@ -441,7 +441,8 @@ class ThermoPlotter:
         ax.plot(xi, -self.thermo.temperature() * self.thermo.g_id() / self.thermo.temperature(), lw=lw, ls=ls, marker=marker, label=r"$-TS^{id}$")
         ax.plot(xi, self.thermo.g_mix(), lw=lw, ls=ls, marker=marker, label=r"$\Delta G_{mix}$")
         ax.set_xlabel(rf"$x_{{{xmol_mix}}}$")
-        ax.set_ylabel(fr"Thermodynamic Properties ({format_unit_str("kJ/mol")})")
+        unit_str = format_unit_str("kJ/mol")
+        ax.set_ylabel(fr"Thermodynamic Properties ({unit_str})")
         ax.legend()
 
         if xlim:

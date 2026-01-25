@@ -1,14 +1,13 @@
 """Unit tests for TimeseriesPlotter class."""
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
-import pytest
+from unittest.mock import Mock, patch
+
 import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, PropertyMock
-import copy
+import pytest
 
 from kbkit.visualization.timeseries import TimeseriesPlotter
 
@@ -18,7 +17,7 @@ def mock_system_properties():
     """Create a mock SystemProperties object."""
     props = Mock()
     props.start_time = 0
-    
+
     # Mock energy property with both lowercase and capitalized keys
     mock_energy = Mock()
     mock_energy.units = {
@@ -34,12 +33,12 @@ def mock_system_properties():
         "Time": "ps"
     }
     props.energy = [mock_energy]
-    
+
     # Mock get method
     def get_side_effect(name, units=None, avg=False, time_series=False):
         time = np.linspace(0, 10000, 100)  # ps
         name_lower = name.lower()
-        
+
         if name_lower == "potential":
             values = -1000 + np.random.normal(0, 10, 100)
         elif name_lower == "temperature":
@@ -48,16 +47,16 @@ def mock_system_properties():
             values = 100 + np.random.normal(0, 5, 100)
         else:
             values = np.random.normal(100, 10, 100)
-        
+
         if time_series:
             return time, values
         elif avg:
             return values.mean()
         else:
             return values
-    
+
     props.get = Mock(side_effect=get_side_effect)
-    
+
     return props
 
 
@@ -65,14 +64,14 @@ def mock_system_properties():
 def mock_system_collection(mock_system_properties):
     """Create a mock SystemCollection object."""
     collection = Mock()
-    
+
     # Mock system metadata
     mock_system = Mock()
     mock_system.props = mock_system_properties
-    
+
     # Make collection subscriptable
     collection.__getitem__ = Mock(return_value=mock_system)
-    
+
     return collection
 
 
@@ -89,22 +88,22 @@ class TestTimeseriesPlotterInitialization:
     def test_basic_initialization(self, mock_system_properties, mock_mplstyle):
         """Test basic initialization with SystemProperties."""
         plotter = TimeseriesPlotter(mock_system_properties)
-        
+
         assert plotter.props is not None
         assert plotter.props.start_time == 0
 
     def test_initialization_with_start_time(self, mock_system_properties, mock_mplstyle):
         """Test initialization with custom start_time."""
         plotter = TimeseriesPlotter(mock_system_properties, start_time=5000)
-        
+
         assert plotter.props.start_time == 5000
 
     def test_initialization_copies_props(self, mock_system_properties, mock_mplstyle):
         """Test that initialization creates a copy of props."""
         original_start_time = mock_system_properties.start_time
-        
+
         plotter = TimeseriesPlotter(mock_system_properties, start_time=5000)
-        
+
         # Original should not be modified
         assert mock_system_properties.start_time == original_start_time
         # Plotter's copy should be modified
@@ -113,7 +112,7 @@ class TestTimeseriesPlotterInitialization:
     def test_initialization_preserves_props_attributes(self, mock_system_properties, mock_mplstyle):
         """Test that initialization preserves props attributes."""
         plotter = TimeseriesPlotter(mock_system_properties)
-        
+
         assert hasattr(plotter.props, 'energy')
         assert hasattr(plotter.props, 'get')
 
@@ -128,7 +127,7 @@ class TestFromCollectionClassMethod:
             "water",
             start_time=1000
         )
-        
+
         assert isinstance(plotter, TimeseriesPlotter)
         assert plotter.props.start_time == 1000
 
@@ -139,7 +138,7 @@ class TestFromCollectionClassMethod:
             0,
             start_time=2000
         )
-        
+
         assert isinstance(plotter, TimeseriesPlotter)
         assert plotter.props.start_time == 2000
 
@@ -149,7 +148,7 @@ class TestFromCollectionClassMethod:
             mock_system_collection,
             "water"
         )
-        
+
         assert plotter.props.start_time == 0
 
     def test_from_collection_accesses_correct_system(self, mock_system_collection, mock_mplstyle):
@@ -158,7 +157,7 @@ class TestFromCollectionClassMethod:
             mock_system_collection,
             "test_system"
         )
-        
+
         # Verify the collection was accessed with correct key
         mock_system_collection.__getitem__.assert_called_with("test_system")
 
@@ -176,10 +175,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         fig, ax = plotter.plot("potential", show=False)
-        
+
         assert mock_ax.plot.called
         assert mock_ax.set_xlabel.called
         assert mock_ax.set_ylabel.called
@@ -194,10 +193,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("U", show=False)  # Alias for potential
-        
+
         mock_resolve.assert_called_once()
 
     @patch('kbkit.visualization.timeseries.resolve_attr_key')
@@ -210,10 +209,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", units="kcal/mol", show=False)
-        
+
         # Should call get with custom units
         assert mock_system_properties.get.called
 
@@ -227,10 +226,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", show_avg=True, show=False)
-        
+
         # Should plot twice: once for data, once for running average
         assert mock_ax.plot.call_count == 2
         assert mock_ax.legend.called
@@ -245,10 +244,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", show_avg=False, show=False)
-        
+
         # Should plot once: only for data
         assert mock_ax.plot.call_count == 1
         assert not mock_ax.legend.called
@@ -263,10 +262,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", figsize=(12, 6), show=False)
-        
+
         # Check that subplots was called with correct figsize
         mock_subplots.assert_called_with(figsize=(12, 6))
 
@@ -280,7 +279,7 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot(
             "potential",
@@ -289,7 +288,7 @@ class TestPlotMethod:
             title="Custom Title",
             show=False
         )
-        
+
         mock_ax.set_xlabel.assert_called_with("Custom X")
         mock_ax.set_ylabel.assert_called_with("Custom Y")
         mock_ax.set_title.assert_called_with("Custom Title")
@@ -304,7 +303,7 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot(
             "potential",
@@ -312,7 +311,7 @@ class TestPlotMethod:
             ylim=(-1100, -900),
             show=False
         )
-        
+
         mock_ax.set_xlim.assert_called_with((0, 10))
         mock_ax.set_ylim.assert_called_with((-1100, -900))
 
@@ -326,7 +325,7 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot(
             "potential",
@@ -338,7 +337,7 @@ class TestPlotMethod:
             marker="o",
             show=False
         )
-        
+
         # Check that plot was called with correct style parameters
         call_args = mock_ax.plot.call_args
         assert call_args[1]['c'] == "red"
@@ -357,12 +356,12 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         save_path = tmp_path / "test_plot.pdf"
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", savepath=str(save_path), show=False)
-        
+
         # Check that savefig was called
         assert mock_fig.savefig.called
 
@@ -376,10 +375,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", savepath=str(tmp_path), show=False)
-        
+
         # Should save with default filename
         assert mock_fig.savefig.called
         call_args = mock_fig.savefig.call_args[0][0]
@@ -395,10 +394,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", show=True)
-        
+
         assert mock_show.called
         assert not mock_close.called
 
@@ -412,10 +411,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", show=False)
-        
+
         assert not mock_show.called
         assert mock_close.called
 
@@ -429,10 +428,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         fig, ax = plotter.plot("potential", show=False)
-        
+
         assert fig == mock_fig
         assert ax == mock_ax
 
@@ -446,10 +445,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", show=False)
-        
+
         # Check that plot was called with time/1000
         call_args = mock_ax.plot.call_args[0]
         time_values = call_args[0]
@@ -468,10 +467,10 @@ class TestPlotMethod:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", show=False)
-        
+
         # format_unit_str should be called
         assert mock_format.called
 
@@ -489,13 +488,13 @@ class TestRunningAverage:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
         plotter.plot("potential", show_avg=True, show=False)
-        
+
         # Should have two plot calls
         assert mock_ax.plot.call_count == 2
-        
+
         # Second call should be for running average
         second_call = mock_ax.plot.call_args_list[1]
         assert second_call[1]['c'] == 'k'
@@ -508,25 +507,25 @@ class TestRunningAverage:
     def test_running_average_label_format_small(self, mock_close, mock_show, mock_subplots, mock_resolve, mock_mplstyle):
         """Test running average label format for small values."""
         mock_resolve.return_value = "test"
-        
+
         props = Mock()
         props.start_time = 0
         mock_energy = Mock()
         mock_energy.units = {"test": "units"}
         props.energy = [mock_energy]
-        
+
         # Small values (< 1)
         time = np.linspace(0, 10000, 100)
         values = np.ones(100) * 0.5
         props.get = Mock(return_value=(time, values))
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(props)
         plotter.plot("test", show_avg=True, show=False)
-        
+
         # Check label format (should use .3f for small values)
         second_call = mock_ax.plot.call_args_list[1]
         label = second_call[1]['label']
@@ -539,25 +538,25 @@ class TestRunningAverage:
     def test_running_average_label_format_large(self, mock_close, mock_show, mock_subplots, mock_resolve, mock_mplstyle):
         """Test running average label format for large values."""
         mock_resolve.return_value = "test"
-        
+
         props = Mock()
         props.start_time = 0
         mock_energy = Mock()
         mock_energy.units = {"test": "units"}
         props.energy = [mock_energy]
-        
+
         # Large values (>= 1)
         time = np.linspace(0, 10000, 100)
         values = np.ones(100) * 100
         props.get = Mock(return_value=(time, values))
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(props)
         plotter.plot("test", show_avg=True, show=False)
-        
+
         # Check label format (should use .0f for large values)
         second_call = mock_ax.plot.call_args_list[1]
         label = second_call[1]['label']
@@ -574,18 +573,18 @@ class TestEdgeCases:
     def test_plot_with_empty_data(self, mock_close, mock_show, mock_subplots, mock_resolve, mock_mplstyle):
         """Test plot with empty data arrays."""
         mock_resolve.return_value = "test"
-        
+
         props = Mock()
         props.start_time = 0
         mock_energy = Mock()
         mock_energy.units = {"test": "units"}
         props.energy = [mock_energy]
         props.get = Mock(return_value=(np.array([]), np.array([])))
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(props)
         # Should handle gracefully
         plotter.plot("test", show=False)
@@ -597,18 +596,18 @@ class TestEdgeCases:
     def test_plot_with_single_point(self, mock_close, mock_show, mock_subplots, mock_resolve, mock_mplstyle):
         """Test plot with single data point."""
         mock_resolve.return_value = "test"
-        
+
         props = Mock()
         props.start_time = 0
         mock_energy = Mock()
         mock_energy.units = {"test": "units"}
         props.energy = [mock_energy]
         props.get = Mock(return_value=(np.array([1000]), np.array([100])))
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(props)
         plotter.plot("test", show=False)
 
@@ -619,22 +618,22 @@ class TestEdgeCases:
     def test_plot_with_nan_values(self, mock_close, mock_show, mock_subplots, mock_resolve, mock_mplstyle):
         """Test plot with NaN values in data."""
         mock_resolve.return_value = "test"
-        
+
         props = Mock()
         props.start_time = 0
         mock_energy = Mock()
         mock_energy.units = {"test": "units"}
         props.energy = [mock_energy]
-        
+
         time = np.linspace(0, 10000, 100)
         values = np.ones(100) * 100
         values[50] = np.nan
         props.get = Mock(return_value=(time, values))
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(props)
         # Should handle NaN gracefully
         plotter.plot("test", show_avg=True, show=False)
@@ -646,22 +645,22 @@ class TestEdgeCases:
     def test_plot_with_inf_values(self, mock_close, mock_show, mock_subplots, mock_resolve, mock_mplstyle):
         """Test plot with infinite values in data."""
         mock_resolve.return_value = "test"
-        
+
         props = Mock()
         props.start_time = 0
         mock_energy = Mock()
         mock_energy.units = {"test": "units"}
         props.energy = [mock_energy]
-        
+
         time = np.linspace(0, 10000, 100)
         values = np.ones(100) * 100
         values[50] = np.inf
         props.get = Mock(return_value=(time, values))
-        
+
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(props)
         # Should handle inf gracefully
         plotter.plot("test", show_avg=True, show=False)
@@ -680,10 +679,10 @@ class TestIntegration:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         # Initialize plotter
         plotter = TimeseriesPlotter(mock_system_properties, start_time=1000)
-        
+
         # Create plot
         fig, ax = plotter.plot(
             "potential",
@@ -695,7 +694,7 @@ class TestIntegration:
             title="Energy vs Time",
             show=False
         )
-        
+
         # Verify all components
         assert fig == mock_fig
         assert ax == mock_ax
@@ -714,17 +713,17 @@ class TestIntegration:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         # Create plotter from collection
         plotter = TimeseriesPlotter.from_collection(
             mock_system_collection,
             "water",
             start_time=2000
         )
-        
+
         # Create plot
         fig, ax = plotter.plot("temperature", show=False)
-        
+
         assert fig == mock_fig
         assert ax == mock_ax
 
@@ -738,14 +737,14 @@ class TestIntegration:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties)
-        
+
         # Create multiple plots
         plotter.plot("potential", show=False)
         plotter.plot("temperature", show=False)
         plotter.plot("pressure", show=False)
-        
+
         # Should have created 3 plots
         assert mock_subplots.call_count == 3
 
@@ -759,9 +758,9 @@ class TestIntegration:
         mock_fig = Mock()
         mock_ax = Mock()
         mock_subplots.return_value = (mock_fig, mock_ax)
-        
+
         plotter = TimeseriesPlotter(mock_system_properties, start_time=1000)
-        
+
         fig, ax = plotter.plot(
             "potential",
             units="kJ/mol",
@@ -780,7 +779,7 @@ class TestIntegration:
             savepath=str(tmp_path / "test.pdf"),
             show=False
         )
-        
+
         # Verify all options were applied
         assert mock_subplots.called
         assert mock_ax.plot.called
