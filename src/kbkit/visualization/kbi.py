@@ -50,7 +50,7 @@ class KBIAnalysisPlotter:
         # convert units if desired
         converted_result = self.result.to(units=units)
 
-        fig, ax = plt.subplots(1, 3, figsize=(12, 3.6))
+        _fig, ax = plt.subplots(1, 3, figsize=(12, 3.6))
         lines = []
         for _, meta in converted_result.metadata[system_name].items():
             molmap = self.molecule_map or {m: m for m in meta.mols}

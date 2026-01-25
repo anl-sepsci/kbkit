@@ -132,7 +132,7 @@ class RdfParser:
         mask = self.r > (self.r.max() - tail_length)
 
         # perform linear regression on tail to get slope
-        slope, intercept, r_value, p_value, std_err = linregress(self.r[mask], self.g[mask])
+        slope, _intercept, _r_value, _p_value, _std_err = linregress(self.r[mask], self.g[mask])
 
         # Calculate the total "rise" or "fall" over the tail
         total_change = slope * tail_length
