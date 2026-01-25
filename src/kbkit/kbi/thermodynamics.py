@@ -19,7 +19,7 @@ It supports multiple strategies for integrating activity coefficient derivatives
 """
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
@@ -401,7 +401,7 @@ class KBThermo:
             0: lambda x: 100 ** (-np.log10(np.clip(x, 1e-10, 1.0))),
         }
         ref_state = self._get_ref_state(mol)
-        return weight_fns_mapped[int(ref_state)](x) 
+        return weight_fns_mapped[int(ref_state)](x)
 
     @cached_property_value()
     def ln_activity_coef(self) -> np.ndarray:
@@ -905,12 +905,12 @@ class KBThermo:
         for attr in dir(self):
             if attr.startswith("_") or attr in ("Q_", "ureg", "results", "plotter"):
                 continue
-            
+
             val = getattr(self, attr)
             try:
                 val = val()
             except TypeError:
-                continue 
+                continue
 
             if attr in self._cache:
                 props[attr] =self._cache[attr]

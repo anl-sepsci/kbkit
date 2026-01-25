@@ -324,7 +324,7 @@ class ThermoPlotter:
             y = y(units)
         except Exception:
             y = y()
-        
+
         try:
             units = self.thermo.results[name].units
         except KeyError as e:

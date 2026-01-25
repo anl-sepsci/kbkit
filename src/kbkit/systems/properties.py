@@ -4,6 +4,7 @@ import inspect
 from functools import cached_property
 from pathlib import Path
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -204,12 +205,12 @@ class SystemProperties:
         prop = resolve_attr_key(name, ENERGY_ALIASES).lower()
 
         # now compute properties from edr-files
-    
+
         times: list[float] = []
         values = []
         value: float | np.ndarray
 
-        for i, edr in enumerate(self.energy):
+        for _i, edr in enumerate(self.energy):
             if prop == "cp":
                 value = edr.cp(
                     nmol=self.topology.total_molecules, volume=box_volume, start_time=self.start_time, units=units

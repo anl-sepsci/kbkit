@@ -2,8 +2,9 @@
 
 import re
 from functools import cached_property
-from typing import Any
 from pathlib import Path
+from typing import Any
+
 import numpy as np
 
 from kbkit.utils.validation import validate_path

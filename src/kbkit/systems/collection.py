@@ -12,12 +12,11 @@ import re
 from collections import defaultdict
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
 from kbkit.io import EdrParser
-from kbkit.schema.property_result import PropertyResult
 from kbkit.schema.system_metadata import SystemMetadata
 from kbkit.systems.properties import SystemProperties
 from kbkit.utils.decorators import cached_property_result
@@ -25,6 +24,8 @@ from kbkit.utils.format import ENERGY_ALIASES, resolve_attr_key
 from kbkit.utils.validation import validate_path
 from kbkit.visualization.timeseries import TimeseriesPlotter
 
+if TYPE_CHECKING:
+    from kbkit.schema.property_result import PropertyResult
 
 class SystemCollection:
     """
@@ -216,7 +217,7 @@ class SystemCollection:
         # if all has failed raise
         else:
             raise ValueError("Temperature is not in pathname and can not be extracted from .edr file!")
-        
+
         temp = edr.get_gmx_property("temperature", avg=True)
         if isinstance(temp, float):
             return temp
@@ -376,7 +377,7 @@ class SystemCollection:
         for meta in self._systems:
             meta_units = meta.props.get("units")
             if isinstance(meta_units, dict):
-                unit_dic.update({k:v for k, v in meta_units.items()})
+                unit_dic.update(meta_units)
         return dict(unit_dic)
 
     @property

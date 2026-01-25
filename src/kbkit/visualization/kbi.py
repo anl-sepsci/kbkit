@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.config.unit_registry import load_unit_registry
+from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.schema.property_result import PropertyResult
 from kbkit.utils.format import format_unit_str
-from kbkit.schema.kbi_metadata import KBIMetadata
 
 load_mplstyle()
 
@@ -50,7 +50,7 @@ class KBIAnalysisPlotter:
         """
         # convert units if desired
         converted_result = self.result.to(units=units)
-        if type(converted_result.metadata) != dict[str, dict[str, KBIMetadata]]:
+        if type(converted_result.metadata) is not dict[str, dict[str, KBIMetadata]]:
             return
 
         _fig, ax = plt.subplots(1, 3, figsize=(12, 3.6))
@@ -99,7 +99,7 @@ class KBIAnalysisPlotter:
             parent_path = parent_path if parent_path.is_dir() else parent_path.parent
 
         # plot all systems
-        if type(self.metadata) == dict[str, dict[str, KBIMetadata]]:
+        if type(self.metadata) is dict[str, dict[str, KBIMetadata]]:
             for sys in self.metadata:
                 fpath = parent_path / f"{sys}.pdf" if savepath else None
                 self.plot(system_name=sys, units=units, savepath=fpath, show=show)

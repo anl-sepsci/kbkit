@@ -95,7 +95,7 @@ class KBIntegrator:
         volume = system_properties.get("volume", units="nm^3", avg=True)
         if not isinstance(volume, float):
             raise TypeError(f"Expected float, {type(volume)} detected.")
-        
+
         molecule_count = system_properties.topology.molecule_count
         return cls(
             rdf=rdf,

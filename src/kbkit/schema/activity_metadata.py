@@ -1,7 +1,7 @@
 """Containers for storing activity coefficient properties and their polynomial fit functions."""
 
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 import numpy as np
 
@@ -27,10 +27,10 @@ class ActivityCoefficientResult:
         Optional function that describes activity coefficients. Only if ``activity_integration_typ`` is `polynomial`.
     """
 
-    mol: str  
+    mol: str
     x: np.ndarray
     y: np.ndarray
-    property_type: Literal["derivative", "integrated"] 
+    property_type: Literal["derivative", "integrated"]
     fn: np.poly1d | None = None  # instead of "fn"
 
     @property

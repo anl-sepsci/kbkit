@@ -1,8 +1,9 @@
 """Parses a GROMACS .gro file to extract residue electron counts and box volume."""
 
 from functools import cached_property
-from typing import ClassVar
 from pathlib import Path
+from typing import ClassVar
+
 import MDAnalysis
 import numpy as np
 from rdkit.Chem import GetPeriodicTable

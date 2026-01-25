@@ -2,19 +2,21 @@
 
 import inspect
 from functools import wraps
-from typing import TypeVar, Callable, Any, ParamSpec
+from typing import Any, Callable
+
 import numpy as np
+
 from kbkit.schema.property_result import PropertyResult
 
 
 def cached_property_result(default_units: str | None = None) -> Callable[[Callable[..., Any]], Callable[..., PropertyResult]]:
     """Decorator factory for caching PropertyResult calculations.
-    
+
     Parameters
     ----------
     default_units: str
         Default units for the property
-        
+
     Returns
     -------
     Callable
@@ -123,7 +125,7 @@ def cached_property_value(default_units: str | None = None)  -> Callable[[Callab
     ----------
     default_units: str
         Default units for the property
-        
+
     Returns
     -------
     Callable
