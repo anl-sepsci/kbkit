@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 
+from kbkit.schema.property_result import PropertyResult
 from kbkit.visualization.thermo import ThermoPlotter
 
 
@@ -26,11 +27,28 @@ def mock_kb_thermo():
     mock_systems.get_mol_index = Mock(side_effect=lambda mol: 0 if mol == "Water" else 1)
     thermo.systems = mock_systems
 
-    # Mock results
-    mock_result = Mock()
-    mock_result.units = "cm^3/mol"
-    thermo.results = Mock()
-    thermo.results.get = Mock(return_value=mock_result)
+    # Mock results - create PropertyResult objects
+    def create_mock_result(units="cm^3/mol"):
+        result = PropertyResult(
+            name="test",
+            value=np.random.rand(5, 2, 2),
+            units=units,
+            metadata={}
+        )
+        return result
+
+    thermo.results = {
+        "kbi": create_mock_result("cm^3/mol"),
+        "ln_activity_coef": create_mock_result(None),
+        "ln_activity_coef_deriv": create_mock_result(None),
+        "s0_ij": create_mock_result(None),
+        "hessian_determinant": create_mock_result("kJ/mol"),
+        "h_mix": create_mock_result("kJ/mol"),
+        "s_ex": create_mock_result("kJ/mol/K"),
+        "g_ex": create_mock_result("kJ/mol"),
+        "g_id": create_mock_result("kJ/mol"),
+        "g_mix": create_mock_result("kJ/mol"),
+    }
 
     # Mock properties
     thermo.kbi = Mock(return_value=np.random.rand(5, 2, 2))
@@ -51,7 +69,7 @@ def mock_kb_thermo():
     mock_meta_item.has_fn = True
     mock_meta_item.x_eval = np.linspace(0, 1, 50)
     mock_meta_item.y_eval = np.random.rand(50)
-    mock_activity_meta._by_types = {"derivative": {"test": mock_meta_item}}
+    mock_activity_meta.by_types = {"derivative": {"test": mock_meta_item}}
     thermo.activity_metadata = mock_activity_meta
     thermo.activity_integration_type = "polynomial"
 
@@ -77,11 +95,24 @@ def mock_ternary_thermo():
     mock_systems.get_mol_index = Mock(side_effect=lambda mol: {"Water": 0, "Ethanol": 1, "Methanol": 2}[mol])
     thermo.systems = mock_systems
 
-    # Mock results
-    mock_result = Mock()
-    mock_result.units = "kJ/mol"
-    thermo.results = Mock()
-    thermo.results.get = Mock(return_value=mock_result)
+    # Mock results - create PropertyResult objects
+    def create_mock_result(units="kJ/mol"):
+        result = PropertyResult(
+            name="test",
+            value=np.random.rand(len(x_data)),
+            units=units,
+            metadata={}
+        )
+        return result
+
+    thermo.results = {
+        "h_mix": create_mock_result("kJ/mol"),
+        "s_ex": create_mock_result("kJ/mol/K"),
+        "g_ex": create_mock_result("kJ/mol"),
+        "g_id": create_mock_result("kJ/mol"),
+        "g_mix": create_mock_result("kJ/mol"),
+        "hessian_determinant": create_mock_result("kJ/mol"),
+    }
 
     # Mock properties
     thermo.h_mix = Mock(return_value=np.random.rand(len(x_data)))
@@ -508,12 +539,6 @@ class TestIntegration:
 
         assert mock_subplots.call_count > 5
 
-"""Additional unit tests for ThermoPlotter to increase coverage."""
-
-from unittest.mock import patch
-
-import pytest
-
 
 class TestPlotMethodEdgeCases:
     """Test edge cases in plot method."""
@@ -716,7 +741,6 @@ class TestPlotPropertyEdgeCases:
         # Should use first molecule as default
         mock_kb_thermo.systems.get_mol_index.assert_called_with("Water")
 
-
     @patch('matplotlib.pyplot.subplots')
     @patch('matplotlib.pyplot.show')
     @patch('matplotlib.pyplot.close')
@@ -732,7 +756,7 @@ class TestPlotPropertyEdgeCases:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # Mock property that returns None for units
-        mock_kb_thermo.results.get.return_value.units = None
+        mock_kb_thermo.results["kbi"].units = None
 
         plotter = ThermoPlotter(mock_kb_thermo)
         plotter.plot_property("kbi", ylabel="Test Label", show=False)
@@ -993,7 +1017,7 @@ class TestActivityCoefDerivFitsEdgeCases:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         # Set has_fn to False
-        mock_kb_thermo.activity_metadata._by_types["derivative"]["test"].has_fn = False
+        mock_kb_thermo.activity_metadata.by_types["derivative"]["test"].has_fn = False
 
         plotter = ThermoPlotter(mock_kb_thermo)
         fig, ax = plotter.plot_activity_coef_deriv_fits(show=False)

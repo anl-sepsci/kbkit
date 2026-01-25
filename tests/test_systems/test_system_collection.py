@@ -476,7 +476,6 @@ class TestSystemCollectionFindReferenceDir:
 
             result = SystemCollection._find_reference_dir(tmp_path)
 
-            assert result is not None
             assert keyword in result.name.lower()
             break
 
@@ -485,9 +484,9 @@ class TestSystemCollectionFindReferenceDir:
         """Test when no reference directory is found."""
         mock_is_valid.return_value = False
 
-        result = SystemCollection._find_reference_dir(tmp_path)
+        with pytest.raises(FileNotFoundError, match="No parent directories for pure-components were found"):
+            SystemCollection._find_reference_dir(tmp_path)
 
-        assert result is None
 
 
 class TestSystemCollectionResolveRDFPath:
@@ -571,11 +570,15 @@ class TestSystemCollectionMakeMeta:
             props=mock_props
         )
 
+        # SystemProperties is called with str(path), not path
         mock_props_class.assert_called_once_with(
-            tmp_path, start_time=5000, include="npt"
+            str(tmp_path), start_time=5000, include="npt"
         )
 
         assert result == mock_meta
+
+
+
 
 
 class TestSystemCollectionSortSystems:
@@ -1381,6 +1384,7 @@ class TestSystemCollectionLoad:
     @patch('kbkit.systems.collection.SystemCollection._sort_systems')
     @patch('kbkit.systems.collection.SystemCollection._make_meta')
     @patch('kbkit.systems.collection.SystemCollection._resolve_rdf_path')
+    @patch('kbkit.systems.collection.SystemCollection._find_reference_dir')
     @patch('kbkit.systems.collection.SystemCollection._peek_molecules')
     @patch('kbkit.systems.collection.SystemCollection._is_valid')
     @patch('kbkit.systems.collection.validate_path')

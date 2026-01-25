@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -72,6 +72,17 @@ def mock_kbi_result(mock_kbi_metadata):
         metadata=mock_kbi_metadata
     )
 
+    # Mock the to() method to return a PropertyResult with metadata preserved
+    def mock_to(units=None):
+        new_result = PropertyResult(
+            name="kbi",
+            value=kbi_values,
+            units=units or "nm^3/molecule",
+            metadata=mock_kbi_metadata
+        )
+        return new_result
+
+    result.to = mock_to
     return result
 
 
@@ -381,11 +392,11 @@ class TestKBIAnalysisPlotterIntegration:
         """Test that unit conversion works in plot."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
 
-        # Mock the to() method to track calls
-        original_to = mock_kbi_result.to
+        # Track calls to to()
         call_tracker = []
+        original_to = mock_kbi_result.to
 
-        def tracked_to(units):
+        def tracked_to(units=None):
             call_tracker.append(units)
             return original_to(units)
 
@@ -414,6 +425,16 @@ class TestKBIAnalysisPlotterEdgeCases:
             metadata={"system_1": {}}
         )
 
+        # Mock the to() method to preserve metadata
+        def mock_to(units=None):
+            return PropertyResult(
+                name="kbi",
+                value=np.array([[[1.0, 1.0], [1.0, 1.0]]]),
+                units=units or "nm^3/molecule",
+                metadata={"system_1": {}}
+            )
+        result.to = mock_to
+
         plotter = KBIAnalysisPlotter(result)
 
         # Should not crash, just create empty plot
@@ -437,12 +458,24 @@ class TestKBIAnalysisPlotterEdgeCases:
         meta.scaled_rkbi_est = np.linspace(3, 4.5, 50)
         meta.kbi_limit = 4.2
 
+        metadata = {"system_1": {"MOL1.MOL2": meta}}
+
         result = PropertyResult(
             name="kbi",
             value=np.array([[[1.5, 1.5], [1.5, 1.5]]]),
             units="nm^3/molecule",
-            metadata={"system_1": {"MOL1.MOL2": meta}}
+            metadata=metadata
         )
+
+        # Mock the to() method to preserve metadata
+        def mock_to(units=None):
+            return PropertyResult(
+                name="kbi",
+                value=np.array([[[1.5, 1.5], [1.5, 1.5]]]),
+                units=units or "nm^3/molecule",
+                metadata=metadata
+            )
+        result.to = mock_to
 
         plotter = KBIAnalysisPlotter(result)
         plotter.plot("system_1", show=False)
@@ -458,6 +491,16 @@ class TestKBIAnalysisPlotterEdgeCases:
             units="nm^3/molecule",
             metadata={}
         )
+
+        # Mock the to() method
+        def mock_to(units=None):
+            return PropertyResult(
+                name="kbi",
+                value=np.array([]),
+                units=units or "nm^3/molecule",
+                metadata={}
+            )
+        result.to = mock_to
 
         plotter = KBIAnalysisPlotter(result)
         plotter.plot_all(savepath=str(tmp_path), show=False)

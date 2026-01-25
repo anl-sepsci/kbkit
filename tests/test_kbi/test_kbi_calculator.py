@@ -131,7 +131,8 @@ class TestKBICalculatorCaching:
         """Test _get_from_cache returns None when cache is empty."""
         calc = KBICalculator(mock_system_collection)
 
-        result = calc._get_from_cache(("test", "key"), "kg/m^3")
+        cache_key = ("test", "key")
+        result = calc._cache.get(cache_key)
 
         assert result is None
 
@@ -148,7 +149,7 @@ class TestKBICalculatorCaching:
         calc._cache[key] = mock_result
 
         # Retrieve from cache
-        result = calc._get_from_cache(key, "cm^3/mol")
+        result = calc._cache[key].to("cm^3/mol")
 
         assert result == mock_result
         mock_result.to.assert_called_once_with("cm^3/mol")

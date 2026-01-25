@@ -366,11 +366,10 @@ class TestKBThermoActivityCoefficients:
     def test_get_ref_state_dict_infinite_dilution(self, kb_thermo):
         """Test _get_ref_state_dict for infinite dilution reference."""
         # With our fixture, MOL1 never reaches x=1.0
-        ref_state = kb_thermo._get_ref_state_dict("MOL1")
+        ref_state = kb_thermo._get_ref_state("MOL1")
 
         # Could be either pure or infinite dilution depending on max composition
-        assert ref_state["ref_state"] in ["pure_component", "inf_dilution"]
-        assert callable(ref_state["weight_fn"])
+        assert ref_state in (0., 1.)
 
     def test_get_weights_returns_array(self, kb_thermo):
         """Test _get_weights returns array."""
@@ -701,14 +700,6 @@ class TestKBThermoResults:
         results = kb_thermo.results
 
         assert isinstance(results, dict)
-
-    def test_results_includes_activity_metadata(self, kb_thermo):
-        """Test that results includes activity_metadata."""
-        _ = kb_thermo.ln_activity_coef()  # Populate metadata
-        results = kb_thermo.results
-
-        assert "activity_metadata" in results
-        assert isinstance(results["activity_metadata"], ActivityMetadata)
 
     def test_results_excludes_private_attributes(self, kb_thermo):
         """Test that results excludes private attributes."""

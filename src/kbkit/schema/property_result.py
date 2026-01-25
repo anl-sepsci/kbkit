@@ -24,20 +24,22 @@ class PropertyResult:
         Type of property calculated.
     units : str, optional
         Units of the property (e.g., "kg/m^3", "kJ/mol").
-    metadata : dict, optional
+    metadata : dict
         Additional calculation metadata (e.g., mixing rules, KBI metadata).
     """
 
     name: str
     value: np.ndarray
+    metadata: dict[str, Any] | None = None
     property_type: str | None = None
     units: str | None = None
-    metadata: dict[str, Any] | None = None
 
     def __post_init__(self):
         """Validate inputs after initialization."""
         if not isinstance(self.value, np.ndarray):
             self.value = np.asarray(self.value)
+        if self.metadata is None:
+            self.metadata = {}
 
     def to(self, units: str) -> "PropertyResult":
         """
@@ -77,7 +79,7 @@ class PropertyResult:
             ) from e
 
         # Handle metadata conversion
-        new_metadata: dict[str, dict[str, KBIMetadata]] = {}
+        new_metadata: dict[str, Any] = {}
         if self.metadata:
             if self.name.lower() == "kbi":
                 # Special handling for KBI metadata
@@ -95,7 +97,7 @@ class PropertyResult:
             metadata=new_metadata
         )
 
-    def _convert_kbi_metadata(self, property_meta: dict[str, dict[str, KBIMetadata]], target_units: str, ureg) ->  dict[str, dict[str, KBIMetadata]]:
+    def _convert_kbi_metadata(self, property_meta: dict[str, Any], target_units: str, ureg) ->  dict[str, dict[str, KBIMetadata]]:
         """
         Convert KBI metadata to target units.
 
@@ -111,7 +113,7 @@ class PropertyResult:
         dict
             Metadata with converted KBIMetadata objects.
         """
-        new_metadata: dict[str, dict[str, KBIMetadata]] = {}
+        new_metadata: dict[str, Any] = {}
 
         for system_name, pair_dict in property_meta.items():
             if not isinstance(pair_dict, dict):

@@ -1,11 +1,4 @@
-"""
-Complete test coverage for kbkit.schema.activity_metadata module.
-Target: >95% coverage
-"""
-import warnings
-
-# Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+"""Unit tests for activity coefficient containers."""
 
 import numpy as np
 import pytest
@@ -16,50 +9,158 @@ from kbkit.schema.activity_metadata import ActivityCoefficientResult, ActivityMe
 class TestActivityCoefficientResult:
     """Test ActivityCoefficientResult dataclass."""
 
-    def test_create_basic_result(self):
-        """Test creating basic ActivityCoefficientResult."""
-        x = np.array([0.0, 0.5, 1.0])
-        y = np.array([1.0, 0.9, 0.8])
+    def test_initialization_basic(self):
+        """Test basic initialization without function."""
+        mol = "Water"
+        x = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
+        y = np.array([0.0, 0.1, 0.2, 0.3, 0.4])
+        property_type = "derivative"
 
         result = ActivityCoefficientResult(
-            mol="water",
+            mol=mol,
+            x=x,
+            y=y,
+            property_type=property_type
+        )
+
+        assert result.mol == mol
+        assert np.array_equal(result.x, x)
+        assert np.array_equal(result.y, y)
+        assert result.property_type == property_type
+        assert result.fn is None
+
+    def test_initialization_with_function(self):
+        """Test initialization with polynomial function."""
+        mol = "Ethanol"
+        x = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
+        y = np.array([0.0, 0.1, 0.2, 0.3, 0.4])
+        property_type = "integrated"
+        fn = np.poly1d([1, 2, 3])  # x^2 + 2x + 3
+
+        result = ActivityCoefficientResult(
+            mol=mol,
+            x=x,
+            y=y,
+            property_type=property_type,
+            fn=fn
+        )
+
+        assert result.mol == mol
+        assert result.fn == fn
+        assert isinstance(result.fn, np.poly1d)
+
+    def test_x_eval_with_function(self):
+        """Test x_eval property when function is defined."""
+        mol = "Water"
+        x = np.array([0.0, 0.5, 1.0])
+        y = np.array([0.0, 0.5, 1.0])
+        fn = np.poly1d([1, 0])  # y = x
+
+        result = ActivityCoefficientResult(
+            mol=mol,
+            x=x,
+            y=y,
+            property_type="derivative",
+            fn=fn
+        )
+
+        x_eval = result.x_eval
+        assert x_eval is not None
+        assert isinstance(x_eval, np.ndarray)
+        assert len(x_eval) == 101  # 0 to 1 with 0.01 step
+        assert x_eval[0] == 0.0
+        assert x_eval[-1] == 1.0
+
+    def test_x_eval_without_function(self):
+        """Test x_eval property when function is not defined."""
+        mol = "Water"
+        x = np.array([0.0, 0.5, 1.0])
+        y = np.array([0.0, 0.5, 1.0])
+
+        result = ActivityCoefficientResult(
+            mol=mol,
             x=x,
             y=y,
             property_type="derivative"
         )
 
-        assert result.mol == "water"
-        np.testing.assert_array_equal(result.x, x)
-        np.testing.assert_array_equal(result.y, y)
-        assert result.property_type == "derivative"
-        assert result.fn is None
+        assert result.x_eval is None
 
-    def test_create_result_with_function(self):
-        """Test creating ActivityCoefficientResult with function."""
+    def test_y_eval_with_function(self):
+        """Test y_eval property when function is defined."""
+        mol = "Water"
         x = np.array([0.0, 0.5, 1.0])
-        y = np.array([1.0, 0.9, 0.8])
-
-        def poly_fn(x):
-            return 1.0 - 0.2 * x
+        y = np.array([0.0, 0.5, 1.0])
+        fn = np.poly1d([2, 0])  # y = 2x
 
         result = ActivityCoefficientResult(
-            mol="ethanol",
+            mol=mol,
             x=x,
             y=y,
-            property_type="integrated",
-            fn=poly_fn
+            property_type="derivative",
+            fn=fn
         )
 
-        assert result.mol == "ethanol"
-        assert result.fn is not None
-        assert callable(result.fn)
+        y_eval = result.y_eval
+        assert y_eval is not None
+        assert isinstance(y_eval, np.ndarray)
+        # Check that function is evaluated at x values
+        expected = fn(x)
+        assert np.allclose(y_eval, expected)
+
+    def test_y_eval_without_function(self):
+        """Test y_eval property when function is not defined."""
+        mol = "Water"
+        x = np.array([0.0, 0.5, 1.0])
+        y = np.array([0.0, 0.5, 1.0])
+
+        result = ActivityCoefficientResult(
+            mol=mol,
+            x=x,
+            y=y,
+            property_type="derivative"
+        )
+
+        assert result.y_eval is None
+
+    def test_has_fn_true(self):
+        """Test has_fn property when function is defined."""
+        mol = "Water"
+        x = np.array([0.0, 0.5, 1.0])
+        y = np.array([0.0, 0.5, 1.0])
+        fn = np.poly1d([1, 0])
+
+        result = ActivityCoefficientResult(
+            mol=mol,
+            x=x,
+            y=y,
+            property_type="derivative",
+            fn=fn
+        )
+
+        assert result.has_fn is True
+
+    def test_has_fn_false(self):
+        """Test has_fn property when function is not defined."""
+        mol = "Water"
+        x = np.array([0.0, 0.5, 1.0])
+        y = np.array([0.0, 0.5, 1.0])
+
+        result = ActivityCoefficientResult(
+            mol=mol,
+            x=x,
+            y=y,
+            property_type="derivative"
+        )
+
+        assert result.has_fn is False
 
     def test_property_type_derivative(self):
         """Test with derivative property type."""
         result = ActivityCoefficientResult(
-            mol="water",
+            mol="Water",
             x=np.array([0.0, 1.0]),
-            y=np.array([1.0, 0.8]),
+            y=np.array([0.0, 1.0]),
             property_type="derivative"
         )
 
@@ -68,122 +169,38 @@ class TestActivityCoefficientResult:
     def test_property_type_integrated(self):
         """Test with integrated property type."""
         result = ActivityCoefficientResult(
-            mol="water",
+            mol="Water",
             x=np.array([0.0, 1.0]),
-            y=np.array([1.0, 0.8]),
+            y=np.array([0.0, 1.0]),
             property_type="integrated"
         )
 
         assert result.property_type == "integrated"
 
-    def test_x_eval_without_function(self):
-        """Test x_eval property when no function is defined."""
-        result = ActivityCoefficientResult(
-            mol="water",
-            x=np.array([0.0, 1.0]),
-            y=np.array([1.0, 0.8]),
-            property_type="derivative"
-        )
-
-        assert result.x_eval is None
-
-    def test_x_eval_with_function(self):
-        """Test x_eval property when function is defined."""
-        def poly_fn(x):
-            return 1.0 - 0.2 * x
-
-        result = ActivityCoefficientResult(
-            mol="water",
-            x=np.array([0.0, 1.0]),
-            y=np.array([1.0, 0.8]),
-            property_type="derivative",
-            fn=poly_fn
-        )
-
-        x_eval = result.x_eval
-        assert x_eval is not None
-        assert isinstance(x_eval, np.ndarray)
-        # Should be from 0 to 1 with step 1
-        expected = np.arange(0, 1.01, 1)
-        np.testing.assert_array_almost_equal(x_eval, expected)
-
-    def test_y_eval_without_function(self):
-        """Test y_eval property when no function is defined."""
-        result = ActivityCoefficientResult(
-            mol="water",
-            x=np.array([0.0, 1.0]),
-            y=np.array([1.0, 0.8]),
-            property_type="derivative"
-        )
-
-        assert result.y_eval is None
-
-    def test_y_eval_with_function(self):
-        """Test y_eval property when function is defined."""
-        def poly_fn(x):
-            return 1.0 - 0.2 * x
-
+    def test_polynomial_evaluation(self):
+        """Test that polynomial function evaluates correctly."""
+        mol = "Water"
         x = np.array([0.0, 0.5, 1.0])
-        y = np.array([1.0, 0.9, 0.8])
+        y = np.array([3.0, 4.0, 5.0])
+        # Create polynomial: y = 2x + 3
+        fn = np.poly1d([2, 3])
 
         result = ActivityCoefficientResult(
-            mol="water",
+            mol=mol,
             x=x,
             y=y,
             property_type="derivative",
-            fn=poly_fn
+            fn=fn
         )
 
+        # Test evaluation at specific points
+        assert fn(0.0) == 3.0
+        assert fn(0.5) == 4.0
+        assert fn(1.0) == 5.0
+
+        # Test y_eval uses the x values
         y_eval = result.y_eval
-        assert y_eval is not None
-        assert isinstance(y_eval, np.ndarray)
-        # Should be function evaluated at x
-        expected = poly_fn(x)
-        np.testing.assert_array_almost_equal(y_eval, expected)
-
-    def test_has_fn_false(self):
-        """Test has_fn property when no function is defined."""
-        result = ActivityCoefficientResult(
-            mol="water",
-            x=np.array([0.0, 1.0]),
-            y=np.array([1.0, 0.8]),
-            property_type="derivative"
-        )
-
-        assert result.has_fn is False
-
-    def test_has_fn_true(self):
-        """Test has_fn property when function is defined."""
-        def poly_fn(x):
-            return 1.0 - 0.2 * x
-
-        result = ActivityCoefficientResult(
-            mol="water",
-            x=np.array([0.0, 1.0]),
-            y=np.array([1.0, 0.8]),
-            property_type="derivative",
-            fn=poly_fn
-        )
-
-        assert result.has_fn is True
-
-    def test_function_evaluation(self):
-        """Test that function can be evaluated."""
-        def linear_fn(x):
-            return 2.0 * x + 1.0
-
-        result = ActivityCoefficientResult(
-            mol="water",
-            x=np.array([0.0, 0.5, 1.0]),
-            y=np.array([1.0, 2.0, 3.0]),
-            property_type="derivative",
-            fn=linear_fn
-        )
-
-        # Test function evaluation
-        test_x = np.array([0.0, 0.5, 1.0])
-        expected = np.array([1.0, 2.0, 3.0])
-        np.testing.assert_array_almost_equal(result.fn(test_x), expected)
+        assert np.allclose(y_eval, fn(x))
 
 
 class TestActivityMetadata:
@@ -192,127 +209,163 @@ class TestActivityMetadata:
     @pytest.fixture
     def sample_results(self):
         """Create sample ActivityCoefficientResult objects."""
-        results = [
-            ActivityCoefficientResult(
-                mol="water",
-                x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.8]),
-                property_type="derivative"
-            ),
-            ActivityCoefficientResult(
-                mol="ethanol",
-                x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.9]),
-                property_type="derivative"
-            ),
-            ActivityCoefficientResult(
-                mol="water",
-                x=np.array([0.0, 1.0]),
-                y=np.array([0.0, 0.2]),
-                property_type="integrated"
-            ),
-            ActivityCoefficientResult(
-                mol="ethanol",
-                x=np.array([0.0, 1.0]),
-                y=np.array([0.0, 0.1]),
-                property_type="integrated"
-            )
-        ]
-        return results
+        result1 = ActivityCoefficientResult(
+            mol="Water",
+            x=np.array([0.0, 0.5, 1.0]),
+            y=np.array([0.0, 0.5, 1.0]),
+            property_type="derivative",
+            fn=np.poly1d([1, 0])
+        )
 
-    def test_create_metadata(self, sample_results):
-        """Test creating ActivityMetadata."""
+        result2 = ActivityCoefficientResult(
+            mol="Ethanol",
+            x=np.array([0.0, 0.5, 1.0]),
+            y=np.array([0.0, 0.25, 1.0]),
+            property_type="derivative",
+            fn=np.poly1d([1, 0, 0])
+        )
+
+        result3 = ActivityCoefficientResult(
+            mol="Water",
+            x=np.array([0.0, 0.5, 1.0]),
+            y=np.array([1.0, 1.5, 2.0]),
+            property_type="integrated"
+        )
+
+        result4 = ActivityCoefficientResult(
+            mol="Ethanol",
+            x=np.array([0.0, 0.5, 1.0]),
+            y=np.array([2.0, 2.5, 3.0]),
+            property_type="integrated"
+        )
+
+        return [result1, result2, result3, result4]
+
+    def test_initialization(self, sample_results):
+        """Test basic initialization."""
         metadata = ActivityMetadata(results=sample_results)
 
-        assert isinstance(metadata, ActivityMetadata)
+        assert metadata.results == sample_results
         assert len(metadata.results) == 4
 
-    def test_empty_results(self):
-        """Test creating ActivityMetadata with empty results."""
+    def test_initialization_empty(self):
+        """Test initialization with empty list."""
         metadata = ActivityMetadata(results=[])
 
+        assert metadata.results == []
         assert len(metadata.results) == 0
-        assert metadata.by_types == {}
 
-    def test_by_types_property(self, sample_results):
-        """Test by_types property groups results correctly."""
+    def test_by_types_structure(self, sample_results):
+        """Test by_types property structure."""
         metadata = ActivityMetadata(results=sample_results)
-
         by_types = metadata.by_types
 
         assert isinstance(by_types, dict)
         assert "derivative" in by_types
         assert "integrated" in by_types
+        assert isinstance(by_types["derivative"], dict)
+        assert isinstance(by_types["integrated"], dict)
 
-        # Check derivative results
-        assert "water" in by_types["derivative"]
-        assert "ethanol" in by_types["derivative"]
-
-        # Check integrated results
-        assert "water" in by_types["integrated"]
-        assert "ethanol" in by_types["integrated"]
-
-    def test_by_types_structure(self, sample_results):
-        """Test structure of by_types dictionary."""
+    def test_by_types_derivative_content(self, sample_results):
+        """Test by_types derivative content."""
         metadata = ActivityMetadata(results=sample_results)
-
         by_types = metadata.by_types
 
-        # Check that values are ActivityCoefficientResult objects
-        water_deriv = by_types["derivative"]["water"]
-        assert isinstance(water_deriv, ActivityCoefficientResult)
-        assert water_deriv.mol == "water"
-        assert water_deriv.property_type == "derivative"
+        derivative_dict = by_types["derivative"]
+        assert "Water" in derivative_dict
+        assert "Ethanol" in derivative_dict
+        assert derivative_dict["Water"].mol == "Water"
+        assert derivative_dict["Ethanol"].mol == "Ethanol"
 
-    def test_get_derivative_result(self, sample_results):
-        """Test getting derivative result."""
+    def test_by_types_integrated_content(self, sample_results):
+        """Test by_types integrated content."""
+        metadata = ActivityMetadata(results=sample_results)
+        by_types = metadata.by_types
+
+        integrated_dict = by_types["integrated"]
+        assert "Water" in integrated_dict
+        assert "Ethanol" in integrated_dict
+        assert integrated_dict["Water"].mol == "Water"
+        assert integrated_dict["Ethanol"].mol == "Ethanol"
+
+    def test_get_derivative_lowercase(self, sample_results):
+        """Test get method with derivative (lowercase)."""
         metadata = ActivityMetadata(results=sample_results)
 
-        result = metadata.get("water", "derivative")
+        result = metadata.get("Water", "derivative")
 
         assert isinstance(result, ActivityCoefficientResult)
-        assert result.mol == "water"
+        assert result.mol == "Water"
         assert result.property_type == "derivative"
 
-    def test_get_integrated_result(self, sample_results):
-        """Test getting integrated result."""
+    def test_get_derivative_uppercase(self, sample_results):
+        """Test get method with Derivative (uppercase)."""
         metadata = ActivityMetadata(results=sample_results)
 
-        result = metadata.get("ethanol", "integrated")
+        result = metadata.get("Water", "Derivative")
 
         assert isinstance(result, ActivityCoefficientResult)
-        assert result.mol == "ethanol"
+        assert result.mol == "Water"
+        assert result.property_type == "derivative"
+
+    def test_get_integrated_lowercase(self, sample_results):
+        """Test get method with integrated (lowercase)."""
+        metadata = ActivityMetadata(results=sample_results)
+
+        result = metadata.get("Ethanol", "integrated")
+
+        assert isinstance(result, ActivityCoefficientResult)
+        assert result.mol == "Ethanol"
         assert result.property_type == "integrated"
 
-    def test_get_with_partial_property_type(self, sample_results):
-        """Test get with partial property_type match."""
+    def test_get_integrated_uppercase(self, sample_results):
+        """Test get method with Integrated (uppercase)."""
         metadata = ActivityMetadata(results=sample_results)
 
-        # "d" should match "derivative"
-        result = metadata.get("water", "d")
-        assert result.property_type == "derivative"
+        result = metadata.get("Ethanol", "Integrated")
 
-        # "deriv" should match "derivative"
-        result = metadata.get("water", "deriv")
-        assert result.property_type == "derivative"
+        assert isinstance(result, ActivityCoefficientResult)
+        assert result.mol == "Ethanol"
+        assert result.property_type == "integrated"
 
-    def test_get_case_insensitive(self, sample_results):
-        """Test that get is case-insensitive."""
+    def test_get_different_molecules(self, sample_results):
+        """Test get method with different molecules."""
         metadata = ActivityMetadata(results=sample_results)
 
-        result1 = metadata.get("water", "Derivative")
-        result2 = metadata.get("water", "DERIVATIVE")
-        result3 = metadata.get("water", "derivative")
+        water_deriv = metadata.get("Water", "derivative")
+        ethanol_deriv = metadata.get("Ethanol", "derivative")
 
-        assert result1.property_type == result2.property_type == result3.property_type
+        assert water_deriv.mol == "Water"
+        assert ethanol_deriv.mol == "Ethanol"
+        assert water_deriv != ethanol_deriv
 
-    def test_single_property_type(self):
-        """Test with only one property type."""
+    def test_get_nonexistent_molecule(self, sample_results):
+        """Test get method with non-existent molecule raises KeyError."""
+        metadata = ActivityMetadata(results=sample_results)
+
+        with pytest.raises(KeyError):
+            metadata.get("Methanol", "derivative")
+
+    def test_by_types_empty_results(self):
+        """Test by_types with empty results list."""
+        metadata = ActivityMetadata(results=[])
+        by_types = metadata.by_types
+
+        assert by_types == {}
+
+    def test_by_types_single_type(self):
+        """Test by_types with only one property type."""
         results = [
             ActivityCoefficientResult(
-                mol="water",
+                mol="Water",
                 x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.8]),
+                y=np.array([0.0, 1.0]),
+                property_type="derivative"
+            ),
+            ActivityCoefficientResult(
+                mol="Ethanol",
+                x=np.array([0.0, 1.0]),
+                y=np.array([0.0, 1.0]),
                 property_type="derivative"
             )
         ]
@@ -320,242 +373,173 @@ class TestActivityMetadata:
         metadata = ActivityMetadata(results=results)
         by_types = metadata.by_types
 
-        assert len(by_types) == 1
         assert "derivative" in by_types
+        assert "integrated" not in by_types
+        assert len(by_types["derivative"]) == 2
 
-    def test_multiple_molecules_same_type(self):
-        """Test with multiple molecules of same type."""
-        results = [
-            ActivityCoefficientResult(
-                mol="water",
-                x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.8]),
-                property_type="derivative"
-            ),
-            ActivityCoefficientResult(
-                mol="ethanol",
-                x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.9]),
-                property_type="derivative"
-            ),
-            ActivityCoefficientResult(
-                mol="methanol",
-                x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.85]),
-                property_type="derivative"
-            )
-        ]
+    def test_by_types_multiple_calls_same_result(self, sample_results):
+        """Test that by_types returns consistent results on multiple calls."""
+        metadata = ActivityMetadata(results=sample_results)
 
-        metadata = ActivityMetadata(results=results)
-        by_types = metadata.by_types
+        by_types1 = metadata.by_types
+        by_types2 = metadata.by_types
 
-        assert len(by_types["derivative"]) == 3
-        assert "water" in by_types["derivative"]
-        assert "ethanol" in by_types["derivative"]
-        assert "methanol" in by_types["derivative"]
+        # Should return the same structure
+        assert by_types1.keys() == by_types2.keys()
+        assert by_types1["derivative"].keys() == by_types2["derivative"].keys()
+        assert by_types1["integrated"].keys() == by_types2["integrated"].keys()
 
 
-class TestIntegration:
-    """Integration tests combining both classes."""
+class TestActivityCoefficientResultEdgeCases:
+    """Test edge cases for ActivityCoefficientResult."""
 
-    def test_workflow_with_functions(self):
-        """Test typical workflow with polynomial functions."""
-        def water_fn(x):
-            return 1.0 - 0.2 * x
-
-        def ethanol_fn(x):
-            return 1.0 - 0.1 * x
-
-        results = [
-            ActivityCoefficientResult(
-                mol="water",
-                x=np.array([0.0, 0.5, 1.0]),
-                y=np.array([1.0, 0.9, 0.8]),
-                property_type="derivative",
-                fn=water_fn
-            ),
-            ActivityCoefficientResult(
-                mol="ethanol",
-                x=np.array([0.0, 0.5, 1.0]),
-                y=np.array([1.0, 0.95, 0.9]),
-                property_type="derivative",
-                fn=ethanol_fn
-            )
-        ]
-
-        metadata = ActivityMetadata(results=results)
-
-        # Get water result
-        water_result = metadata.get("water", "derivative")
-        assert water_result.has_fn is True
-        assert water_result.y_eval is not None
-
-        # Get ethanol result
-        ethanol_result = metadata.get("ethanol", "derivative")
-        assert ethanol_result.has_fn is True
-        assert ethanol_result.y_eval is not None
-
-    def test_mixed_with_and_without_functions(self):
-        """Test with mix of results with and without functions."""
-        def poly_fn(x):
-            return 1.0 - 0.2 * x
-
-        results = [
-            ActivityCoefficientResult(
-                mol="water",
-                x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.8]),
-                property_type="derivative",
-                fn=poly_fn
-            ),
-            ActivityCoefficientResult(
-                mol="ethanol",
-                x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.9]),
-                property_type="derivative"
-                # No function
-            )
-        ]
-
-        metadata = ActivityMetadata(results=results)
-
-        water = metadata.get("water", "derivative")
-        ethanol = metadata.get("ethanol", "derivative")
-
-        assert water.has_fn is True
-        assert ethanol.has_fn is False
-
-    def test_complete_activity_coefficient_workflow(self):
-        """Test complete workflow with both derivative and integrated."""
-        # Create derivative results
-        deriv_water = ActivityCoefficientResult(
-            mol="water",
-            x=np.linspace(0, 1, 11),
-            y=np.linspace(1.0, 0.8, 11),
-            property_type="derivative"
-        )
-
-        deriv_ethanol = ActivityCoefficientResult(
-            mol="ethanol",
-            x=np.linspace(0, 1, 11),
-            y=np.linspace(1.0, 0.9, 11),
-            property_type="derivative"
-        )
-
-        # Create integrated results
-        integ_water = ActivityCoefficientResult(
-            mol="water",
-            x=np.linspace(0, 1, 11),
-            y=np.linspace(0.0, 0.2, 11),
-            property_type="integrated"
-        )
-
-        integ_ethanol = ActivityCoefficientResult(
-            mol="ethanol",
-            x=np.linspace(0, 1, 11),
-            y=np.linspace(0.0, 0.1, 11),
-            property_type="integrated"
-        )
-
-        metadata = ActivityMetadata(
-            results=[deriv_water, deriv_ethanol, integ_water, integ_ethanol]
-        )
-
-        # Verify structure
-        assert len(metadata.by_types) == 2
-        assert len(metadata.by_types["derivative"]) == 2
-        assert len(metadata.by_types["integrated"]) == 2
-
-        # Get specific results
-        water_deriv = metadata.get("water", "derivative")
-        water_integ = metadata.get("water", "integrated")
-
-        assert water_deriv.property_type == "derivative"
-        assert water_integ.property_type == "integrated"
-        assert water_deriv.mol == water_integ.mol == "water"
-
-
-class TestEdgeCases:
-    """Test edge cases and boundary conditions."""
-
-    def test_single_point_arrays(self):
-        """Test with single-point arrays."""
+    def test_empty_arrays(self):
+        """Test with empty numpy arrays."""
         result = ActivityCoefficientResult(
-            mol="water",
+            mol="Water",
+            x=np.array([]),
+            y=np.array([]),
+            property_type="derivative"
+        )
+
+        assert len(result.x) == 0
+        assert len(result.y) == 0
+
+    def test_single_point(self):
+        """Test with single data point."""
+        result = ActivityCoefficientResult(
+            mol="Water",
             x=np.array([0.5]),
-            y=np.array([0.9]),
+            y=np.array([0.25]),
             property_type="derivative"
         )
 
         assert len(result.x) == 1
         assert len(result.y) == 1
+        assert result.x[0] == 0.5
+        assert result.y[0] == 0.25
 
-    def test_large_arrays(self):
-        """Test with large arrays."""
-        n = 10000
+    def test_high_order_polynomial(self):
+        """Test with high-order polynomial."""
+        # 5th order polynomial
+        fn = np.poly1d([1, 2, 3, 4, 5, 6])
+
         result = ActivityCoefficientResult(
-            mol="water",
-            x=np.linspace(0, 1, n),
-            y=np.random.rand(n),
+            mol="Water",
+            x=np.array([0.0, 0.5, 1.0]),
+            y=np.array([6.0, 10.0, 21.0]),
+            property_type="derivative",
+            fn=fn
+        )
+
+        assert result.has_fn is True
+        assert result.fn.order == 5
+
+    def test_constant_polynomial(self):
+        """Test with constant polynomial (0th order)."""
+        fn = np.poly1d([5])  # y = 5
+
+        result = ActivityCoefficientResult(
+            mol="Water",
+            x=np.array([0.0, 0.5, 1.0]),
+            y=np.array([5.0, 5.0, 5.0]),
+            property_type="derivative",
+            fn=fn
+        )
+
+        y_eval = result.y_eval
+        assert np.allclose(y_eval, [5.0, 5.0, 5.0])
+
+    def test_negative_values(self):
+        """Test with negative x and y values."""
+        result = ActivityCoefficientResult(
+            mol="Water",
+            x=np.array([-1.0, 0.0, 1.0]),
+            y=np.array([-2.0, 0.0, 2.0]),
             property_type="derivative"
         )
 
-        assert len(result.x) == n
-        assert len(result.y) == n
+        assert result.x[0] == -1.0
+        assert result.y[0] == -2.0
 
-    def test_function_with_complex_polynomial(self):
-        """Test with complex polynomial function."""
-        def complex_poly(x):
-            return 1.0 - 0.5*x + 0.3*x**2 - 0.1*x**3
+    def test_large_arrays(self):
+        """Test with large arrays."""
+        x = np.linspace(0, 1, 10000)
+        y = np.sin(x)
 
         result = ActivityCoefficientResult(
-            mol="water",
-            x=np.array([0.0, 0.5, 1.0]),
-            y=np.array([1.0, 0.825, 0.7]),
-            property_type="derivative",
-            fn=complex_poly
+            mol="Water",
+            x=x,
+            y=y,
+            property_type="derivative"
         )
 
-        assert result.has_fn is True
-        y_eval = result.y_eval
-        assert y_eval is not None
+        assert len(result.x) == 10000
+        assert len(result.y) == 10000
 
-    def test_lambda_function(self):
-        """Test with lambda function."""
-        result = ActivityCoefficientResult(
-            mol="water",
-            x=np.array([0.0, 1.0]),
-            y=np.array([1.0, 0.8]),
-            property_type="derivative",
-            fn=lambda x: 1.0 - 0.2 * x
-        )
 
-        assert result.has_fn is True
-        assert callable(result.fn)
+class TestActivityMetadataEdgeCases:
+    """Test edge cases for ActivityMetadata."""
 
-    def test_duplicate_molecules_different_types(self):
-        """Test same molecule with different property types."""
+    def test_duplicate_molecules_same_type(self):
+        """Test with duplicate molecules of same type (last one wins)."""
         results = [
             ActivityCoefficientResult(
-                mol="water",
+                mol="Water",
                 x=np.array([0.0, 1.0]),
-                y=np.array([1.0, 0.8]),
+                y=np.array([0.0, 1.0]),
                 property_type="derivative"
             ),
             ActivityCoefficientResult(
-                mol="water",
+                mol="Water",
                 x=np.array([0.0, 1.0]),
-                y=np.array([0.0, 0.2]),
-                property_type="integrated"
+                y=np.array([1.0, 2.0]),  # Different y values
+                property_type="derivative"
+            )
+        ]
+
+        metadata = ActivityMetadata(results=results)
+        by_types = metadata.by_types
+
+        # Should only have one Water entry (the last one)
+        assert len(by_types["derivative"]) == 1
+        water_result = by_types["derivative"]["Water"]
+        assert np.array_equal(water_result.y, np.array([1.0, 2.0]))
+
+    def test_many_molecules(self):
+        """Test with many different molecules."""
+        results = [
+            ActivityCoefficientResult(
+                mol=f"Molecule_{i}",
+                x=np.array([0.0, 1.0]),
+                y=np.array([0.0, float(i)]),
+                property_type="derivative"
+            )
+            for i in range(100)
+        ]
+
+        metadata = ActivityMetadata(results=results)
+        by_types = metadata.by_types
+
+        assert len(by_types["derivative"]) == 100
+
+    def test_get_with_partial_match(self):
+        """Test that get requires exact property_type match."""
+        results = [
+            ActivityCoefficientResult(
+                mol="Water",
+                x=np.array([0.0, 1.0]),
+                y=np.array([0.0, 1.0]),
+                property_type="derivative"
             )
         ]
 
         metadata = ActivityMetadata(results=results)
 
-        deriv = metadata.get("water", "derivative")
-        integ = metadata.get("water", "integrated")
+        # Should work with 'd' prefix
+        result = metadata.get("Water", "deriv")
+        assert result.property_type == "derivative"
 
-        assert deriv.property_type == "derivative"
-        assert integ.property_type == "integrated"
-        np.testing.assert_array_equal(deriv.y, np.array([1.0, 0.8]))
-        np.testing.assert_array_equal(integ.y, np.array([0.0, 0.2]))
+        # Should work with 'D' prefix
+        result = metadata.get("Water", "Deriv")
+        assert result.property_type == "derivative"

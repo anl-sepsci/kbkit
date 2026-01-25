@@ -196,11 +196,6 @@ class ThermoPlotter:
         except Exception:
             values = values()
 
-        try:
-            units = self.thermo.results[name].units
-        except KeyError as e:
-            raise KeyError(f"Key {name} has not been cached.") from e
-
         if values.ndim == ARR_DIM_2:
             if xmol is not None:
                 x = x[:, self.thermo.systems.get_mol_index(xmol)]
@@ -324,11 +319,6 @@ class ThermoPlotter:
             y = y(units)
         except Exception:
             y = y()
-
-        try:
-            units = self.thermo.results[name].units
-        except KeyError as e:
-            raise KeyError(f"Key {name} has not been cached.") from e
 
         name = name.replace("_", " ")
         cbar_label = f"{name} ({format_unit_str(units)})" if units else name

@@ -34,17 +34,14 @@ class ActivityCoefficientResult:
     fn: np.poly1d | None = None  # instead of "fn"
 
     @property
-    def x_eval(self) -> np.ndarray:
+    def x_eval(self):
         """np.ndarray: Values to evaluate function at."""
-        return np.arange(0, 1.01, 0.01)
+        return np.arange(0, 1.01, 0.01) if isinstance(self.fn, np.poly1d) else None
 
     @property
-    def y_eval(self) -> np.ndarray:
+    def y_eval(self):
         """np.ndarray: Result of the function evaluated at ``x_eval``."""
-        if isinstance(self.fn, np.poly1d):
-            return self.fn(self.x)
-        else:
-            return np.empty(0)
+        return self.fn(self.x) if isinstance(self.fn, np.poly1d) else None
 
     @property
     def has_fn(self) -> bool:
@@ -92,4 +89,7 @@ class ActivityMetadata:
             Type of activity coefficient property.
         """
         key = "derivative" if property_type.lower().startswith("d") else "integrated"
-        return self.by_types[key][mol]
+        try:
+            return self.by_types[key][mol]
+        except KeyError as e:
+            raise KeyError(f"property type {property_type} and mol {mol} not in {self.by_types}") from e

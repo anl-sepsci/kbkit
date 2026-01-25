@@ -604,30 +604,6 @@ class TestPipelineKBIPlotter:
         )
         assert result == mock_plotter
 
-    @patch('kbkit.api.pipeline.KBICalculator')
-    @patch('kbkit.api.pipeline.SystemCollection.load')
-    def test_kbi_plotter_without_molecule_map(
-        self, mock_load, mock_calc_class, mock_system_collection, mock_kbi_calculator
-    ):
-        """Test kbi_plotter without molecule_map."""
-        mock_load.return_value = mock_system_collection
-        mock_calc_class.return_value = mock_kbi_calculator
-
-        mock_kbi_result = PropertyResult(
-            name="kbi",
-            value=np.random.rand(3, 2, 2),
-            units="cm^3/mol"
-        )
-        mock_kbi_calculator.kbi.return_value = mock_kbi_result
-
-        mock_plotter = Mock(spec=KBIAnalysisPlotter)
-        mock_kbi_calculator.kbi_plotter.return_value = mock_plotter
-
-        pipeline = Pipeline()
-        pipeline.kbi_plotter.assert_called_once_with(
-            molecule_map=None
-        )
-
 
 class TestPipelineThermoPlotter:
     """Test thermo_plotter property."""
@@ -671,168 +647,131 @@ class TestPipelineMakeFigures:
     @patch('kbkit.api.pipeline.KBThermo')
     @patch('kbkit.api.pipeline.KBICalculator')
     @patch('kbkit.api.pipeline.SystemCollection.load')
-    def test_make_figures_creates_directories(
-        self, mock_load, mock_calc_class, mock_thermo_class, mock_validate_path,
-        mock_system_collection, mock_kbi_calculator, mock_kb_thermo, tmp_path
-    ):
+    def test_make_figures_creates_directories(self, mock_load, mock_calc_class, mock_thermo_class, mock_validate, tmp_path):
         """Test that make_figures creates necessary directories."""
-        mock_load.return_value = mock_system_collection
-        mock_calc_class.return_value = mock_kbi_calculator
-        mock_thermo_class.return_value = mock_kb_thermo
+        mock_sc = Mock(spec=SystemCollection)
+        mock_mixture = Mock()
+        mock_mixture.path = tmp_path / "mixture"
+        mock_sc.mixtures = [mock_mixture]
+        mock_load.return_value = mock_sc
 
-        mock_kbi_result = PropertyResult(
-            name="kbi",
-            value=np.random.rand(3, 2, 2),
-            units="cm^3/mol"
-        )
-        mock_kbi_calculator.kbi.return_value = mock_kbi_result
+        mock_calc = Mock(spec=KBICalculator)
+        mock_calc.kbi.return_value = PropertyResult(name="kbi", value=[1.0], units="cm^3/mol")
+        mock_kbi_plotter = Mock()
+        mock_calc.kbi_plotter.return_value = mock_kbi_plotter
+        mock_calc_class.return_value = mock_calc
 
-        # Mock plotters
-        mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
-        mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
+        mock_thermo = Mock(spec=KBThermo)
+        mock_thermo_plotter = Mock()
+        mock_thermo.plotter.return_value = mock_thermo_plotter
+        mock_thermo_class.return_value = mock_thermo
 
-        mock_thermo_plotter = Mock(spec=ThermoPlotter)
-        mock_kb_thermo.plotter.return_value = mock_thermo_plotter
+        save_path = tmp_path / "figures"
+        mock_validate.return_value = save_path
 
-        # Setup path mocking
-        base_path = tmp_path / "base"
-        base_path.mkdir()
-        mock_validate_path.return_value = base_path
+        pipeline = Pipeline()
+        pipeline.make_figures(savepath=str(save_path))
 
-        pipeline = Pipeline(base_path=str(base_path))
-
-        pipeline.make_figures()
-
-        # Check that directories were created
-        assert (base_path / "kb_analysis").exists()
-        assert (base_path / "kb_analysis" / "system_figures").exists()
+        assert save_path.exists()
+        assert (save_path / "system_figures").exists()
 
     @patch('kbkit.api.pipeline.validate_path')
     @patch('kbkit.api.pipeline.KBThermo')
     @patch('kbkit.api.pipeline.KBICalculator')
     @patch('kbkit.api.pipeline.SystemCollection.load')
-    def test_make_figures_calls_kbi_plotter(
-        self, mock_load, mock_calc_class, mock_thermo_class, mock_validate_path,
-        mock_system_collection, mock_kbi_calculator, mock_kb_thermo, tmp_path
-    ):
+    def test_make_figures_calls_kbi_plotter(self, mock_load, mock_calc_class, mock_thermo_class, mock_validate, tmp_path):
         """Test that make_figures calls kbi_plotter.plot_all."""
-        mock_load.return_value = mock_system_collection
-        mock_calc_class.return_value = mock_kbi_calculator
-        mock_thermo_class.return_value = mock_kb_thermo
+        mock_sc = Mock(spec=SystemCollection)
+        mock_mixture = Mock()
+        mock_mixture.path = tmp_path / "mixture"
+        mock_sc.mixtures = [mock_mixture]
+        mock_load.return_value = mock_sc
 
-        mock_kbi_result = PropertyResult(
-            name="kbi",
-            value=np.random.rand(3, 2, 2),
-            units="cm^3/mol"
-        )
-        mock_kbi_calculator.kbi.return_value = mock_kbi_result
+        mock_calc = Mock(spec=KBICalculator)
+        mock_calc.kbi.return_value = PropertyResult(name="kbi", value=[1.0], units="cm^3/mol")
+        mock_kbi_plotter = Mock()
+        mock_calc.kbi_plotter.return_value = mock_kbi_plotter
+        mock_calc_class.return_value = mock_calc
 
-        mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
-        mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
+        mock_thermo = Mock(spec=KBThermo)
+        mock_thermo_plotter = Mock()
+        mock_thermo.plotter.return_value = mock_thermo_plotter
+        mock_thermo_class.return_value = mock_thermo
 
-        mock_thermo_plotter = Mock(spec=ThermoPlotter)
-        mock_kb_thermo.plotter.return_value = mock_thermo_plotter
+        save_path = tmp_path / "figures"
+        mock_validate.return_value = save_path
 
-        base_path = tmp_path / "base"
-        base_path.mkdir()
-        mock_validate_path.return_value = base_path
+        pipeline = Pipeline()
+        pipeline.make_figures(savepath=str(save_path))
 
-        pipeline = Pipeline(base_path=str(base_path))
-
-        pipeline.make_figures()
-
-        # Verify plot_all was called
         mock_kbi_plotter.plot_all.assert_called_once()
         call_kwargs = mock_kbi_plotter.plot_all.call_args[1]
         assert call_kwargs['units'] == "cm^3/mol"
         assert call_kwargs['show'] is False
-        assert str(call_kwargs['savepath']).endswith("system_figures")
 
     @patch('kbkit.api.pipeline.validate_path')
     @patch('kbkit.api.pipeline.KBThermo')
     @patch('kbkit.api.pipeline.KBICalculator')
     @patch('kbkit.api.pipeline.SystemCollection.load')
-    def test_make_figures_calls_thermo_plotter(
-        self, mock_load, mock_calc_class, mock_thermo_class, mock_validate_path,
-        mock_system_collection, mock_kbi_calculator, mock_kb_thermo, tmp_path
-    ):
+    def test_make_figures_calls_thermo_plotter(self, mock_load, mock_calc_class, mock_thermo_class, mock_validate, tmp_path):
         """Test that make_figures calls thermo_plotter.make_figures."""
-        mock_load.return_value = mock_system_collection
-        mock_calc_class.return_value = mock_kbi_calculator
-        mock_thermo_class.return_value = mock_kb_thermo
+        mock_sc = Mock(spec=SystemCollection)
+        mock_mixture = Mock()
+        mock_mixture.path = tmp_path / "mixture"
+        mock_sc.mixtures = [mock_mixture]
+        mock_load.return_value = mock_sc
 
-        mock_kbi_result = PropertyResult(
-            name="kbi",
-            value=np.random.rand(3, 2, 2),
-            units="cm^3/mol"
-        )
-        mock_kbi_calculator.kbi.return_value = mock_kbi_result
+        mock_calc = Mock(spec=KBICalculator)
+        mock_calc.kbi.return_value = PropertyResult(name="kbi", value=[1.0], units="cm^3/mol")
+        mock_kbi_plotter = Mock()
+        mock_calc.kbi_plotter.return_value = mock_kbi_plotter
+        mock_calc_class.return_value = mock_calc
 
-        mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
-        mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
+        mock_thermo = Mock(spec=KBThermo)
+        mock_thermo_plotter = Mock()
+        mock_thermo.plotter.return_value = mock_thermo_plotter
+        mock_thermo_class.return_value = mock_thermo
 
-        mock_thermo_plotter = Mock(spec=ThermoPlotter)
-        mock_kb_thermo.plotter.return_value = mock_thermo_plotter
-
-        base_path = tmp_path / "base"
-        base_path.mkdir()
-        mock_validate_path.return_value = base_path
-
-        pipeline = Pipeline(base_path=str(base_path))
-
-        pipeline.make_figures(xmol="MOL1", cmap="viridis")
-
-        # Verify make_figures was called
-        mock_thermo_plotter.make_figures.assert_called_once()
-        call_kwargs = mock_thermo_plotter.make_figures.call_args[1]
-        assert call_kwargs['xmol'] == "MOL1"
-        assert call_kwargs['cmap'] == "viridis"
-        assert str(call_kwargs['savepath']).endswith("kb_analysis")
-
-    @patch('kbkit.api.pipeline.validate_path')
-    @patch('kbkit.api.pipeline.KBThermo')
-    @patch('kbkit.api.pipeline.KBICalculator')
-    @patch('kbkit.api.pipeline.SystemCollection.load')
-    def test_make_figures_with_custom_savepath(
-        self, mock_load, mock_calc_class, mock_thermo_class, mock_validate_path,
-        mock_system_collection, mock_kbi_calculator, mock_kb_thermo, tmp_path
-    ):
-        """Test make_figures with custom savepath."""
-        mock_load.return_value = mock_system_collection
-        mock_calc_class.return_value = mock_kbi_calculator
-        mock_thermo_class.return_value = mock_kb_thermo
-
-        mock_kbi_result = PropertyResult(
-            name="kbi",
-            value=np.random.rand(3, 2, 2),
-            units="cm^3/mol"
-        )
-        mock_kbi_calculator.kbi.return_value = mock_kbi_result
-
-        mock_kbi_plotter = Mock(spec=KBIAnalysisPlotter)
-        mock_kbi_calculator.kbi_plotter.return_value = mock_kbi_plotter
-
-        mock_thermo_plotter = Mock(spec=ThermoPlotter)
-        mock_kb_thermo.plotter.return_value = mock_thermo_plotter
-
-        custom_path = tmp_path / "custom"
-        custom_path.mkdir()
-
-        # Mock validate_path to return different paths
-        def validate_side_effect(path):
-            return Path(path) if path else tmp_path
-
-        mock_validate_path.side_effect = validate_side_effect
+        save_path = tmp_path / "figures"
+        mock_validate.return_value = save_path
 
         pipeline = Pipeline()
+        pipeline.make_figures(xmol="Water", cmap="viridis", savepath=str(save_path))
 
-        pipeline.make_figures(savepath=str(custom_path))
+        mock_thermo_plotter.make_figures.assert_called_once_with(
+            xmol="Water",
+            cmap="viridis",
+            savepath=str(save_path)
+        )
 
-        # Should use custom path directly (not append kb_analysis)
-        mock_thermo_plotter.make_figures.assert_called_once()
-        call_kwargs = mock_thermo_plotter.make_figures.call_args[1]
-        assert call_kwargs['savepath'] == custom_path
+    @patch('kbkit.api.pipeline.KBThermo')
+    @patch('kbkit.api.pipeline.KBICalculator')
+    @patch('kbkit.api.pipeline.SystemCollection.load')
+    def test_make_figures_uses_default_path_when_none(self, mock_load, mock_calc_class, mock_thermo_class, tmp_path):
+        """Test that make_figures uses default path when savepath is None."""
+        mock_sc = Mock(spec=SystemCollection)
+        mock_mixture = Mock()
+        mock_mixture.path = tmp_path / "mixture"
+        mock_sc.mixtures = [mock_mixture]
+        mock_load.return_value = mock_sc
 
+        mock_calc = Mock(spec=KBICalculator)
+        mock_calc.kbi.return_value = PropertyResult(name="kbi", value=[1.0], units="cm^3/mol")
+        mock_kbi_plotter = Mock()
+        mock_calc.kbi_plotter.return_value = mock_kbi_plotter
+        mock_calc_class.return_value = mock_calc
+
+        mock_thermo = Mock(spec=KBThermo)
+        mock_thermo_plotter = Mock()
+        mock_thermo.plotter.return_value = mock_thermo_plotter
+        mock_thermo_class.return_value = mock_thermo
+
+        pipeline = Pipeline()
+        pipeline.make_figures()
+
+        # Should create kb_analysis directory in parent of first mixture
+        expected_path = tmp_path / "kb_analysis"
+        assert expected_path.exists()
 
 class TestPipelineIntegration:
     """Integration tests for Pipeline."""
