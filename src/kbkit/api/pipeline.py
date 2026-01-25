@@ -213,6 +213,16 @@ class Pipeline:
                 name=prop, units=units, avg=True
             )
         return res
+    
+    def run(self) -> None:
+        """Runs the pipeline.
+        
+        The following tasks are performed:
+            * Builds systems (SystemCollection) and gets properties as a function of composition
+            * Initializes KBICalculator and computes KBIs
+            * Computes KBI-derived thermodynamic properties (KBThermo)
+        """
+        self.thermo.results
 
     def timeseries_plotter(self, system: str, start_time: int = 0) -> "TimeseriesPlotter":
         """TimeseriesPlotter: Plotter for visualizing property timeseries."""

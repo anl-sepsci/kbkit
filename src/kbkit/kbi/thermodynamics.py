@@ -164,7 +164,7 @@ class KBThermo:
         """
         return (
             self._x_3d * self.delta_ij[np.newaxis, :]
-            + self.rho()[:, np.newaxis, np.newaxis] * self._x_3d_sq * self.kbi()
+            + self.rho("molecule/nm^3")[:, np.newaxis, np.newaxis] * self._x_3d_sq * self.kbi("nm^3/molecule")
         )
 
     @cached_property_value()
@@ -226,7 +226,7 @@ class KBThermo:
         with np.errstate(divide="ignore", invalid="ignore"):
             term2 = (upper[:, :, np.newaxis] * upper[:, np.newaxis, :]) / self._l()[:, np.newaxis, np.newaxis]
 
-        return self.RT()[:, np.newaxis, np.newaxis] * (self.A() - term2)
+        return self.RT(units)[:, np.newaxis, np.newaxis] * (self.A() - term2)
 
     @cached_property_value(default_units="1/kPa")
     def isothermal_compressibility(self, units: str = "1/kPa") -> np.ndarray:
@@ -250,7 +250,7 @@ class KBThermo:
             - :math:`\rho` is the mixture number density.
             - :math:`A_{ij}` is the stability matrix (see :meth:`A_matrix`).
         """
-        return 1 / (self.rho(units="mol/m^3") * self.RT() * self._l())
+        return 1 / (self.rho(units="mol/m^3") * self.RT("kJ/mol") * self._l())
 
     def _subtract_nth_elements(self, matrix: np.ndarray) -> np.ndarray:
         """Set up matrices for multicomponent analysis."""
@@ -384,7 +384,7 @@ class KBThermo:
             - :math:`x_i` is the mole fraction of molecule :math:`i`
         """
         with np.errstate(divide="ignore", invalid="ignore"):
-            return (1 / self.RT())[:, np.newaxis] * self.chemical_potential_deriv_diag("kJ/mol") - 1 / self.systems.x
+            return (1 / self.RT("kJ/mol"))[:, np.newaxis] * self.chemical_potential_deriv_diag("kJ/mol") - 1 / self.systems.x
 
     def _get_ref_state_dict(self, mol: str) -> dict[str, object]:
         """Return reference state parameters for a molecule."""

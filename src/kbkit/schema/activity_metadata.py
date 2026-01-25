@@ -38,7 +38,7 @@ class ActivityCoefficientResult:
         """np.ndarray: Values to evaluate function at."""
         if not self.fn:
             return None
-        return np.arange(0, 1.01, 1)
+        return np.arange(0, 1.01, 0.01)
 
     @property
     def y_eval(self) -> np.ndarray:

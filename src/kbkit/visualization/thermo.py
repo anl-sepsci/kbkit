@@ -375,7 +375,7 @@ class ThermoPlotter:
         )
 
         # now add fit fns
-        for _, meta in self.thermo.activity_metadata._by_types["derivative"].items():
+        for _, meta in self.thermo.activity_metadata.by_types["derivative"].items():
             if not meta.has_fn:
                 continue
             ax.plot(meta.x_eval, meta.y_eval, c="k", lw=1.5, ls=ls)

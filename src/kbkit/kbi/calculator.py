@@ -95,7 +95,8 @@ class KBICalculator:
         cached = self._get_from_cache(cache_key, units)
         if cached:
             return cached
-
+        
+        # kbis are calculated in nm^3/molecule
         kbis = np.full((len(self.systems), len(self.systems.molecules), len(self.systems.molecules)), fill_value=np.nan)
         kbi_metadata: dict[str, dict[str, KBIMetadata]] = {}
 
@@ -149,12 +150,12 @@ class KBICalculator:
         result = PropertyResult(
             name="kbi",
             value=kbis,
-            units=units,
+            units="nm^3/molecule",
             metadata=kbi_metadata
         )
 
         self._cache[cache_key] = result
-        return result
+        return result.to(units)
     
 
     def kbi_plotter(self, molecule_map: dict[str, str] | None = None) -> KBIAnalysisPlotter:
