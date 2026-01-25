@@ -25,7 +25,7 @@ def validate_path(path: str | Path, suffix: str = "") -> Path:
     Notes
     -----
     - Resolves symlinks and anchors the path to the filesystem root.
-    - If `suffix == ".gro"`, performs a minimal length check to ensure file validity.
+    - If `suffix is ".gro"`, performs a minimal length check to ensure file validity.
     """
     # check type of path
     if not isinstance(path, (str, Path)):

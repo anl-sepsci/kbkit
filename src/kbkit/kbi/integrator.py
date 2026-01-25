@@ -1,5 +1,5 @@
 """
-Computes Kirkwood-Buff integrals (KBIs) from RDF file (`.xvg`) and :class:`~kbkit.systems.properties.SystemProperties` object.
+Computes Kirkwood-Buff integrals (KBIs) from RDF file (`.xvg`) and properties or a :class:`~kbkit.systems.properties.SystemProperties` object.
 
 There are three corrections that by default are implemented to correct KBIs to thermodynamic limit values:
     * RDF convergence correction (``correct_rdf_convergence``): Corrects RDF for molecule excess/depletion. [`Ganguly (2013) <https://doi.org/10.1021/ct301017q>`_]

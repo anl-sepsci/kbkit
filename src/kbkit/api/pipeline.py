@@ -7,7 +7,7 @@ The pipeline expects a directory structure containing simulation results for eac
 At each of these composition points, the pipeline:
 
 1. Builds a set of systems at constant temperature using: :class:`~kbkit.systems.collection.SystemCollection`.
-2. :class:`~kbkit..systems.collection.SystemCollection` computes topology and energy properties as a function of mole fractions.
+2. :class:`~kbkit.systems.collection.SystemCollection` computes topology and energy properties as a function of mole fractions.
 3. Computes pairwise Kirkwood-Buff integrals using :class:`~kbkit.kbi.calculator.KBICalculator`.
 4. Computes KBI-derived thermodynamic properties and structure factors using :class:`~kbkit.kbi.thermodynamics.KBThermo`.
 

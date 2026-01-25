@@ -146,8 +146,8 @@ class KBThermo:
         Returns
         -------
         np.ndarray
-            A 3D matrix with shape ``(n_sys, n_comp, n_comp)``,
-            where ``n_sys`` is the number of systems and ``n_comp`` is the number of unique components.
+            A 3D matrix with shape ``(n_sys, n_i, n_i)``,
+            where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
         Notes
         -----
@@ -208,8 +208,8 @@ class KBThermo:
         Returns
         -------
         np.ndarray
-            A 3D matrix with shape ``(n_sys, n_comp, n_comp)``,
-            where ``n_sys`` is the number of systems and ``n_comp`` is the number of unique components.
+            A 3D matrix with shape ``(n_sys, n_i, n_i)``,
+            where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
         Notes
         -----
@@ -248,7 +248,7 @@ class KBThermo:
 
         where:
             - :math:`\rho` is the mixture number density.
-            - :math:`A_{ij}` is the stability matrix (see :meth:`A_matrix`).
+            - :math:`A_{ij}` is the stability matrix (see :meth:`A`).
         """
         return 1 / (self.rho(units="mol/m^3") * self.RT("kJ/mol") * self._l())
 
@@ -269,8 +269,8 @@ class KBThermo:
         Returns
         -------
         np.ndarray
-            A 3D matrix with shape ``(n_sys, n_comp-1, n_comp-1)``,
-            where ``n_sys`` is the number of systems and ``n_comp`` is the number of unique components.
+            A 3D matrix with shape ``(n_sys, n_i-1, n_i-1)``,
+            where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
         Notes
         -----
@@ -322,8 +322,8 @@ class KBThermo:
         Returns
         -------
         np.ndarray
-            A 2D array of shape ``(n_sys, n_comp)``,
-            where ``n_sys`` is the number of systems and ``n_comp`` is the number of unique components.
+            A 2D array of shape ``(n_sys, n_i)``,
+            where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
         Notes
         -----
@@ -364,12 +364,12 @@ class KBThermo:
     @cached_property_value()
     def ln_activity_coef_deriv(self) -> np.ndarray:
         r"""
-        ThermoProperty: Derivative of natural logarithm of the activity coefficient of molecule :math:`i` with respect to its own mole fraction.
+        Derivative of natural logarithm of the activity coefficient of molecule :math:`i` with respect to its own mole fraction.
 
         Returns
         -------
         np.ndarray
-            A 3D matrix with shape ``(n_sys, n_comp, n_comp)``
+            A 3D matrix with shape ``(n_sys, n_i, n_i)``
 
         Notes
         -----
@@ -410,12 +410,12 @@ class KBThermo:
 
         Integrate the derivative of activity coefficients to obtain :math:`\ln{\gamma_i}` for each component.
         Use either numerical methods (trapezoidal rule) or polynomial fitting for integration.
-        These parameters are chosen by the ``activity_int_kwargs`` in `KBThermo` initialization.
+        These parameters are chosen by the ``activity_integration_type`` and ``activity_polynomial_degree`` in `KBThermo` initialization.
 
         Returns
         -------
         np.ndarray
-            A 2D array with shape ``(n_sys, n_comp)``
+            A 2D array with shape ``(n_sys, n_i)``
 
         Notes
         -----
@@ -645,7 +645,10 @@ class KBThermo:
         Mixing entropy, :math:`\Delta S_{mix}`, is calculated according to:
 
         .. math::
-            \Delta S_{mix} = S^E - S^{id}
+            \begin{aligned}
+            \Delta S_{mix} &= S^E + S^{id} \\
+                           &= S^E - R \sum_{i=1}^n x_i \ln{x_i}
+            \end{aligned}
         """
         energy_units = "/".join(units.split("/")[:2])
         return self.s_ex(units) - self.g_id(energy_units) / self.temperature()
@@ -900,7 +903,7 @@ class KBThermo:
 
     @cached_property
     def results(self) -> dict[str, PropertyResult]:
-        """dict: Container for PropertyResult and ActivityMetadata objects for KBI and KBI-derived quantities."""
+        """dict: Container for :class:`~kbkit.schema.property_result.PropertyResult` objects for KBI and KBI-derived quantities."""
         props = {}
         for attr in dir(self):
             if attr.startswith("_") or attr in ("Q_", "ureg", "results", "plotter"):

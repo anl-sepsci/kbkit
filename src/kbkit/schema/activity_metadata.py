@@ -24,7 +24,7 @@ class ActivityCoefficientResult:
     property_type: str
         Type of activity coefficient property. Tags result object with `derivative` or `integrated`.
     fn: Callable, optional
-        Optional function that describes activity coefficients. Only if ``activity_integration_typ`` is `polynomial`.
+        Optional function that describes activity coefficients. Only if ``activity_integration_type`` is `polynomial`.
     """
 
     mol: str

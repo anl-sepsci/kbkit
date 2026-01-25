@@ -1,8 +1,8 @@
 """
 Calculator for Kirkwood-Buff Integrals (KBIs) as a function of composition.
 
-This calculator operates on a :class:`~kbkit.core.system_collection.SystemCollection` that contains molecular dynamics properties from structure (.gro) and energy (.edr) files.
-Additional inputs are key parameters used for the KBI corrections provided in :class:`~kbkit.analysis.kb_integrator.KBIntegrator`.
+This calculator operates on a :class:`~kbkit.systems.collection.SystemCollection` that contains molecular dynamics properties from structure (.gro) and energy (.edr) files.
+Additional inputs are key parameters used for the KBI corrections provided in :class:`~kbkit.kbi.integrator.KBIntegrator`.
 """
 
 from typing import TYPE_CHECKING
@@ -78,7 +78,7 @@ class KBICalculator:
 
         See Also
         --------
-        `KBIntegrator` for a detailed description of KBI calculations and corrections.
+        :class:`~kbkit.kbi.integrator.KBIntegrator` for a detailed description of KBI calculations and corrections.
         """
         units = units or "nm^3/molecule"
 

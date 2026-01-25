@@ -1,10 +1,10 @@
 """
 Container for a set of systems for a given thermodynamic state (e.g., constant temperature, function of composition).
 
-The purpose of `SystemCollection` is to load a set of systems and access `PropertyCalculator` and `SystemProperties` to retrieve molecular dynamics properties as a function of composition.
+The purpose of `SystemCollection` is to load a set of systems and access :class:`~kbkit.systems.properties.SystemProperties` to retrieve molecular dynamics properties as a function of composition.
     * This container first discovers molecular systems based on directory structure and input parameters, creating a list of :class:`~kbkit.schema.system_metadata.SystemMetadata` objects.
     * Then topology and energy properties can be calculated as function of composition.
-    * Additionally, this object initializes a :class:`~kbkit.analysis.property_calculator.PropertyCalculator` object for calculating `Excess`, `Simulation`, `Ideal` properties and `KBIs`.
+    * Additionally, this object is used to calculating `Excess`, `Simulation`, and `Ideal` properties.
 """
 
 import os
@@ -82,7 +82,7 @@ class SystemCollection:
         Returns
         -------
         SystemCollection
-            Registry object containing global molecules and list of :class:`SystemMetadata`.
+            Registry object containing global molecules and list of :class:`~kbkit.schema.system_metadata.SystemMetadata`.
         """
         valid_base_path = validate_path(base_path or os.getcwd())
 
@@ -391,7 +391,7 @@ class SystemCollection:
         return [s for s in self._systems if not s.is_pure()]
 
     def get_units(self, name: str) -> str:
-        """Get default GROMACS units for a given property.
+        """Get default units for a given energy property.
 
         Parameters
         ----------
@@ -506,13 +506,15 @@ class SystemCollection:
         r"""
         Calculate ideal mixing property using specified mixing rule.
 
-        For extensive properties (Volume, Enthalpy):
-        .. math::
-            Ideal = \Sigma(x_i * V_i^pure) [linear]
+        Linear mixing rule:
 
-        For intensive properties (Density):
         .. math::
-            Ideal = 1 / \Sigma(x_i / \rho_i^pure)  [volume-weighted]
+            Ideal = \sum_i x_i * V_i^{pure}
+
+        Volume-weighted mixing rule:
+
+        .. math::
+            Ideal = \sum_i \left(\frac{x_i} / {\rho_i^{pure}} \right)^{-1}
 
         Parameters
         ----------
@@ -529,17 +531,6 @@ class SystemCollection:
         -------
         PropertyResult
             Ideal property values for each mixture composition.
-
-        Notes
-        -----
-        For a given property, :math:`P`, the ideal property, :math:`\bar{P}`, is calculated according to:
-
-        .. math::
-            \bar{P} = \sum_{i} x_i P_i
-
-        where:
-            - :math:`x_i` is the mole fraction of molecule `i`
-            - :math:`P_i` is the property for pure component `i`
         """
         units = units or self.get_units(name)
 
@@ -592,17 +583,15 @@ class SystemCollection:
 
         Notes
         -----
-        For a given property, :math:`P`, the excess property, :math:`P^{EX}`, is calculated according to:
+        For a given property, :math:`P`, the excess property, :math:`P^{E}`, is calculated according to:
 
         .. math::
-            \begin{aligned}
-            P^{EX} &= P - \bar{P} \\
-                   &= P - \sum_{i} x_i P_i
-            \end{aligned}
+            P^{E} &= P - \bar{P} 
 
         where:
             - :math:`x_i` is the mole fraction of molecule `i`
             - :math:`P` is the property directly from simulation
+            - :math:`\bar{P}` is the ideal property according to the mixing rule
         """
         units = units or self.get_units(name)
 

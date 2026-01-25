@@ -1,4 +1,4 @@
-Property Calculator 
+KBI Calculator 
 =============================
 
 .. automodule:: kbkit.kbi.calculator

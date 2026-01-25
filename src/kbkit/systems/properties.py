@@ -47,7 +47,7 @@ class SystemProperties:
         List of paths to GROMACS structure files.
 
     .. note::
-        Defaults to looking at files/paths directly specified. If files are not specified or do not exist, a ``system_path`` is required to locate the files with necessary suffix.
+    Defaults to looking at files/paths directly specified. If files are not specified or do not exist, a ``system_path`` is required to locate the files with necessary suffix.
     """
 
     def __init__(
@@ -146,7 +146,7 @@ class SystemProperties:
 
     @cached_property
     def topology(self) -> GroParser | TopParser:
-        """GroParser | TopParser: Setup GRO/TOP file parser."""
+        """GroParser | TopParser: Setup Gro/Top parser."""
         # prioritize GRO files -- they contain electron info as well
         if len(self.gro_paths) > 0:
             for file in self.gro_paths:

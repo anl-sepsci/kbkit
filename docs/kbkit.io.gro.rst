@@ -1,7 +1,7 @@
-GROMACS Structure (.gro) File Parser
+GROMACS Structure (.gro) Parser
 =====================================
 
-.. automodule:: kbkit.parsers.gro_file
+.. automodule:: kbkit.io.gro
    :members:
    :undoc-members:
    :show-inheritance:

@@ -16,8 +16,8 @@ class KBIAnalysisPlotter:
     """
     Visualize KBI convergence and extrapolation to the thermodynamic limit.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     kbi: PropertyResult
         PropertyResult object containing KBI values and :class:`~kbkit.schema.kbi_metadata.KBIMetadata` for analysis.
     molecule_map: dict[str, str]

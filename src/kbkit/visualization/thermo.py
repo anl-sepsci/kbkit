@@ -1,4 +1,4 @@
-"""Plotting support for :class:`~kbkit.analysis.kb_thermo.KBThermo`."""
+"""Plotting support for :class:`~kbkit.kbi.thermodynamics.KBThermo`."""
 
 from itertools import combinations_with_replacement
 from pathlib import Path
