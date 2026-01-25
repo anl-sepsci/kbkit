@@ -72,7 +72,7 @@ class TimeseriesPlotter:
         ls: str = "-",
         lw: float = 1,
         marker: str = "none",
-        savepath: str | None = None,
+        savepath: str | Path | None = None,
         show: bool = True,
     ):
         """
@@ -110,7 +110,7 @@ class TimeseriesPlotter:
             Linewidth for timeseries.
         marker: str, optional
             Maker to display for timeseries.
-        savepath: str, optional
+        savepath: str | Path, optional
             Path to save figure.
         show: bool, optional
             Display the figure.
@@ -145,8 +145,7 @@ class TimeseriesPlotter:
             ax.set_ylim(ylim)
 
         if savepath:
-            savepath = Path(savepath)
-            savepath = savepath if savepath.is_file() else savepath / "energy.pdf"
+            savepath = Path(savepath) if Path(savepath).is_file() else Path(savepath) / "energy.pdf"
             fig.savefig(savepath, dpi=100)
 
         if show:

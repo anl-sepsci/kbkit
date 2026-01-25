@@ -72,7 +72,7 @@ class KBIntegrator:
         extrapolate_thermodynamic_limit: bool = True,
     ) -> "KBIntegrator":
         """
-        Construct a :class:`KBIntegrator` object from :class:`~kbkit.analysis.system_properties.SystemProperties` object.
+        Construct a :class:`KBIntegrator` object from :class:`~kbkit.systems.properties.SystemProperties` object.
 
         Parameters
         ----------
@@ -93,6 +93,9 @@ class KBIntegrator:
             Integrator object containing properties necessary to perform KBI corrections.
         """
         volume = system_properties.get("volume", units="nm^3", avg=True)
+        if not isinstance(volume, float):
+            raise TypeError(f"Expected float, {type(volume)} detected.")
+        
         molecule_count = system_properties.topology.molecule_count
         return cls(
             rdf=rdf,

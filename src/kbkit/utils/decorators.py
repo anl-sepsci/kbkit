@@ -2,20 +2,71 @@
 
 import inspect
 from functools import wraps
-
+from typing import TypeVar, Callable, Any, ParamSpec
+import numpy as np
 from kbkit.schema.property_result import PropertyResult
 
 
-def cached_property_result(default_units: str | None = None):
-    """Decorator factory for caching PropertyResult calculations."""
+def cached_property_result(default_units: str | None = None) -> Callable[[Callable[..., Any]], Callable[..., PropertyResult]]:
+    """Decorator factory for caching PropertyResult calculations.
+    
+    Parameters
+    ----------
+    default_units: str
+        Default units for the property
+        
+    Returns
+    -------
+    Callable
+        A decorator that wraps methods to return PropertyResult objects
+    """
 
-    def decorator(func):
+    def decorator(func) -> Callable[..., PropertyResult]:
         # Get function signature to access default values
+        """
+        Decorator for caching PropertyResult calculations.
+
+        Parameters
+        ----------
+        func: Callable[..., Any]
+            Method to be wrapped.
+
+        Returns
+        -------
+        Callable[..., PropertyResult]
+            A decorator that wraps methods to return PropertyResult objects.
+
+        Notes
+        -----
+        * The decorator caches the result of the function call.
+        * If the function call has a 'name' parameter, it is used as the property name.
+        * If the function call does not have a 'name' parameter, the function name is used as the property name.
+        * The property type is inferred from the function name by splitting the name on '_' and taking the first part.
+        * The decorator preserves function metadata.
+        * The decorator applies unit conversion if the 'units' parameter is provided.
+        """
         sig = inspect.signature(func)
 
         @wraps(func)
-        def wrapper(self, units: str | None = None, **kwargs):
+        def wrapper(self, units: str | None = None, **kwargs) -> PropertyResult:
             # Merge defaults with provided kwargs
+            """
+            Decorator for caching PropertyResult calculations.
+
+            Parameters
+            ----------
+            self : Any
+                Self parameter of the method to be wrapped.
+            units : str | None
+                Units for the property.
+            **kwargs : dict
+                Additional keyword arguments passed to the method.
+
+            Returns
+            -------
+            PropertyResult
+                The cached PropertyResult object, or a new one if not cached.
+            """
             bound_args = sig.bind_partial(self, **kwargs)
             bound_args.apply_defaults()
 
@@ -64,16 +115,43 @@ def cached_property_result(default_units: str | None = None):
     return decorator
 
 
-def cached_property_value(default_units: str | None = None):
-    """Decorator factory for caching PropertyResult calculations."""
+def cached_property_value(default_units: str | None = None)  -> Callable[[Callable[..., Any]], Callable[..., np.ndarray]]:
+    """
+    Decorator factory for caching PropertyResult calculations and returning values.
 
-    def decorator(func):
+    Parameters
+    ----------
+    default_units: str
+        Default units for the property
+        
+    Returns
+    -------
+    Callable
+        A decorator that wraps methods to return the value attribute of PropertyResult
+    """
+    def decorator(func) -> Callable[..., Any]:
         # Get function signature to access default values
         sig = inspect.signature(func)
 
         @wraps(func)
-        def wrapper(self, units: str | None = None, **kwargs):
+        def wrapper(self, units: str | None = None, **kwargs) -> np.ndarray:
             # Merge defaults with provided kwargs
+            """
+            Wrapper function for caching PropertyResult calculations and returning values.
+
+            Parameters
+            ----------
+            self : object
+            units : str | None, optional
+                Units to convert the result to, by default
+            **kwargs : dict
+                Additional keyword arguments to pass to the decorated function
+
+            Returns
+            -------
+            Any
+                The value attribute of the cached PropertyResult object
+            """
             bound_args = sig.bind_partial(self, **kwargs)
             bound_args.apply_defaults()
 

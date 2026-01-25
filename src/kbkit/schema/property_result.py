@@ -20,27 +20,17 @@ class PropertyResult:
         Name of the property (e.g., "density", "kbi", "activity_coefficient")
     value : np.ndarray
         Calculated property values.
-    property_type : {"ideal", "excess", "pure", "simulated"}, optional
+    property_type : str, optional
         Type of property calculated.
     units : str, optional
         Units of the property (e.g., "kg/m^3", "kJ/mol").
     metadata : dict, optional
         Additional calculation metadata (e.g., mixing rules, KBI metadata).
-
-    Examples
-    --------
-    >>> result = PropertyResult(
-    ...     name="density",
-    ...     value=np.array([1000.0, 950.0]),
-    ...     units="kg/m^3",
-    ...     property_type="simulated"
-    ... )
-    >>> result_si = result.to("g/cm^3")
     """
 
     name: str
     value: np.ndarray
-    property_type: Literal["ideal", "excess", "pure", "simulated"] | None = None
+    property_type: str | None = None
     units: str | None = None
     metadata: dict[str, Any] | None = None
 
@@ -64,18 +54,6 @@ class PropertyResult:
         -------
         PropertyResult
             New PropertyResult with converted values and units.
-
-        Raises
-        ------
-        ValueError
-            If current units are not set or conversion is not possible.
-
-        Examples
-        --------
-        >>> result = PropertyResult(name="density", value=np.array([1.0]), units="g/cm^3")
-        >>> result_si = result.to("kg/m^3")
-        >>> result_si.value
-        array([1000.])
         """
         if self.units is None:
             raise ValueError(
@@ -99,14 +77,14 @@ class PropertyResult:
             ) from e
 
         # Handle metadata conversion
-        new_metadata = None
+        new_metadata: dict[str, dict[str, KBIMetadata]] = {}
         if self.metadata:
             if self.name.lower() == "kbi":
                 # Special handling for KBI metadata
-                new_metadata = self._convert_kbi_metadata(units, ureg)
+                new_metadata = self._convert_kbi_metadata(self.metadata, units, ureg)
             else:
                 # For other properties, just copy metadata
-                new_metadata = self.metadata.copy() if self.metadata else None
+                new_metadata = self.metadata.copy() if self.metadata else {}
 
         # Return a new PropertyResult with converted values
         return PropertyResult(
@@ -117,7 +95,7 @@ class PropertyResult:
             metadata=new_metadata
         )
 
-    def _convert_kbi_metadata(self, target_units: str, ureg) -> dict[str, Any]:
+    def _convert_kbi_metadata(self, property_meta: dict[str, dict[str, KBIMetadata]], target_units: str, ureg) ->  dict[str, dict[str, KBIMetadata]]:
         """
         Convert KBI metadata to target units.
 
@@ -133,9 +111,9 @@ class PropertyResult:
         dict
             Metadata with converted KBIMetadata objects.
         """
-        new_metadata = {}
+        new_metadata: dict[str, dict[str, KBIMetadata]] = {}
 
-        for system_name, pair_dict in self.metadata.items():
+        for system_name, pair_dict in property_meta.items():
             if not isinstance(pair_dict, dict):
                 # Not the expected structure, keep as-is
                 new_metadata[system_name] = pair_dict

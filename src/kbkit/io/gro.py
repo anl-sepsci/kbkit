@@ -2,7 +2,7 @@
 
 from functools import cached_property
 from typing import ClassVar
-
+from pathlib import Path
 import MDAnalysis
 import numpy as np
 from rdkit.Chem import GetPeriodicTable
@@ -22,7 +22,7 @@ class GroParser:
 
     MAX_SYMBOL_LENGTH: ClassVar = 2
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str | Path) -> None:
         self.filepath = validate_path(path, suffix=".gro")
         self._universe = MDAnalysis.Universe(self.filepath)
 

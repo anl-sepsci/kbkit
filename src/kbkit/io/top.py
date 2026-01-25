@@ -3,7 +3,7 @@
 import re
 from functools import cached_property
 from typing import Any
-
+from pathlib import Path
 import numpy as np
 
 from kbkit.utils.validation import validate_path
@@ -21,7 +21,7 @@ class TopParser:
         Path to the topology (.top) file.
     """
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str | Path) -> None:
         self.filepath = validate_path(path, suffix=".top")
         self.skipped_lines: list[Any] = []
 

@@ -43,7 +43,7 @@ class RdfParser:
 
     def __init__(
         self,
-        path: str,
+        path: str | Path,
         convergence_thresholds: tuple = (1e-3, 1e-2),
         tail_length: float | None = None,
     ) -> None:
@@ -60,7 +60,7 @@ class RdfParser:
             max_length = 2  # nm
             tail_lengths = np.arange(0.5, max_length, 0.1)[::-1]
             self.mask, self._tail_slope, self._total_change, self._grade = self.find_converged_tail(
-                tail_lengths, thresholds=convergence_thresholds
+                list(tail_lengths), thresholds=convergence_thresholds
             )
         else:
             self.mask, self._tail_slope, self._total_change, self._grade = self.find_converged_tail(
@@ -95,7 +95,7 @@ class RdfParser:
         """np.ndarray: filtered g(r) values of RDF tail."""
         return self.g[self.mask]
 
-    def find_converged_tail(self, tail_lengths: list, thresholds: tuple = (1e-3, 1e-2)) -> tuple:
+    def find_converged_tail(self, tail_lengths: list[float], thresholds: tuple = (1e-3, 1e-2)) -> tuple:
         """Iteratively searches for the largest tail window that meets convergence criteria.
 
         Parameters

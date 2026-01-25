@@ -199,7 +199,7 @@ class SystemCollection:
     # --- Boilerplate & Attributes ---
 
     @staticmethod
-    def _extract_temp(input: str) -> float:
+    def _extract_temp(input: str | Path) -> float:
         """Extract temperature from a string or file."""
         path = Path(input)
         # first try to match temp from filename
@@ -208,16 +208,20 @@ class SystemCollection:
             return float(match.group(1))
         # then get it from edr file
         if path.is_file() and path.suffix == ".edr":
-            edr = EdrParser(path)
-            return edr.get_gmx_property("temperature", avg=True)
+            edr = EdrParser(str(path))
         # if its directory;
         elif path.is_dir():
             edr_files = SystemProperties.find_files(suffix=".edr", system_path=input)
-            edr = EdrParser(edr_files[0])
-            return edr.get_gmx_property("temperature", avg=True)
+            edr = EdrParser(str(edr_files[0]))
         # if all has failed raise
         else:
             raise ValueError("Temperature is not in pathname and can not be extracted from .edr file!")
+        
+        temp = edr.get_gmx_property("temperature", avg=True)
+        if isinstance(temp, float):
+            return temp
+        raise TypeError(f"Expected float, {type(temp)} observed.")
+
 
     @staticmethod
     def _is_valid(path: Path, deep: bool = False) -> bool:
@@ -238,7 +242,7 @@ class SystemCollection:
                 for candidate in parent.glob(f"*{word}*"):
                     if SystemCollection._is_valid(candidate, deep=True):
                         return candidate
-        return None
+        raise FileNotFoundError(f"No parent directories for pure-components were found containing keywords: {keywords}.")
 
     @staticmethod
     def _resolve_rdf_path(path: Path, rdf_dir: str, is_pure: bool) -> Path:
@@ -268,7 +272,7 @@ class SystemCollection:
     def _make_meta(path: Path, kind: str, rdf_path: Path, **props_kwargs) -> "SystemMetadata":
         """Create :class`SystemMetadata` object from inputs."""
         return SystemMetadata(
-            name=path.name, kind=kind, path=path, rdf_path=rdf_path, props=SystemProperties(path, **props_kwargs)
+            name=path.name, kind=kind, path=path, rdf_path=rdf_path, props=SystemProperties(str(path), **props_kwargs)
         )
 
     @staticmethod
@@ -324,7 +328,7 @@ class SystemCollection:
         """Enables lookup of a specific system either by its' name or its index in the registry list."""
         return self._lookup[key] if isinstance(key, str) else self._systems[key]
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Allows len(SystemCollection) to return num systems in registry."""
         return len(self._systems)
 
@@ -368,9 +372,11 @@ class SystemCollection:
     @cached_property
     def units(self) -> dict[str, str]:
         """dict[str, str]: Master dictionary mapping energy properties to their default units."""
-        unit_dic = defaultdict(str)
+        unit_dic: dict[str, str] = defaultdict(str)
         for meta in self._systems:
-            unit_dic.update(meta.props.get("units"))
+            meta_units = meta.props.get("units")
+            if isinstance(meta_units, dict):
+                unit_dic.update({k:v for k, v in meta_units.items()})
         return dict(unit_dic)
 
     @property
@@ -401,7 +407,7 @@ class SystemCollection:
 
     def get(
         self, name: str, units: str | None = None, avg: bool = True, time_series: bool = False
-    ) -> np.ndarray | list[np.float64]:
+    ) -> np.ndarray | list:
         """
         Vectorized getter for system properties with unit support via Pint.
 
@@ -428,7 +434,7 @@ class SystemCollection:
         except ValueError:
             return values
 
-    def _get_from_cache(self, key: tuple, target_units: str) -> PropertyResult:
+    def _get_from_cache(self, key: tuple, target_units: str):
         """Check cache and return converted result if found."""
         if key in self._cache:
             return self._cache[key].to(target_units)
@@ -452,7 +458,7 @@ class SystemCollection:
         return True
 
     @cached_property_result()
-    def simulated_property(self, name: str, units: str | None = None, avg: bool = True) -> PropertyResult:
+    def simulated_property(self, name: str, units: str | None = None, avg: bool = True):
         """
         Extract raw values directly from MD simulation (EDR files).
 
@@ -465,7 +471,7 @@ class SystemCollection:
         return self.get(name, units=units, avg=avg)
 
     @cached_property_result()
-    def pure_property(self, name: str, units: str | None = None, avg: bool = True) -> PropertyResult:
+    def pure_property(self, name: str, units: str | None = None, avg: bool = True):
         """
         Extract pure component properties.
 
@@ -495,7 +501,7 @@ class SystemCollection:
         mixing_rule: Literal["linear", "volume_weighted"] = "linear",
         units: str | None = None,
         avg: bool = True,
-    ) -> PropertyResult:
+    ):
         r"""
         Calculate ideal mixing property using specified mixing rule.
 
@@ -563,7 +569,7 @@ class SystemCollection:
         mixing_rule: Literal["linear", "volume_weighted"] = "linear",
         units: str | None = None,
         avg: bool = True,
-    ) -> PropertyResult:
+    ):
         r"""
         Calculate excess property: Excess = Real - Ideal.
 
@@ -606,7 +612,7 @@ class SystemCollection:
         # Subtract in base units
         return sim_res.value - ideal_res.value
 
-    def _build_pure_lookup(self, name: str, units: str | None = None, avg: bool = True) -> dict[str, float]:
+    def _build_pure_lookup(self, name: str, units: str | None = None, avg: bool = True) -> dict[str, float | np.ndarray | list[np.ndarray]]:
         r"""
         Build a lookup dictionary mapping molecule names to pure property values.
 

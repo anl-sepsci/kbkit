@@ -3,7 +3,7 @@
 import inspect
 from functools import cached_property
 from pathlib import Path
-
+from typing import Any
 import numpy as np
 import pandas as pd
 
@@ -56,7 +56,7 @@ class SystemProperties:
         edr_path: str | None = None,
         top_path: str | None = None,
         gro_path: str | None = None,
-        start_time: int = 0,
+        start_time: float = 0.,
     ) -> None:
         self.start_time = float(start_time)
 
@@ -81,8 +81,8 @@ class SystemProperties:
     @staticmethod
     def find_files(
         suffix: str,
-        filepath: str | None = None,
-        system_path: str | None = None,
+        filepath: str | Path | None = None,
+        system_path: str | Path | None = None,
         include: str = "",
         exclude: list[str] | None = None,
     ) -> list[Path]:
@@ -165,7 +165,7 @@ class SystemProperties:
 
     def get(
         self, name: str, units: str | None = None, avg: bool = True, time_series: bool = False
-    ) -> float | np.ndarray | list[np.ndarray]:
+    ) -> Any:
         """
         Master function for getting any property from ``energy`` or ``topology`` files.
 
@@ -204,11 +204,10 @@ class SystemProperties:
         prop = resolve_attr_key(name, ENERGY_ALIASES).lower()
 
         # now compute properties from edr-files
-        if avg or prop in EdrParser.FLUCT_PROPS:
-            values = np.zeros(len(self.energy))
-        else:
-            times = []
-            values = []
+    
+        times: list[float] = []
+        values = []
+        value: float | np.ndarray
 
         for i, edr in enumerate(self.energy):
             if prop == "cp":
@@ -225,7 +224,7 @@ class SystemProperties:
                 value = edr.isothermal_compressibility(start_time=self.start_time, units=units)
             elif prop in ("number-density", "molar-volume"):
                 # get molar volume and convert to number density if desired
-                units = units or edr.units.get("molar-volume")
+                units = units or edr.units["molar-volume"]
                 units = units if prop == "molar-volume" else f"{units.split('/')[1]}/{units.split('/')[0]}"
                 Vi = edr.molar_volume(
                     nmol=self.topology.total_molecules, volume=box_volume, start_time=self.start_time, units=units
@@ -241,8 +240,8 @@ class SystemProperties:
 
             # now average values if desired
             if avg or prop in EdrParser.FLUCT_PROPS:
-                values[i] = value.mean()
-            else:
+                values.append(np.mean(value))
+            elif isinstance(value, (list | np.ndarray)):
                 values.extend(value)
                 times.extend(edr.get("time", start_time=self.start_time))
 
@@ -250,7 +249,7 @@ class SystemProperties:
         if avg or prop in EdrParser.FLUCT_PROPS:
             # Add check before computing mean
             if len(values) > 0:
-                return float(values.mean())
+                return float(np.mean(values))
             else:
                 return np.nan
         else:

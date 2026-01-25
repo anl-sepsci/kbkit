@@ -8,12 +8,12 @@ Compute thermodynamic properties and structure factors from Kirkwood-Buff integr
     * structure factors (partial, Bhatia-Thornton),
     * and related x-ray intensities.
 
-The class operates at constant temperature and uses system metadata (densities, compositions, species identities) provided by a :class:`~kbkit.core.system_collection.SystemCollection` object.
+The class operates at constant temperature and uses system metadata (densities, compositions, species identities) provided by a :class:`~kbkit.systems.collection.SystemCollection` object.
 It supports multiple strategies for integrating activity coefficient derivatives, including numerical integration and polynomial fitting.
 
 
 .. note::
-    * KBThermo does not compute KB integrals itself; it consumes a precomputed KBI matrix (e.g., from :class:`~kbkit.analysis.property_calculator.PropertyCalculator`).
+    * KBThermo does not compute KB integrals itself; it consumes a precomputed KBI matrix (e.g., from :class:`~kbkit.kbi.calculator.KBICalculator`).
     * All thermodynamic quantities are computed consistently across mixtures, enabling comparison of multicomponent systems or concentration series.
     * Designed for automated workflows within the KBKit analysis pipeline.
 """
@@ -69,9 +69,9 @@ class KBThermo:
         self.Q_ = self.ureg.Quantity
 
         # create cache for expensive calculations
-        self._cache = {}
-        self._lngamma_fn_dict = {}
-        self._dlngamma_fn_dict = {}
+        self._cache: dict[str, PropertyResult] = {}
+        self._lngamma_fn_dict: dict[str, np.poly1d] = {}
+        self._dlngamma_fn_dict: dict[str, np.poly1d] = {}
         self._activity_coef_meta: list[ActivityCoefficientResult] = []
 
     @cached_property_value(default_units="nm^3/molecule")
@@ -119,7 +119,7 @@ class KBThermo:
         """np.ndarray: Kronecker delta between pairs of unique molecules (n x n array)."""
         return np.eye(self.systems.n_i)
 
-    def _get_from_cache(self, cache_key: tuple, units: str):
+    def _get_from_cache(self, cache_key: str, units: str):
         """Retrieve cached result and convert to requested units if available."""
         if cache_key in self._cache:
             return self._cache[cache_key].to(units)
@@ -201,7 +201,7 @@ class KBThermo:
         return value.sum(axis=(2, 1))
 
     @cached_property_value(default_units="kJ/mol")
-    def chemical_potential_deriv(self, units: str | None = None) -> np.ndarray:
+    def chemical_potential_deriv(self, units: str = "kJ/mol") -> np.ndarray:
         r"""
         Chemical potential derivatives, **M**, corresponding to composition fluctuations in Gibbs free energy representation.
 
@@ -355,8 +355,8 @@ class KBThermo:
         dmui_dxi = np.full_like(self.systems.x, np.nan)
         dmui_dxi[:, :-1] = np.diagonal(dmu_dxs, axis1=1, axis2=2)
         with np.errstate(divide="ignore", invalid="ignore"):  # avoids zeros in np.ndarray
-            np.ndarray_dmui_product = self.systems.x[:, :-1] * dmui_dxi[:, :-1]
-            dmui_dxi[:, -1] = np.ndarray_dmui_product.sum(axis=1) / self.systems.x[:, -1]
+            dmui_product = self.systems.x[:, :-1] * dmui_dxi[:, :-1]
+            dmui_dxi[:, -1] = dmui_product.sum(axis=1) / self.systems.x[:, -1]
 
         # replace values of reference state with 0.
         return self._set_ref_to_zero(dmui_dxi, ref=1)
@@ -386,32 +386,22 @@ class KBThermo:
         with np.errstate(divide="ignore", invalid="ignore"):
             return (1 / self.RT("kJ/mol"))[:, np.newaxis] * self.chemical_potential_deriv_diag("kJ/mol") - 1 / self.systems.x
 
-    def _get_ref_state_dict(self, mol: str) -> dict[str, object]:
-        """Return reference state parameters for a molecule."""
+    def _get_ref_state(self, mol: str) -> float:
+        """Return reference state for a molecule; 1: `pure component`, 0: `infinite dilution`."""
         z0 = np.nan_to_num(self.systems.x.copy())
         comp_max = z0.max(axis=1)
         i = self.systems.get_mol_index(mol)
         is_max = z0[:, i] == comp_max
-
-        if np.any(is_max):
-            # Pure component reference state
-            return {
-                "ref_state": "pure_component",
-                "x_ref": 1.0,
-                "weight_fn": lambda x: 100 ** (np.log10(np.clip(x, 1e-10, 1.0))),
-            }
-        else:
-            # Infinite dilution reference state
-            return {
-                "ref_state": "inf_dilution",
-                "x_ref": 0.0,
-                "weight_fn": lambda x: 100 ** (-np.log10(np.clip(x, 1e-10, 1.0))),
-            }
+        return 1. if np.any(is_max) else 0.
 
     def _get_weights(self, mol: str, x: np.ndarray) -> np.ndarray:
         """Get fitting weights based on reference state."""
-        weight_fn = self._get_ref_state_dict(mol)["weight_fn"]
-        return weight_fn(x)
+        weight_fns_mapped = {
+            1: lambda x: 100 ** (np.log10(np.clip(x, 1e-10, 1.0))),
+            0: lambda x: 100 ** (-np.log10(np.clip(x, 1e-10, 1.0))),
+        }
+        ref_state = self._get_ref_state(mol)
+        return weight_fns_mapped[int(ref_state)](x) 
 
     @cached_property_value()
     def ln_activity_coef(self) -> np.ndarray:
@@ -472,8 +462,7 @@ class KBThermo:
                 raise ValueError(f"No valid data for molecule {mol}")
 
             # Get reference state info once
-            ref_state = self._get_ref_state_dict(mol)
-            x_ref = ref_state["x_ref"]
+            x_ref = self._get_ref_state(mol)
 
             # Integrate
             if self.activity_integration_type == "polynomial":
@@ -606,7 +595,7 @@ class KBThermo:
 
         See Also
         --------
-        :func:`~kbkit.analysis.calculators.PropertyCalculator.excess_property` for calculation from simulation properties.
+        :func:`~kbkit.systems.collection.SystemCollection.excess_property` for calculation from simulation properties.
         """
         return self.systems.excess_property(name="enthalpy", units=units).value
 
@@ -910,22 +899,23 @@ class KBThermo:
         return self._calculate_i0_from_s0e(self.s0_e())
 
     @cached_property
-    def results(self) -> dict[str, PropertyResult | ActivityMetadata]:
+    def results(self) -> dict[str, PropertyResult]:
         """dict: Container for PropertyResult and ActivityMetadata objects for KBI and KBI-derived quantities."""
         props = {}
         for attr in dir(self):
             if attr.startswith("_") or attr in ("Q_", "ureg", "results", "plotter"):
                 continue
+            
             val = getattr(self, attr)
-            if isinstance(val, Callable):
+            try:
                 val = val()
-            if isinstance(val, (np.ndarray)):
-                cached_val = self._cache.get(attr)
-                if cached_val is not None:
-                    props[attr] = self._cache[attr]
+            except TypeError:
+                continue 
+
+            if attr in self._cache:
+                props[attr] =self._cache[attr]
 
         # manually add desired props
-        props["activity_metadata"] = self.activity_metadata
         return props
 
     def plotter(self, molecule_map: dict[str, str] | None = None) -> ThermoPlotter:

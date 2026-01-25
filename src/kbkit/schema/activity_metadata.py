@@ -27,28 +27,27 @@ class ActivityCoefficientResult:
         Optional function that describes activity coefficients. Only if ``activity_integration_typ`` is `polynomial`.
     """
 
-    mol: str  # instead of "name"
+    mol: str  
     x: np.ndarray
     y: np.ndarray
-    property_type: Literal["derivative", "integrated"]  # no changes needed
-    fn: Callable | None = None  # instead of "fn"
+    property_type: Literal["derivative", "integrated"] 
+    fn: np.poly1d | None = None  # instead of "fn"
 
     @property
     def x_eval(self) -> np.ndarray:
         """np.ndarray: Values to evaluate function at."""
-        if not self.fn:
-            return None
         return np.arange(0, 1.01, 0.01)
 
     @property
     def y_eval(self) -> np.ndarray:
         """np.ndarray: Result of the function evaluated at ``x_eval``."""
-        if not self.fn:
-            return None
-        return self.fn(self.x)
+        if isinstance(self.fn, np.poly1d):
+            return self.fn(self.x)
+        else:
+            return np.empty(0)
 
     @property
-    def has_fn(self) -> np.ndarray:
+    def has_fn(self) -> bool:
         """bool: Check if a fit function is defined."""
         return bool(self.fn)
 
@@ -76,7 +75,7 @@ class ActivityMetadata:
         dict
             Nested dictionary of ActivityCoefficientResult sorted by property, then by molecule name.
         """
-        data = {}
+        data: dict[str, dict[str, ActivityCoefficientResult]] = {}
         for m in self.results:
             data.setdefault(m.property_type, {})[m.mol] = m
         return data

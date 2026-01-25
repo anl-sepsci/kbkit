@@ -61,7 +61,7 @@ class EdrParser:
 
     FLUCT_PROPS: ClassVar = ("cp", "cv", "isothermal-compressibility")
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str | Path) -> None:
         # validate edr_path
         self.edr_path = validate_path(path, suffix=".edr")
         # setup unit registry
@@ -256,7 +256,7 @@ class EdrParser:
         # convert to desired units
         return self.Q_(values, gmx_units).to(units).magnitude
 
-    def molar_volume(self, nmol: int, volume: float = 0, start_time: int = 0, units: str | None = None) -> np.ndarray:
+    def molar_volume(self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None) -> np.ndarray | float:
         r"""
         Calculate molar volume of a simulation.
 
@@ -268,7 +268,7 @@ class EdrParser:
             Number of total molecules in system.
         volume: float, optional
             Simulation box volume.
-        start_time: int, optional
+        start_time: float, optional
             Start time for enthalpy calculation.
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).
@@ -289,7 +289,7 @@ class EdrParser:
         molar_vol = V / nmol
         return self.Q_(molar_vol, "nm^3/molecule").to(units).magnitude
 
-    def configurational_enthalpy(self, volume: float = 0, start_time: int = 0, units: str | None = None) -> np.ndarray:
+    def configurational_enthalpy(self, volume: float = 0, start_time: float = 0, units: str | None = None) -> np.ndarray:
         r"""
         Calculate enthalpy from potential energy.
 
@@ -299,7 +299,7 @@ class EdrParser:
         ----------
         volume: float, optional
             Simulation box volume.
-        start_time: int, optional
+        start_time: float, optional
             Start time for enthalpy calculation.
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).
@@ -334,7 +334,7 @@ class EdrParser:
         H = (U + P*V)
         return self.Q_(H, "kJ/mol").to(units).magnitude
 
-    def molar_enthalpy(self, nmol: int, volume: float = 0, start_time: int = 0, units: str | None = None) -> np.ndarray:
+    def molar_enthalpy(self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None) -> np.ndarray:
         r"""
         Calculate molar enthalpy.
 
@@ -344,7 +344,7 @@ class EdrParser:
             Number of total molecules in system.
         volume: float, optional
             Simulation box volume.
-        start_time: int, optional
+        start_time: float, optional
             Start time for enthalpy calculation.
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).
@@ -364,7 +364,7 @@ class EdrParser:
         H = self.configurational_enthalpy(volume=volume, start_time=start_time, units=units)
         return H / nmol
 
-    def cp(self, nmol: int, volume: float = 0, start_time: int = 0, units: str | None = None) -> float:
+    def cp(self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None) -> float:
         r"""
         Calculate constant pressure heat capacity from :meth:`configurational_enthalpy`.
 
@@ -374,7 +374,7 @@ class EdrParser:
             Number of total molecules in system.
         volume: float, optional
             Simulation box volume.
-        start_time: int, optional
+        start_time: float, optional
             Start time for enthalpy calculation.
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).
@@ -412,7 +412,7 @@ class EdrParser:
         cp = H.var(ddof=1)/nmol/(R*T_avg**2)
         return self.Q_(cp, "kJ/mol/K").to(units).magnitude
 
-    def cv(self, nmol: int, start_time: int = 0, units: str | None = None) -> float:
+    def cv(self, nmol: int, start_time: float = 0, units: str | None = None) -> float:
         r"""
         Calculate constant volume heat capacity.
 
@@ -420,7 +420,7 @@ class EdrParser:
         ----------
         nmol: int
             Number of total molecules in system.
-        start_time: int, optional
+        start_time: float, optional
             Start time for enthalpy calculation.
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).
@@ -458,13 +458,13 @@ class EdrParser:
         cv = U.var(ddof=1)/nmol/(R*T_avg**2)
         return self.Q_(cv, "kJ/mol/K").to(units).magnitude
 
-    def isothermal_compressibility(self, start_time: int = 0, units: str | None = None) -> float:
+    def isothermal_compressibility(self, start_time: float = 0, units: str | None = None) -> float:
         r"""
         Isothermal compressibility.
 
         Parameters
         ----------
-        start_time: int, optional
+        start_time: float, optional
             Start time for enthalpy calculation.
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).

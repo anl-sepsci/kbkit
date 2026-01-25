@@ -58,7 +58,7 @@ class ThermoPlotter:
         marker: str = "o",
         cmap: str = "jet",
         figsize: tuple = (5, 4.5),
-        savepath: str | None = None,
+        savepath: str | Path | None = None,
         show: bool = True,
     ):
         """
@@ -88,7 +88,7 @@ class ThermoPlotter:
             Matplotlib colormap.
         figsize: tuple, optional
             Size of the figure to display (height, width).
-        savepath: str, optional
+        savepath: str | Path, optional
             Path to save figure.
         show: bool, optional
             Display the figure.
@@ -154,7 +154,7 @@ class ThermoPlotter:
         marker: str = "o",
         cmap: str = "jet",
         figsize: tuple = (5, 4.5),
-        savepath: str | None = None,
+        savepath: str | Path | None = None,
         show: bool = True,
     ):
         """
@@ -184,7 +184,7 @@ class ThermoPlotter:
             Matplotlib colormap.
         figsize: tuple, optional
             Size of the figure to display (height, width).
-        savepath: str, optional
+        savepath: str | Path, optional
             Path to save figure.
         show: bool, optional
             Display the figure.
@@ -195,7 +195,11 @@ class ThermoPlotter:
             values = values(units)
         except Exception:
             values = values()
-            units = self.thermo.results.get(name).units
+
+        try:
+            units = self.thermo.results[name].units
+        except KeyError as e:
+            raise KeyError(f"Key {name} has not been cached.") from e
 
         if values.ndim == ARR_DIM_2:
             if xmol is not None:
@@ -220,7 +224,7 @@ class ThermoPlotter:
         cbar_label: str | None = None,
         cmap: str = "jet",
         figsize: tuple = (8, 6),
-        savepath: str | None = None,
+        savepath: str | Path | None = None,
         show: bool = False,
     ):
         """
@@ -238,7 +242,7 @@ class ThermoPlotter:
             Matplotlib colormap.
         figsize: tuple, optional
             Size of the figure to display (height, width).
-        savepath: str, optional
+        savepath: str | Path, optional
             Path to save figure.
         show: bool, optional
             Display the figure.
@@ -291,7 +295,7 @@ class ThermoPlotter:
         units: str | None = None,
         cmap: str = "jet",
         figsize: tuple = (8, 6),
-        savepath: str | None = None,
+        savepath: str | Path | None = None,
         show: bool = False,
     ):
         """
@@ -309,7 +313,7 @@ class ThermoPlotter:
             Matplotlib colormap.
         figsize: tuple, optional
             Size of the figure to display (height, width).
-        savepath: str, optional
+        savepath: str | Path, optional
             Path to save figure.
         show: bool, optional
             Display the figure.
@@ -320,7 +324,11 @@ class ThermoPlotter:
             y = y(units)
         except Exception:
             y = y()
-            units = self.thermo.results.get(name).units
+        
+        try:
+            units = self.thermo.results[name].units
+        except KeyError as e:
+            raise KeyError(f"Key {name} has not been cached.") from e
 
         name = name.replace("_", " ")
         cbar_label = f"{name} ({format_unit_str(units)})" if units else name
@@ -338,7 +346,7 @@ class ThermoPlotter:
         marker: str = "o",
         cmap: str = "jet",
         figsize: tuple = (5, 4.5),
-        savepath: str | None = None,
+        savepath: str | Path | None = None,
         show: bool = True,
     ):
         """Plot the fits to activity coefficient derivatives, for the polynomial ``integration_type``.
@@ -357,7 +365,7 @@ class ThermoPlotter:
             Matplotlib colormap.
         figsize: tuple, optional
             Size of the figure to display (height, width).
-        savepath: str, optional
+        savepath: str | Path, optional
             Path to save figure.
         show: bool, optional
             Display the figure.
@@ -401,7 +409,7 @@ class ThermoPlotter:
         marker: str = "o",
         cmap: str = "jet",
         figsize: tuple = (5, 4.5),
-        savepath: str | None = None,
+        savepath: str | Path | None = None,
         show: bool = True,
     ):
         """
@@ -423,7 +431,7 @@ class ThermoPlotter:
             Matplotlib colormap.
         figsize: tuple, optional
             Size of the figure to display (height, width).
-        savepath: str, optional
+        savepath: str | Path, optional
             Path to save figure.
         show: bool, optional
             Display the figure.
@@ -463,7 +471,7 @@ class ThermoPlotter:
 
     def make_figures(
         self,
-        savepath: str,
+        savepath: str | Path,
         xmol: str | None = None,
         cmap: str = "jet",
     ) -> None:
@@ -476,7 +484,7 @@ class ThermoPlotter:
             Molecule for x-axis.
         cmap: str, optional
             Matplotlib colormap.
-        savepath: str, optional
+        savepath: str | Path, optional
             File location to save figure.
         """
         savepath = Path(savepath)
@@ -488,14 +496,14 @@ class ThermoPlotter:
             xmol=xmol,
             ylabel=r"$G_{ij}^{\infty}$",
             cmap=cmap,
-            savepath=savepath / "kbi.pdf",
+            savepath=Path(savepath) / "kbi.pdf",
             show=False,
         )
 
         # plot activity coeffs.
         if self.thermo.activity_integration_type == "polynomial":
             self.plot_activity_coef_deriv_fits(
-                cmap=cmap, savepath=savepath / "ln_activity_coef_deriv_fits.pdf", show=False
+                cmap=cmap, savepath=Path(savepath) / "ln_activity_coef_deriv_fits.pdf", show=False
             )
         else:
             self.plot_property(
@@ -503,7 +511,7 @@ class ThermoPlotter:
                 xmol=xmol,
                 ylabel=r"$\partial \ln \gamma_i / \partial x_i$",
                 cmap=cmap,
-                savepath=savepath / "ln_activity_coef_derivs.pdf",
+                savepath=Path(savepath) / "ln_activity_coef_derivs.pdf",
                 show=False,
             )
 
@@ -512,7 +520,7 @@ class ThermoPlotter:
             xmol=xmol,
             ylabel=r"$\ln \gamma_i$",
             cmap=cmap,
-            savepath=savepath / "activity_coef.pdf",
+            savepath=Path(savepath) / "activity_coef.pdf",
             show=False,
         )
 
@@ -522,7 +530,7 @@ class ThermoPlotter:
             xmol=xmol,
             ylabel=r"$\hat{S}_{ij}(0)$",
             cmap=cmap,
-            savepath=savepath / "partial_structure_factors.pdf",
+            savepath=Path(savepath) / "partial_structure_factors.pdf",
             show=False,
         )
 
@@ -539,7 +547,7 @@ class ThermoPlotter:
                 xmol=xmol,
                 ylabel=r"$|H|$",
                 cmap=cmap,
-                savepath=savepath / "hessian_determinant.pdf",
+                savepath=Path(savepath) / "hessian_determinant.pdf",
                 show=False,
             )
 
@@ -547,7 +555,7 @@ class ThermoPlotter:
             self.plot_binary_mixing(
                 xmol=xmol,
                 cmap=cmap,
-                savepath=savepath / "thermodynamic_mixing_properties.pdf",
+                savepath=Path(savepath) / "thermodynamic_mixing_properties.pdf",
                 show=False,
             )
 
@@ -556,7 +564,7 @@ class ThermoPlotter:
                 name="hessian_determinant",
                 units="kJ/mol",
                 cmap=cmap,
-                savepath=savepath / "hessian_determinant.pdf",
+                savepath=Path(savepath) / "hessian_determinant.pdf",
                 show=False,
             )
 
@@ -565,6 +573,6 @@ class ThermoPlotter:
                     name=prop,
                     units="kJ/mol/K" if prop.startswith("s_") else "kJ/mol",
                     cmap=cmap,
-                    savepath=savepath / f"{prop}.pdf",
+                    savepath=Path(savepath) / f"{prop}.pdf",
                     show=False,
                 )

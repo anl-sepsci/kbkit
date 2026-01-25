@@ -1,16 +1,15 @@
 r"""
 Pipeline module for automated Kirkwood-Buff (KB) thermodynamic analysis.
 
-This module provides a high-level workflow that coordinates all major `KBKit` components—-`SystemCollection`, `KBThermo`, `SystemProperties`, and `PropertyCalculator`—-to compute thermodynamic properties across a composition series directly from simulation outputs.
+This module provides a high-level workflow that coordinates all major `KBKit` components—-`SystemCollection`, `KBThermo`, `SystemProperties`, and `KBICalculator`—-to compute thermodynamic properties across a composition series directly from simulation outputs.
 
 The pipeline expects a directory structure containing simulation results for each composition point.
 At each of these composition points, the pipeline:
 
-1. Loads structural (.gro) and energy (.edr) files using :class:`~kbkit.core.system_collection.SystemCollection`.
-2. Computes mixture properties from simulation via :class:`~kbkit.core.system_collection.SystemCollection`.
-3. Constructs a validated thermodynamic state using :class:`~kbkit.analysis.property_calculator.PropertyCalculator`.
-4. Computes pairwise Kirkwood-Buff integrals using :class:`~kbkit.analysis.property_calculator.PropertyCalculator`.
-5. Computes KBI-derived thermodynamic properties and structure factors using :class:`~kbkit.analysis.kb_thermo.KBThermo`.
+1. Builds a set of systems at constant temperature using: :class:`~kbkit.systems.collection.SystemCollection`.
+2. :class:`~kbkit..systems.collection.SystemCollection` computes topology and energy properties as a function of mole fractions.
+3. Computes pairwise Kirkwood-Buff integrals using :class:`~kbkit.kbi.calculator.KBICalculator`.
+4. Computes KBI-derived thermodynamic properties and structure factors using :class:`~kbkit.kbi.thermodynamics.KBThermo`.
 
 Composition-Grid Requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -144,7 +143,7 @@ class Pipeline:
         self.kbi_correct_rdf_convergence = kbi_correct_rdf_convergence
         self.kbi_apply_damping = kbi_apply_damping
         self.kbi_extrapolate_thermodynamic_limit = kbi_extrapolate_thermodynamic_limit
-        self.activity_integration_type = str(activity_integration_type)
+        self.activity_integration_type = activity_integration_type
         self.activity_polynomial_degree = int(activity_polynomial_degree)
         self.molecule_map = molecule_map
 
@@ -162,12 +161,12 @@ class Pipeline:
 
     @cached_property
     def systems(self) -> SystemCollection:
-        """SystemCollection: Configuration for set of systems."""
+        """SystemCollection: Configuration for a thermodynamic state, includes topology and energy properties."""
         return self._build_systems()
 
     @cached_property
     def calculator(self) -> KBICalculator:
-        """KBICalculator: Calculator for KBIs."""
+        """KBICalculator: Calculator for KBIs as a function of composition."""
         return KBICalculator(
             systems=self.systems,
             ignore_convergence_errors=self.ignore_convergence_errors,
@@ -195,7 +194,7 @@ class Pipeline:
 
     @cached_property
     def results(self) -> dict[str, PropertyResult]:
-        """Dictionary of :class:`~kbkit.schema.thermo_state.ThermoState` with mapped names and values."""
+        """Dictionary of :class:`~kbkit.schema.property_result.PropertyResult` with mapped names and values."""
         res = {}
         # add properties from KBThermo
         res.update({k: v for k, v in self.thermo.results.items() if isinstance(v, PropertyResult)})
@@ -246,14 +245,17 @@ class Pipeline:
             Parent path for saving figures.
         """
         # get savepath
-        savepath = validate_path(savepath or self.base_path)
-        savepath = savepath / "kb_analysis" if savepath == validate_path(self.base_path) else savepath
-        savepath.mkdir(parents=True, exist_ok=True)
+        if not savepath:
+            base_path = self.systems.mixtures[0].path.parent
+            fig_path = base_path / "kb_analysis"
+        else:
+            fig_path = validate_path(savepath)
+        fig_path.mkdir(parents=True, exist_ok=True)
 
         # plot all kbi_analysis
-        kbi_savepath = savepath / "system_figures"
+        kbi_savepath = fig_path / "system_figures"
         kbi_savepath.mkdir(parents=True, exist_ok=True)
-        self.kbi_plotter.plot_all(units="cm^3/mol", savepath=kbi_savepath, show=False)
+        self.kbi_plotter.plot_all(units="cm^3/mol", savepath=str(kbi_savepath), show=False)
 
         # plot thermo figures
-        self.thermo_plotter.make_figures(xmol=xmol, cmap=cmap, savepath=savepath)
+        self.thermo_plotter.make_figures(xmol=xmol, cmap=cmap, savepath=str(fig_path))

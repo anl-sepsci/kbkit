@@ -60,14 +60,6 @@ class KBICalculator:
 
         self._cache: dict[tuple, PropertyResult] = {}
 
-    def _get_from_cache(self, key: tuple, target_units: str) -> PropertyResult:
-        """Check cache and return converted result if found."""
-        if key in self._cache:
-            return self._cache[key].to(target_units)
-        return None
-
-    # update this to just be 1 function and to manually calculate property-result object
-
     def kbi(self, units: str = "nm^3/molecule") -> PropertyResult:
         r"""
         Computes Kirkwood-Buff integrals for molecular systems using RDF data.
@@ -91,10 +83,9 @@ class KBICalculator:
         units = units or "nm^3/molecule"
 
         # first check if cached
-        cache_key = ("kbi")
-        cached = self._get_from_cache(cache_key, units)
-        if cached:
-            return cached
+        cache_key = ("kbi",)
+        if cache_key in self._cache:
+            return self._cache[cache_key].to(units)
 
         # kbis are calculated in nm^3/molecule
         kbis = np.full((len(self.systems), len(self.systems.molecules), len(self.systems.molecules)), fill_value=np.nan)
