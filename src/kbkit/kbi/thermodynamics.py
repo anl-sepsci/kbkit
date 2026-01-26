@@ -96,7 +96,15 @@ class KBThermo:
         return self.systems.simulated_property(name="number_density", units=units).value
 
     def v_bar(self, units: str = "cm^3/mol") -> np.ndarray:
-        """np.ndarray: 1D array of ideal molar volumes of each system."""
+        r"""Ideal molar volumes.
+
+        .. math::
+            \bar{V} = \sum_i x_i V_i^{pure}
+
+        Returns
+        -------
+        np.ndarray
+        """
         return self.systems.ideal_property(name="molar_volume", units=units).value
 
     @property
@@ -106,12 +114,33 @@ class KBThermo:
 
     @property
     def z_bar(self) -> np.ndarray:
-        """np.ndarray: Ideal electron contribution for each system."""
+        r"""Ideal electrons as a function of composition.
+
+        .. math::
+            \bar{Z} = \sum_i x_i Z_i^{pure}
+
+        Returns
+        -------
+        np.ndarray
+        """
         return self.systems.ideal_property(name="electron_count").value
 
     @property
     def z_i_diff(self) -> np.ndarray:
-        """np.ndarray: Difference in electrons from the last element."""
+        r"""Difference in electrons from the last element.
+
+        .. math::
+            \Delta Z_i = Z_i - Z_n
+
+        where:
+            - :math:`Z_n` is the last element in :meth:`Z_i`
+
+        from :math:`i=1 \rightarrow n-1` where :math:`n` is the number of molecule types present.
+
+        Returns
+        -------
+        np.ndarray
+        """
         return self.z_i[:-1] - self.z_i[-1]
 
     @property
@@ -548,11 +577,6 @@ class KBThermo:
         """ActivityMetadata: Container for results from activity coefficient integration."""
         return ActivityMetadata(self._activity_coef_meta)
 
-    @cached_property_value()
-    def activity_coef(self) -> np.ndarray:
-        """Activity coefficients."""
-        return np.exp(self.ln_activity_coef())
-
     @cached_property_value(default_units="kJ/mol")
     def g_ex(self, units: str = "kJ/mol") -> np.ndarray:
         r"""
@@ -583,15 +607,11 @@ class KBThermo:
         Mixing enthalpy, :math:`\Delta H_{mix}`, is calculated via:
 
         .. math::
-            \begin{aligned}
-            \Delta H_{mix} &= H - H^{id} \\
-                           &= H - \sum_{i} x_i H_i
-            \end{aligned}
+            \Delta H_{mix} = H - \sum_{i} x_i H_i^{pure}
 
         where:
             - :math:`H` is the enthalpy directly from simulation
-            - :math:`H_i` is the enthalpy directly from simulation for pure :math:`i`
-            - :math:`H^{id}` is ideal enthalpy
+            - :math:`H_i^{pure}` is the enthalpy directly from simulation for pure :math:`i`
 
         See Also
         --------

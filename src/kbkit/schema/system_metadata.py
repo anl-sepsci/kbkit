@@ -28,7 +28,7 @@ class SystemMetadata:
 
     Notes
     -----
-    - Used by SystemRegistry to organize and filter systems.
+    - Used by :class:`~kbkit.systems.collection.SystemCollection` to organize and filter systems.
     - Supports reproducible analysis by encapsulating both structure and metadata.
     """
 

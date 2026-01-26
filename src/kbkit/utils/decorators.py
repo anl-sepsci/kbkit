@@ -1,4 +1,4 @@
-"""Decorators for returning PropertyResult object or its `value` attribute."""
+"""Decorators for returning :class:`~kbkit.schema.property_result.PropertyResult` object or its `value` attribute."""
 
 import inspect
 from functools import wraps

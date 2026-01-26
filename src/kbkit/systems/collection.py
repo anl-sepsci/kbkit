@@ -509,12 +509,17 @@ class SystemCollection:
         Linear mixing rule:
 
         .. math::
-            Ideal = \sum_i x_i * V_i^{pure}
+            \bar{P} = \sum_i x_i P_i^{pure}
 
         Volume-weighted mixing rule:
 
         .. math::
-            Ideal = \sum_i \left(\frac{x_i} / {\rho_i^{pure}} \right)^{-1}
+            \bar{P} = \sum_i \left(\frac{x_i}{P_i^{pure}} \right)^{-1}
+
+        where:
+            - :math:`x_i` is the mole fraction of molecule :math:`i`
+            - :math:`P_i` is the pure component property
+            - :math:`\bar{P}` is the ideal property according to the mixing rule
 
         Parameters
         ----------
@@ -586,10 +591,10 @@ class SystemCollection:
         For a given property, :math:`P`, the excess property, :math:`P^{E}`, is calculated according to:
 
         .. math::
-            P^{E} &= P - \bar{P} 
+            P^{E} = P - \bar{P}
 
         where:
-            - :math:`x_i` is the mole fraction of molecule `i`
+            - :math:`x_i` is the mole fraction of molecule :math:`i`
             - :math:`P` is the property directly from simulation
             - :math:`\bar{P}` is the ideal property according to the mixing rule
         """

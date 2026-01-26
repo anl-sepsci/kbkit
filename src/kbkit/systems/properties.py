@@ -39,15 +39,16 @@ class SystemProperties:
 
     Attributes
     ----------
-    edr_paths: list[EdrParser]
+    edr_paths: list[Path]
         List of paths to GROMACS energy files.
-    top_paths: list[TopParser]
+    top_paths: list[Path]
         List of paths to GROMACS topology files.
-    gro_paths: list[GroParser]
+    gro_paths: list[Path]
         List of paths to GROMACS structure files.
 
     .. note::
-    Defaults to looking at files/paths directly specified. If files are not specified or do not exist, a ``system_path`` is required to locate the files with necessary suffix.
+        - Defaults to looking at files/paths directly specified.
+        - If files are not specified or do not exist, a ``system_path`` is required to locate the files with necessary suffix.
     """
 
     def __init__(

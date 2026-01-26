@@ -470,13 +470,6 @@ class TestKBThermoActivityCoefficientResults:
 
         assert isinstance(metadata, ActivityMetadata)
 
-    def test_activity_coef_is_exp_of_ln(self, kb_thermo):
-        """Test that activity_coef is exp(ln_activity_coef)."""
-        lng = kb_thermo.ln_activity_coef()
-        gamma = kb_thermo.activity_coef()
-
-        np.testing.assert_array_almost_equal(gamma, np.exp(lng))
-
 
 class TestKBThermoThermodynamicProperties:
     """Test thermodynamic property calculations."""
@@ -788,7 +781,6 @@ class TestKBThermoIntegration:
         a_inv = kb.A_inv()
         a = kb.A()
         lng = kb.ln_activity_coef()
-        gamma = kb.activity_coef()
         g_ex = kb.g_ex()
         g_mix = kb.g_mix()
 
@@ -797,7 +789,6 @@ class TestKBThermoIntegration:
         assert a_inv.shape == (3, 2, 2)
         assert a.shape == (3, 2, 2)
         assert lng.shape == (3, 2)
-        assert gamma.shape == (3, 2)
         assert g_ex.shape == (3,)
         assert g_mix.shape == (3,)
 

@@ -341,6 +341,8 @@ class ThermoPlotter:
     ):
         """Plot the fits to activity coefficient derivatives, for the polynomial ``integration_type``.
 
+        Parameters
+        ----------
         xlim: tuple, optional
             Limits for x-axis.
         ylim: tuple, optional
@@ -405,6 +407,8 @@ class ThermoPlotter:
         """
         Plots the contributions to Gibbs mixing free energy for binary mixtures.
 
+        Parameters
+        ----------
         xmol: str
             Molecule for x-axis.
         xlim: tuple, optional
