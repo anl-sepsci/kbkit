@@ -704,12 +704,16 @@ class KBThermo:
         where:
             - :math:`G_{ij}` is the KBI value for molecules :math:`i,j` (:meth:`kbi`)
             - :math:`A_{ij}^{-1}` is the inverse A matrix (:meth:`A_inv`)
+
+        .. note::
+            Note that the normalization used here differs from that of the Ashcroft-Langreth partial structure factors used in some texts.
+
         """
         return self.A_inv()
 
     @cached_property_value()
     def s0_x(self) -> np.ndarray:
-        r"""Contribution from Bhatia-Thornton concentration-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
+        r"""Bhatia-Thornton composition-composition structure factor as q :math:`\rightarrow` 0, extended to a multicomponent system.
 
         Notes
         -----
@@ -733,7 +737,7 @@ class KBThermo:
 
     @cached_property_value()
     def s0_xp(self) -> np.ndarray:
-        r"""Contribution from Bhatia-Thornton number-concentration fluctuations to structure factor as q :math:`\rightarrow` 0.
+        r"""Bhatia-Thornton composition-density structure factor as q :math:`\rightarrow` 0, extended to a multicomponent system.
 
         Notes
         -----
@@ -750,7 +754,7 @@ class KBThermo:
 
     @cached_property_value()
     def s0_p(self) -> np.ndarray:
-        r"""Contribution from number-number fluctuations to structure factor as q :math:`\rightarrow` 0.
+        r"""Bhatia-Thornton density-density structure factor as q :math:`\rightarrow` 0, extended to a multicomponent system.
 
         Notes
         -----
@@ -763,7 +767,7 @@ class KBThermo:
 
     @cached_property_value()
     def s0_kappa(self) -> np.ndarray:
-        r"""Contribution from isothermal compressibility to density-density fluctuations structure factor as q :math:`\rightarrow` 0.
+        r"""Contribution from isothermal compressibility to Bhatia-Thornton density-density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -776,7 +780,7 @@ class KBThermo:
 
     @cached_property_value()
     def s0_x_e(self) -> np.ndarray:
-        r"""Contribution from Bhatia-Thornton concentration-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+        r"""Contribution from extended Bhatia-Thornton composition-composition structure factors to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -791,7 +795,7 @@ class KBThermo:
 
     @cached_property_value()
     def s0_xp_e(self) -> np.ndarray:
-        r"""Contribution from Bhatia-Thornton number-concentration fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+        r"""Contribution from extended Bhatia-Thornton composition-density structure factors to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -805,7 +809,7 @@ class KBThermo:
 
     @cached_property_value()
     def s0_p_e(self) -> np.ndarray:
-        r"""Contribution from Bhatia-Thornton number-number fluctuations to electron density structure factor as q :math:`\rightarrow` 0.
+        r"""Contribution from extended Bhatia-Thornton density-density structure factors to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -818,7 +822,7 @@ class KBThermo:
 
     @cached_property_value()
     def s0_kappa_e(self) -> np.ndarray:
-        r"""Contribution from isothermal compressibility to Bhatia-Thornton number-number fluctuations electron density structure factor as q :math:`\rightarrow` 0.
+        r"""Contribution from isothermal compressibility part of Bhatia-Thornton density-density structure factor to electron density structure factor as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -855,7 +859,7 @@ class KBThermo:
 
     @cached_property_value(default_units="1/cm")
     def i0_x(self, units: str = "1/cm") -> np.ndarray:
-        r"""Contribution from concentration-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
+        r"""Contribution from extended Bhatia-Thornton composition-composition structure factors to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -868,7 +872,7 @@ class KBThermo:
 
     @cached_property_value(default_units="1/cm")
     def i0_xp(self, units: str = "1/cm") -> np.ndarray:
-        r"""Contribution from number-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
+        r"""Contribution from extended Bhatia-Thornton composition-density structure factors to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -881,7 +885,7 @@ class KBThermo:
 
     @cached_property_value(default_units="1/cm")
     def i0_p(self, units: str = "1/cm") -> np.ndarray:
-        r"""Contribution from number-concentration fluctuations to x-ray intensity as q :math:`\rightarrow` 0.
+        r"""Contribution from extended Bhatia-Thornton density-density structure factors to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
         -----
@@ -894,7 +898,7 @@ class KBThermo:
 
     @cached_property_value(default_units="1/cm")
     def i0_kappa(self, units: str = "1/cm") -> np.ndarray:
-        r"""Contribution from isothermal compressibility to density-density fluctuations x-ray intensity as q :math:`\rightarrow` 0.
+        r"""Contribution from isothermal compressibility part of Bhatia-Thornton density-density structure factor to x-ray intensity as q :math:`\rightarrow` 0.
 
         Notes
         -----
