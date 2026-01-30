@@ -49,7 +49,7 @@ class SystemCollection:
         self._residue_molecules = molecules  # Global unique molecules used for sorting
         self._lookup = {s.name: s for s in systems}
         self._cache: dict[tuple, PropertyResult] = {}
-        # user-provided charges; if None or empty → neutral behavior
+        # user-provided charges; if None or empty -> neutral behavior
         self.charges: dict[str, int] = charges or {}
 
     def __getattr__(self, name: str) -> Any:
@@ -786,7 +786,7 @@ class SystemCollection:
             pure_value = pure_sys.props.get(name, units=units, avg=avg)
             if isinstance(pure_value, dict):
                 pure_value = pure_value.get(comp_name, next(iter(pure_value.values())))
-            pure_lookup[mol_name] = pure_value
+            pure_lookup[comp_name] = pure_value
 
         return pure_lookup
 

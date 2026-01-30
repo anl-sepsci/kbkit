@@ -105,7 +105,7 @@ class KBThermo:
         -------
         np.ndarray
         """
-        return self.systems.ideal_property(name="molar_volume", units=units).value
+        return (self.systems.x * self.molar_volume(units=units)).sum(axis=1)
 
     @property
     def z_i(self) -> np.ndarray:
@@ -245,11 +245,15 @@ class KBThermo:
         Elements of **M** are calculated for molecules :math:`i,j`, using the formula:
 
         .. math::
-            \frac{M_{ij}}{RT} = \frac{1}{RT}\left(\frac{\partial \mu_i}{\partial x_j}\right)_{T,P,x_k} = A_{ij} - \frac{\left(\sum_{k=1}^n x_k A_{ik}\right) \left(\sum_{k=1}^n x_k A_{jk}\right)}{\sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}}
+            \begin{aligned}
+            M_{ij} = \left(\frac{\partial \mu_i}{\partial x_j}\right)_{T,P,x_k} &= RT \left[ A_{ij} - \frac{\left(\sum_{k=1}^n x_k A_{ik}\right) \left(\sum_{k=1}^n x_k A_{jk}\right)}{\sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}} \right] \\
+            &= RT A_{ij} - \frac{\rho \bar{V}_i \bar{V}_j}{\kappa}
 
         where:
             - :math:`\mathbf{A}_{ij}` is the Helmholtz stability matrix for molecules :math:`i,j`.
             - :math:`x_k` is the mole fraction of molecule :math:`k`.
+            - :math:`\bar{V}_i` is the partial molar volume of component :math:`i`.
+            - :math:`\kappa` is the isothermal compressibility.
         """
         upper = (self._x_3d * self.A()).sum(axis=1)
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -273,13 +277,44 @@ class KBThermo:
         Array :math:`\kappa` is computed using the formula:
 
         .. math::
-            RT\kappa = \frac{1}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
+            \kappa RT = \frac{1}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
 
         where:
             - :math:`\rho` is the mixture number density.
             - :math:`A_{ij}` is the stability matrix (see :meth:`A`).
         """
-        return 1 / (self.rho(units="mol/m^3") * self.RT("kJ/mol") * self._l())
+        value = 1 / (self.rho(units="mol/m^3") * self.RT("kJ/mol") * self._l())
+        return self.Q_(value, "1/kPa").to(units).magnitude
+    
+    @cached_property_value(default_units="cm^3/mol")
+    def molar_volume(self, units: str = "cm^3/mol") -> np.ndarray:
+        r"""
+        Molar volume of individual components.
+
+        Parameters
+        ----------
+        units: str, optional
+            Desired output units. Defaults to "cm^3/mol".
+
+        Returns
+        -------
+        np.ndarray
+            A 1D array with shape "(n_sys,)".
+
+        Notes
+        -----
+        Molar volume is computed using the formula:
+
+        .. math::
+            V_m = \frac{\sum_{j=1}^n x_j A_{ij}}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
+
+        where:
+            - :math:`\rho` is the mixture number density.
+            - :math:`A_{ij}` is the stability matrix (see :meth:`A`).
+        """
+        xj_Aij = self.systems.x[:,np.newaxis,:] * self.A()
+        rho_units = "/".join(units.split("/")[::-1])
+        return xj_Aij.sum(axis=2) / (self._l() * self.rho(units=rho_units))[:,np.newaxis]
 
     def _subtract_nth_elements(self, matrix: np.ndarray) -> np.ndarray:
         """Set up matrices for multicomponent analysis."""
@@ -572,9 +607,11 @@ class KBThermo:
         unsort_idx = np.argsort(sort_idx)
         return lng_sorted[unsort_idx]
 
-    @property
+    @cached_property
     def activity_metadata(self) -> ActivityMetadata:
         """ActivityMetadata: Container for results from activity coefficient integration."""
+        if not self._activity_coef_meta:
+            self.ln_activity_coef()
         return ActivityMetadata(self._activity_coef_meta)
 
     @cached_property_value(default_units="kJ/mol")
