@@ -87,8 +87,10 @@ class TestSystemCollectionInitialization:
         """Test initialization with systems and molecules."""
         sc = SystemCollection(sample_systems, sample_molecules)
 
-        assert sc._systems == sample_systems
-        assert sc._molecules == sample_molecules
+        assert np.all(sc._systems == sample_systems)
+        # The constructor stores a numeric array in _molecules internally;
+        # the public .molecules property is what exposes the original string list.
+        assert sc.molecules == sample_molecules
         assert len(sc._lookup) == 2
         assert "test_system" in sc._lookup
         assert "pure_MOL1" in sc._lookup
@@ -106,7 +108,8 @@ class TestSystemCollectionInitialization:
         sc = SystemCollection([], [])
 
         assert sc._systems == []
-        assert sc._molecules == []
+        # Same reason as test_init_with_systems: use the public property.
+        assert sc.molecules == []
         assert sc._lookup == {}
 
 
@@ -578,9 +581,6 @@ class TestSystemCollectionMakeMeta:
         assert result == mock_meta
 
 
-
-
-
 class TestSystemCollectionSortSystems:
     """Test the _sort_systems static method."""
 
@@ -966,8 +966,6 @@ class TestSystemCollectionGetMethods:
 
 class TestSystemCollectionPropertyMethods:
     """Test property calculation methods."""
-
-    # ... (previous tests remain the same)
 
     def test_ideal_property_linear_mixing(self, sample_systems, sample_molecules):
         """Test ideal_property with linear mixing rule."""

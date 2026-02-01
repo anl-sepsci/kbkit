@@ -41,7 +41,7 @@ class ActivityCoefficientResult:
     @property
     def y_eval(self):
         """np.ndarray: Result of the function evaluated at ``x_eval``."""
-        return self.fn(self.x) if isinstance(self.fn, np.poly1d) else None
+        return self.fn(self.x_eval) if isinstance(self.fn, np.poly1d) else None
 
     @property
     def has_fn(self) -> bool:
@@ -93,3 +93,11 @@ class ActivityMetadata:
             return self.by_types[key][mol]
         except KeyError as e:
             raise KeyError(f"property type {property_type} and mol {mol} not in {self.by_types}") from e
+
+    def __iter__(self):
+        """Creates an iterable type object."""
+        return iter(self.results)
+
+    def __len__(self) -> int:
+        """Allows len(ActivityMetadata) to return num systems in registry."""
+        return len(self.results)

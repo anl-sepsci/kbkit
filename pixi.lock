@@ -1503,8 +1503,8 @@ packages:
   requires_python: '>=3.8'
 - pypi: ./
   name: kbkit
-  version: 1.0.22
-  sha256: c880403e3f220bc7633775f8a3b66207c011fb26c41cf9120a95e5761b3f9adb
+  version: 1.0.23
+  sha256: 10fffb599a59e5e183bf2fa3e880a882f5c05e27c7141c3400455389add4903b
   requires_dist:
   - sphinx
   - numpy>=2.3.2,<3

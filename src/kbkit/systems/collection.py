@@ -7,6 +7,7 @@ The purpose of `SystemCollection` is to load a set of systems and access :class:
     * Additionally, this object is used to calculating `Excess`, `Simulation`, and `Ideal` properties.
 """
 
+import itertools
 import os
 import re
 from collections import defaultdict
@@ -40,13 +41,55 @@ class SystemCollection:
         List of discovered systems to register.
     molecules: list[str]
         List of global unique molecules present in all systems.
+    charges: dict[str, int], optional
+        Optional charge dictionary for ions. If provided, enables electrolyte basis.
     """
 
-    def __init__(self, systems: list["SystemMetadata"], molecules: list[str]) -> None:
+    def __init__(self, systems: list["SystemMetadata"], molecules: list[str], charges: dict[str, int] | None = None) -> None:
         self._systems = systems
-        self._molecules = molecules  # Global unique molecules used for sorting
+        self._residue_molecules = molecules  # Global unique molecules used for sorting
         self._lookup = {s.name: s for s in systems}
         self._cache: dict[tuple, PropertyResult] = {}
+        # user-provided charges; if None or empty -> neutral behavior
+        self.charges: dict[str, int] = charges or {}
+
+    def __getattr__(self, name: str) -> Any:
+        """Get attributes from system metadata or SystemProperties object."""
+        if not self._systems:
+            return []
+
+        # This will now catch your new 'is_pure' if it's an attribute
+        # or we can handle it if it's a method
+        sample = self._systems[0]
+        if hasattr(sample, name):
+            attr = getattr(sample, name)
+            if callable(attr):
+                # If is_pure is a method, call it for all
+                vals = [getattr(s, name)() for s in self._systems]
+            else:
+                vals = [getattr(s, name) for s in self._systems]
+        elif hasattr(sample.props, name):
+            vals = [getattr(s.props, name) for s in self._systems]
+        else:
+            vals = [s.props.get(name) for s in self._systems]
+
+        # Convert numeric/boolean to numpy array
+        first = next((v for v in vals if v is not None), None)
+        if isinstance(first, (int, float, bool, np.number)):
+            return np.array(vals)
+        return vals
+
+    def __getitem__(self, key):
+        """Enables lookup of a specific system either by its' name or its index in the registry list."""
+        return self._lookup[key] if isinstance(key, str) else self._systems[key]
+
+    def __len__(self) -> int:
+        """Allows len(SystemCollection) to return num systems in registry."""
+        return len(self._systems)
+
+    def __iter__(self):
+        """Creates an iterable type object."""
+        return iter(self._systems)
 
     @classmethod
     def load(
@@ -58,6 +101,7 @@ class SystemCollection:
         rdf_dir: str = "",
         start_time: int = 10000,
         include_mode: str = "npt",
+        charges: dict[str, int] | None = None,
     ) -> "SystemCollection":
         """
         Construct a :class:`SystemCollection` object from discovered systems.
@@ -78,6 +122,8 @@ class SystemCollection:
             Start time for time-averaged properties.
         include_mode: str, optional
             Optional string to filter files (.edr, .gro, .top) if multiple are found of a given type.
+        charges: dict[str, int], optional
+            Optional charge dictionary for ions.
 
         Returns
         -------
@@ -139,9 +185,9 @@ class SystemCollection:
 
         # 5. Final Sort
         sorted_meta = cls._sort_systems(meta_objects, ordered_mols)
-        return cls(sorted_meta, ordered_mols)
+        return cls(sorted_meta, ordered_mols, charges=charges)
 
-    # --- Ultrafast File Peeking ---
+    # --- Setting up files/systems for system metadata ---
 
     @staticmethod
     def _peek_molecules(path: Path) -> set:
@@ -173,8 +219,6 @@ class SystemCollection:
                             mols.add(res)
         return mols
 
-    # --- Search & Scoring ---
-
     @staticmethod
     def _find_pure_systems(pure_base_path: Path, mixture_molecules: list[str], target_temp: float):
         """Search for pure component systems in a desired path, matching molecules present at a given temperature."""
@@ -196,8 +240,6 @@ class SystemCollection:
 
                 results[mol] = max(potential_dirs, key=score_dir)
         return results
-
-    # --- Boilerplate & Attributes ---
 
     @staticmethod
     def _extract_temp(input: str | Path) -> float:
@@ -297,50 +339,163 @@ class SystemCollection:
         # We MUST assign the result of sorted() back to a variable
         return sorted(systems, key=mol_fr_vector)
 
-    # --- Properties & Magic Methods ---
+    # --- electrolyte helpers ---
 
-    def __getattr__(self, name: str) -> Any:
-        """Get attributes from system metadata or SystemProperties object."""
-        if not self._systems:
+    def _validate_charges(self) -> None:
+        """Ensure all charged species exist in residue_molecules."""
+        for ion in self.charges:
+            if ion not in self._residue_molecules:
+                raise ValueError(f"Charge declared for '{ion}', but it is not in residue_molecules: {self._residue_molecules}")
+
+    def _build_salt_pairs(self) -> list[tuple[str, str]]:
+        """Return list of (cation, anion) pairs based on charges."""
+        cations = [ion for ion, q in self.charges.items() if q > 0]
+        anions = [ion for ion, q in self.charges.items() if q < 0]
+        if not cations and not anions:
             return []
+        return [(c, a) for c, a in itertools.product(cations, anions)]
 
-        # This will now catch your new 'is_pure' if it's an attribute
-        # or we can handle it if it's a method
-        sample = self._systems[0]
-        if hasattr(sample, name):
-            attr = getattr(sample, name)
-            if callable(attr):
-                # If is_pure is a method, call it for all
-                vals = [getattr(s, name)() for s in self._systems]
-            else:
-                vals = [getattr(s, name) for s in self._systems]
-        elif hasattr(sample.props, name):
-            vals = [getattr(s.props, name) for s in self._systems]
-        else:
-            vals = [s.props.get(name) for s in self._systems]
+    def _build_nu_matrix(self, salt_pairs: list[tuple[str, str]]) -> np.ndarray:
+        """Build stoichiometric matrix nu (residue_molecules x nsalts)."""
+        nmol = len(self._residue_molecules)
+        nsalts = len(salt_pairs)
+        nu = np.zeros((nmol, nsalts))
 
-        # Convert numeric/boolean to numpy array
-        first = next((v for v in vals if v is not None), None)
-        if isinstance(first, (int, float, bool, np.number)):
-            return np.array(vals)
-        return vals
+        for i, (cat, an) in enumerate(salt_pairs):
+            try:
+                cat_idx = self._residue_molecules.index(cat)
+                an_idx = self._residue_molecules.index(an)
+            except ValueError as e:
+                raise ValueError(f"Salt component '{cat}' or '{an}' not found in residue_molecules.") from e
 
-    def __getitem__(self, key):
-        """Enables lookup of a specific system either by its' name or its index in the registry list."""
-        return self._lookup[key] if isinstance(key, str) else self._systems[key]
+            q_cat = self.charges[cat]
+            q_an = self.charges[an]
+            if q_cat <= 0 or q_an >= 0:
+                raise ValueError( f"Inconsistent charges for salt pair ({cat}, {an}): " f"q_cat={q_cat}, q_an={q_an}. Expected cation>0, anion<0." )
 
-    def __len__(self) -> int:
-        """Allows len(SystemCollection) to return num systems in registry."""
-        return len(self._systems)
+            nu[cat_idx, i] = abs(q_an)
+            nu[an_idx, i] = abs(q_cat)
 
-    def __iter__(self):
-        """Creates an iterable type object."""
-        return iter(self._systems)
+        return nu
+
+    def _solve_salt_counts(self, nu: np.ndarray, N: np.ndarray) -> np.ndarray:
+        """Solve for salt counts for each system given nu and residue counts N."""
+        if nu.shape[1] == 0:
+            return np.zeros((N.shape[0], 0))
+
+        salt_counts = np.linalg.lstsq(nu, N.T, rcond=None)[0].T
+        salt_counts[salt_counts < 0] = 0.0
+        return salt_counts
+
+    def _canonical_salt_names(self, salt_pairs: list[tuple[str, str]], nu: np.ndarray) -> list[str]:
+        """Build canonical salt names like: - Na.Cl - Ca.Cl2."""
+        names: list[str] = []
+        for col_idx, (c, a) in enumerate(salt_pairs):
+            c_idx = self._residue_molecules.index(c)
+            a_idx = self._residue_molecules.index(a)
+            n_c = int(nu[c_idx, col_idx])
+            n_a = int(nu[a_idx, col_idx])
+            # we encode stoichiometry on anion side: Ca.Cl2, Na.Cl
+            c_part = c if n_c == 1 else f"{c}{n_c}"
+            a_part = a if n_a == 1 else f"{a}{n_a}"
+            names.append(f"{c_part}.{a_part}")
+        return names
+
+    # ---------- Basis accessors ----------
+
+    @property
+    def residue_molecules(self) -> list[str]:
+        """Raw MD residue basis (unique residues from topology)."""
+        return self._residue_molecules
+
+    @cached_property
+    def residue_counts(self) -> np.ndarray:
+        """np.ndarray: (N_systems, N_residues) mole fractions in residue basis."""
+        return self.x * self.total_molecules[:,np.newaxis]
+
+    @cached_property
+    def residue_x(self) -> np.ndarray:
+        """np.ndarray: (N_systems, N_residues) mole fractions in residue basis."""
+        data = []
+        for s in self._systems:
+            counts = s.props.topology.molecule_count
+            total = s.props.topology.total_molecules
+            row = [counts.get(m, 0) / total if total > 0 else 0.0 for m in self._residue_molecules]
+            data.append(row)
+        return np.array(data)
+
+    @cached_property
+    def electrolyte_basis(self) -> dict[str, np.ndarray]:
+        """Build electrolyte basis.
+
+        - new_molecules: neutral molecules + salts.
+        - new_N: counts in new basis.
+        - new_x: mole fractions in new basis.
+        - nu: stoichiometric matrix (residue x salts) Returns None if no charges.
+        """
+        if not self.charges:
+            return {}
+
+        self._validate_charges()
+        salt_pairs = self._build_salt_pairs()
+        if not salt_pairs:
+            return {
+                "molecules": np.array(self._residue_molecules),
+                "N": self.residue_counts,
+                "x": self.residue_x,
+                "nu": np.zeros((len(self._residue_molecules), 0)),
+            }
+
+        nu = self._build_nu_matrix(salt_pairs)
+        N = (self.residue_x).astype(float)
+
+        neutral_mask = np.all(nu == 0, axis=1)
+        salt_counts = self._solve_salt_counts(nu, N)
+
+        neutral_counts = N[:, neutral_mask]
+        new_N = np.column_stack((neutral_counts, salt_counts))
+
+        totals = new_N.sum(axis=1)[:, np.newaxis]
+        if np.any(totals == 0):
+            raise ValueError("At least one system has total count zero after salt reconstruction.")
+        new_x = new_N / totals
+
+        neutral_names = list(np.array(self._residue_molecules)[neutral_mask])
+        salt_names = list(self._canonical_salt_names(salt_pairs, nu))
+        new_molecules = neutral_names + salt_names
+
+        return {"molecules": np.array(new_molecules), "N": new_N, "x": new_x, "nu": nu}
+
+    @property
+    def electrolyte_molecules(self) -> list[str]:
+        """List of molecule names for electrolyte basis (neutral molecules + salts)."""
+        if not self.charges:
+            raise ValueError("No charges provided; electrolyte basis unavailable.")
+        assert self.electrolyte_basis is not None
+        return list(self.electrolyte_basis["molecules"])
+
+    @property
+    def electrolyte_x(self) -> np.ndarray:
+        """Mole fractions for electrolyte basis."""
+        if not self.charges:
+            raise ValueError("No charges provided; electrolyte basis unavailable.")
+        assert self.electrolyte_basis is not None
+        return self.electrolyte_basis["x"]
+
+    @property
+    def nu(self) -> np.ndarray:
+        """Stoichiometric matrix (residue basis x salts) if charges provided."""
+        if not self.charges:
+            raise ValueError("No charges provided; stoichiometric matrix unavailable.")
+        assert self.electrolyte_basis is not None
+        return self.electrolyte_basis["nu"]
+
+    # --- user-facing basis (switches on charges) ---
 
     @property
     def molecules(self) -> list[str]:
         """list[str]: The global order of molecules used for vectorized properties."""
-        return self._molecules
+        return self.electrolyte_molecules if self.charges else self.residue_molecules
 
     def get_mol_index(self, mol: str) -> int:
         """Get index of molecule in ``molecules``."""
@@ -362,13 +517,7 @@ class SystemCollection:
     @cached_property
     def x(self) -> np.ndarray:
         """np.ndarray: Returns (N_systems, N_molecules) array of mole fractions, follows the order of self.molecules."""
-        data = []
-        for s in self._systems:
-            counts = s.props.topology.molecule_count
-            total = s.props.topology.total_molecules
-            row = [counts.get(m, 0) / total if total > 0 else 0.0 for m in self._molecules]
-            data.append(row)
-        return np.array(data)
+        return self.electrolyte_x if self.charges else self.residue_x
 
     @cached_property
     def units(self) -> dict[str, str]:
@@ -443,20 +592,7 @@ class SystemCollection:
 
     def has_all_required_pures(self) -> bool:
         """Check that collection has required pure components for excess properties calculation."""
-        if not self.pures:
-            return False
-
-        # check that all molecules in mixtures have pure references
-        mixture_mols = set(self.molecules)
-        pure_mols = set()
-        for pure in self.pures:
-            pure_mols.update(pure.props.topology.molecules)
-
-        missing = mixture_mols - pure_mols
-        if missing:
-            return False
-
-        return True
+        return True if len(self.pures) == len(self.molecules) else False
 
     @cached_property_result()
     def simulated_property(self, name: str, units: str | None = None, avg: bool = True):
@@ -538,22 +674,13 @@ class SystemCollection:
             Ideal property values for each mixture composition.
         """
         units = units or self.get_units(name)
-
-        # 1. Get pure component properties in the correct order (matching self.molecules)
         pure_res = self.pure_property(name=name, units=units, avg=avg)
-
-        # 2. Get mixture compositions (Shape: [N_systems, N_molecules])
         compositions = self.x
 
-        # 3. Vectorized Math
         if "lin" in mixing_rule.lower():
-            # Matrix multiplication: [N_systems x N_mols] @ [N_mols] -> [N_systems]
             ideal_values = compositions @ pure_res.value
-
         elif "vol" in mixing_rule.lower():
-            # 1 / sum(x_i / P_i)
             ideal_values = 1.0 / (compositions @ (1.0 / pure_res.value))
-
         else:
             raise ValueError(f"Unknown mixing rule: {mixing_rule}")
 
@@ -599,17 +726,15 @@ class SystemCollection:
             - :math:`\bar{P}` is the ideal property according to the mixing rule
         """
         units = units or self.get_units(name)
-
-        # Logic: Excess = Simulated - Ideal
         sim_res = self.simulated_property(name=name, units=units, avg=avg)
         ideal_res = self.ideal_property(name=name, units=units, mixing_rule=mixing_rule, avg=avg)
-
-        # Subtract in base units
         return sim_res.value - ideal_res.value
 
     def _build_pure_lookup(self, name: str, units: str | None = None, avg: bool = True) -> dict[str, float | np.ndarray | list[np.ndarray]]:
         r"""
         Build a lookup dictionary mapping molecule names to pure property values.
+
+        For electrolytes, a pure system may contain multiple residues but must reduce to exactly one component (neutral or salt) under the electrolyte basis.
 
         Parameters
         ----------
@@ -625,18 +750,32 @@ class SystemCollection:
         dict[str, float]
             Mapping of molecule name to pure property value.
         """
-        pure_lookup = {}
+        pure_lookup: dict[str, Any] = {}
         for pure_sys in self.pures:
-            # Get the molecule name (should be single component)
             mol_counts = pure_sys.props.topology.molecule_count
-            if len(mol_counts) != 1:
-                raise ValueError(f"Pure system {pure_sys.name} contains multiple molecules: {mol_counts}")
+            residue_names = list(mol_counts.keys())
 
-            mol_name = next(iter(mol_counts.keys()))
+            if self.charges:
+                # electrolyte-aware reduction
+                # reuse internal helpers on a per-system basis
+                # build a temporary salt composition for this pure system
+                temp_collection = SystemCollection(systems=[pure_sys], molecules=residue_names, charges=self.charges,)
+                basis = temp_collection.electrolyte_basis
+                assert basis is not None
+                new_molecules = basis["molecules"]
+                if len(new_molecules) != 1:
+                    raise ValueError( f"Pure system {pure_sys.name} does not reduce to a single component in electrolyte basis: " f"{new_molecules}" )
+                comp_name = new_molecules[0]
+            else:
+                # neutral case: must be a single residue
+                if len(mol_counts) != 1:
+                    raise ValueError(f"Pure system {pure_sys.name} contains multiple molecules: {mol_counts}")
+                comp_name = next(iter(mol_counts.keys()))
+
             pure_value = pure_sys.props.get(name, units=units, avg=avg)
             if isinstance(pure_value, dict):
-                pure_value = pure_value[mol_name]
-            pure_lookup[mol_name] = pure_value
+                pure_value = pure_value.get(comp_name, next(iter(pure_value.values())))
+            pure_lookup[comp_name] = pure_value
 
         return pure_lookup
 

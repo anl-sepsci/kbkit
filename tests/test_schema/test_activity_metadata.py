@@ -104,8 +104,9 @@ class TestActivityCoefficientResult:
         y_eval = result.y_eval
         assert y_eval is not None
         assert isinstance(y_eval, np.ndarray)
-        # Check that function is evaluated at x values
-        expected = fn(x)
+        # y_eval is fn evaluated over x_eval (101 points), not over the
+        # original 3-point x array.
+        expected = fn(result.x_eval)
         assert np.allclose(y_eval, expected)
 
     def test_y_eval_without_function(self):
@@ -198,9 +199,10 @@ class TestActivityCoefficientResult:
         assert fn(0.5) == 4.0
         assert fn(1.0) == 5.0
 
-        # Test y_eval uses the x values
+        # y_eval is fn evaluated over the 101-point x_eval linspace, not
+        # the original 3-point x.
         y_eval = result.y_eval
-        assert np.allclose(y_eval, fn(x))
+        assert np.allclose(y_eval, fn(result.x_eval))
 
 
 class TestActivityMetadata:
@@ -447,8 +449,11 @@ class TestActivityCoefficientResultEdgeCases:
             fn=fn
         )
 
+        # y_eval has 101 elements (one per x_eval point); a constant
+        # polynomial means every single one equals 5.
         y_eval = result.y_eval
-        assert np.allclose(y_eval, [5.0, 5.0, 5.0])
+        assert len(y_eval) == 101
+        assert np.all(y_eval == 5.0)
 
     def test_negative_values(self):
         """Test with negative x and y values."""

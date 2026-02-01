@@ -105,7 +105,11 @@ class KBThermo:
         -------
         np.ndarray
         """
-        return self.systems.ideal_property(name="molar_volume", units=units).value
+        # first try for pure components & if not enough, then fall back to KBI values
+        if self.systems.has_all_required_pures():
+            return self.systems.ideal_property(name="molar_volume", units=units).value
+        # otherwise use kbi values
+        return (self.systems.x * self.molar_volume(units=units)).sum(axis=1)
 
     @property
     def z_i(self) -> np.ndarray:
@@ -165,12 +169,11 @@ class KBThermo:
         return self.systems.x[:, :, np.newaxis] * self.systems.x[:, np.newaxis, :]
 
     @cached_property_value()
-    def A_inv(self) -> np.ndarray:
-        r"""
-        Inverse of matrix **A** corresponding to fluctuations in Helmholtz free energy representation, from compositions and KBI matrix, **G**.
+    def B(self) -> np.ndarray:
+        r"""Calculates the fluctuation matrix, **B**.
 
-        .. note::
-            In literature, this is also referred to as the **B** matrix. Here we use **A** and **A** :math:`^{-1}` for clarity on relation between both matrices.
+        The matrix **B** represents particle number fluctuations within a fixed volume.
+        In Kirkwood-Buff theory, it serves as the thermodynamic bridge between KBI (**G**) and the Helmholtz Hessian (**A**).
 
         Returns
         -------
@@ -178,18 +181,18 @@ class KBThermo:
             A 3D matrix with shape ``(n_sys, n_i, n_i)``,
             where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
-        Notes
-        -----
-        Elements of **A** :math:`^{-1}` are calculated for molecules :math:`i,j`, using the formula:
-
         .. math::
-            A_{ij}^{-1} = B_{ij} = \rho x_i x_j G_{ij} + x_i \delta_{i,j}
+            B_{ij} = \frac{\langle \Delta N_i \Delta N_j \rangle}{RT V} = \rho x_i (\delta_{ij} + \rho x_j G_{ij})
 
         where:
-            - :math:`\rho` is the mixture number density.
-            - :math:`G_{ij}` is the KBI for the pair of molecules.
-            - :math:`x_i` is the mole fraction of molecule :math:`i`.
-            - :math:`\delta_{i,j}` is the Kronecker delta for molecules :math:`i,j`.
+            - :math:`\rho`: Mixture molar density.
+            - :math:`x_i`: Mole fraction of species :math:`i`.
+            - :math:`G_{ij}`: Kirkwood-Buff integral (KBI) for the pair :math:`i,j`.
+            - :math:`\delta_{ij}`: Kronecker delta (:math:`\delta_{ij}=1` if :math:`i=j`, else `0`).
+
+        .. note::
+            This matrix describes the system in the **grand canonical ($\mu VT$)** limit.
+            It is the direct mathematical inverse of the Helmholtz Hessian at constant volume (:math:`B = A^{-1}`).
         """
         return (
             self._x_3d * self.delta_ij[np.newaxis, :]
@@ -198,11 +201,32 @@ class KBThermo:
 
     @cached_property_value()
     def A(self) -> np.ndarray:
-        """Stability matrix (**A**) of a thermodynamic system in the Helmholtz free energy representation."""
+        r"""Calculates the Helmholtz Hessian matrix, **A**.
+
+        The Helmholtz Hessian consists of the second partial derivatives of the Helmholtz free energy with respect to particle numbers.
+        It is computed via the inverse of the fluctuation matrix, **B**.
+
+        Returns
+        -------
+        np.ndarray
+            A 3D matrix with shape ``(n_sys, n_i, n_i)``,
+            where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
+
+        .. math::
+            A_{ij} = (B^{-1})_{ij} = \frac{1}{RT} \left( \frac{\partial \mu_i}{\partial N_j} \right)_{T,V,N_{k \neq j}}
+
+        where:
+            - :math:`\mu_i`: Chemical potential of species :math:`i`.
+            - :math:`N_j`: Particle number (moles) of species :math:`j`.
+
+        .. note::
+            This matrix corresponds to the **constant volume (canonical)** ensemble.
+            Unlike the Gibbs Hessian, this is an $n \times n$ matrix and is directly related to particle number fluctuations.
+        """
         try:
-            return np.array([np.linalg.inv(block) for block in self.A_inv()])
+            return np.array([np.linalg.inv(block) for block in self.B()])
         except np.linalg.LinAlgError as e:
-            raise ValueError("One or more A_inv blocks are singular and cannot be inverted.") from e
+            raise ValueError("One or more B blocks are singular and cannot be inverted.") from e
 
     @cached_property_value()
     def _l(self) -> np.ndarray:
@@ -230,9 +254,11 @@ class KBThermo:
         return value.sum(axis=(2, 1))
 
     @cached_property_value(default_units="kJ/mol")
-    def chemical_potential_deriv(self, units: str = "kJ/mol") -> np.ndarray:
-        r"""
-        Chemical potential derivatives, **M**, corresponding to composition fluctuations in Gibbs free energy representation.
+    def M(self, units: str = "kJ/mol") -> np.ndarray:
+        r"""Calculates the full curvature matrix, **M**.
+
+        The matrix **M** represents the second derivatives of the Gibbs free energy with respect to particle numbers.
+        It is the unconstrained :math:`n \times n` Hessian that accounts for volume fluctuations by applying the constant pressure correction to the Helmholtz Hessian.
 
         Returns
         -------
@@ -240,16 +266,19 @@ class KBThermo:
             A 3D matrix with shape ``(n_sys, n_i, n_i)``,
             where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
-        Notes
-        -----
-        Elements of **M** are calculated for molecules :math:`i,j`, using the formula:
-
         .. math::
-            \frac{M_{ij}}{RT} = \frac{1}{RT}\left(\frac{\partial \mu_i}{\partial x_j}\right)_{T,P,x_k} = A_{ij} - \frac{\left(\sum_{k=1}^n x_k A_{ik}\right) \left(\sum_{k=1}^n x_k A_{jk}\right)}{\sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}}
+            \begin{aligned}
+            M_{ij} = \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,P,N_k} = \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,V,N_k} - \frac{\bar{V}_i \bar{V}_j}{\bar{V} \kappa_T}
+            &= RT \left[ A_{ij} - \frac{\left(\sum_{k=1}^n x_k A_{ik}\right) \left(\sum_{k=1}^n x_k A_{jk}\right)}{\sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}} \right] \\
+            \end{aligned}
 
         where:
-            - :math:`\mathbf{A}_{ij}` is the Helmholtz stability matrix for molecules :math:`i,j`.
-            - :math:`x_k` is the mole fraction of molecule :math:`k`.
+            - :math:`A_{ij}`: Elements of the Helmholtz Hessian.
+            - :math:`x_k`: Mole fraction of species :math:`k`.
+
+        .. note::
+            This is the **full :math:`n \times n` curvature matrix** in the **constant pressure ensemble**.
+            Due to the Gibbs-Duhem relation, this matrix is mathematically singular (:math:`\det(M) = 0`).
         """
         upper = (self._x_3d * self.A()).sum(axis=1)
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -260,7 +289,7 @@ class KBThermo:
     @cached_property_value(default_units="1/kPa")
     def isothermal_compressibility(self, units: str = "1/kPa") -> np.ndarray:
         r"""
-        Isothermal compressibility, :math:`\kappa`, of mixture.
+        Isothermal compressibility, :math:`\kappa_T`, of mixture.
 
         Returns
         -------
@@ -268,18 +297,42 @@ class KBThermo:
             A 1D array with shape ``(n_sys)``,
             where ``n_sys`` is the number of systems.
 
-        Notes
-        -----
-        Array :math:`\kappa` is computed using the formula:
-
         .. math::
-            RT\kappa = \frac{1}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
+            \kappa_T RT = \frac{1}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
 
         where:
             - :math:`\rho` is the mixture number density.
             - :math:`A_{ij}` is the stability matrix (see :meth:`A`).
         """
-        return 1 / (self.rho(units="mol/m^3") * self.RT("kJ/mol") * self._l())
+        value = 1 / (self.rho(units="mol/m^3") * self.RT("kJ/mol") * self._l())
+        return self.Q_(value, "1/kPa").to(units).magnitude
+
+    @cached_property_value(default_units="cm^3/mol")
+    def molar_volume(self, units: str = "cm^3/mol") -> np.ndarray:
+        r"""
+        Molar volume of individual components.
+
+        Parameters
+        ----------
+        units: str, optional
+            Desired output units. Defaults to "cm^3/mol".
+
+        Returns
+        -------
+        np.ndarray
+            A 2D array with shape ``(n_sys, n_i)``,
+            where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
+
+        .. math::
+            \bar{V}_i = \frac{\sum_{j=1}^n x_j A_{ij}}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
+
+        where:
+            - :math:`\rho` is the mixture number density.
+            - :math:`A_{ij}` is the Hessian matrix of Helmholtz free energy.
+        """
+        xj_Aij = self.systems.x[:,np.newaxis,:] * self.A()
+        rho_units = "/".join(units.split("/")[::-1])
+        return xj_Aij.sum(axis=2) / (self._l() * self.rho(units=rho_units))[:,np.newaxis]
 
     def _subtract_nth_elements(self, matrix: np.ndarray) -> np.ndarray:
         """Set up matrices for multicomponent analysis."""
@@ -291,9 +344,8 @@ class KBThermo:
         return np.asarray(mat_ij - mat_in - mat_jn + mat_nn)
 
     @cached_property_value(default_units="kJ/mol")
-    def hessian(self, units: str = "kJ/mol") -> np.ndarray:
-        r"""
-        Hessian matrix, **H**, of Gibbs mixing free energy.
+    def H(self, units: str = "kJ/mol") -> np.ndarray:
+        r"""Calculates the Hessian matrix of Gibbs mixing free energy, **H**.
 
         Returns
         -------
@@ -301,39 +353,42 @@ class KBThermo:
             A 3D matrix with shape ``(n_sys, n_i-1, n_i-1)``,
             where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
-        Notes
-        -----
-        Elements of **H** are calculated for molecules :math:`i,j`, using the formula:
-
         .. math::
-            H_{ij} = M_{ij} - M_{in} - M_{jn} + M_{nn}
+            \begin{aligned}
+            H_{ij} &= \left( \frac{\partial \mu_i}{\partial x_j} \right)_{T,P} \\
+                   &= M_{ij} - M_{in} - M_{jn} + M_{nn}
+            \end{aligned}
 
         where:
-            - :math:`M_{ij}` is matrix **M** for molecules :math:`i,j`
-            - :math:`n` represents the last element in **M** matrix
+            - :math:`M_{ij}` is the curvature matrix **M** for molecules :math:`i,j`
+
+        .. note::
+            This matrix is defined in the $(n-1) \times (n-1)$ composition space.
+            It represents the stability of the system at **constant pressure and temperature**.
+            A state is considered stable only if this matrix is positive definite.
         """
-        return self._subtract_nth_elements(self.chemical_potential_deriv(units))
+        return self._subtract_nth_elements(self.M(units))
 
     @cached_property_value(default_units="kJ/mol")
-    def hessian_determinant(self, units: str = "kJ/mol") -> np.ndarray:
-        r"""
-        Determinant of the Hessian, :math:`|\mathbf{H}|`, of Gibbs free energy of mixing (units: kJ/mol).
+    def det_H(self, units: str = "kJ/mol") -> np.ndarray:
+        r"""Calculates the determinant of the Gibbs Hessian, **H**.
+
+        The determinant of the reduced Hessian matrix is the primary indicator of thermodynamic stability in a multicomponent mixture.
 
         Returns
         -------
         np.ndarray
             A 1D array of shape ``(n_sys)``
 
-        Notes
-        -----
-        The determinant, :math:`|\mathbf{H}|`, quantifies the curvature of the Gibbs mixing free energy surface and is used to assess mixture stability.
+        .. math::
+            \mathcal{D} = \det(\mathbf{H})
 
-        See Also
-        --------
-        :meth:`hessian`
+        .. note::
+            A system is thermodynamically stable if and only if :math:`\det(H) > 0`.
+            The condition :math:`\det(H) = 0` defines the **spinodal line**, beyond which the single-phase mixture becomes spontaneously unstable to infinitesimal fluctuations.
         """
         with np.errstate(divide="ignore", invalid="ignore"):  # avoids zeros in np.ndarray
-            return np.asarray([np.linalg.det(block) for block in self.hessian(units)])
+            return np.asarray([np.linalg.det(block) for block in self.H(units)])
 
     def _set_ref_to_zero(self, array: np.ndarray, ref: float = 1) -> np.ndarray:
         """Set value of array to zero where value is pure component."""
@@ -344,39 +399,31 @@ class KBThermo:
         return array
 
     @cached_property_value(default_units="kJ/mol")
-    def chemical_potential_deriv_diag(self, units: str = "kJ/mol") -> np.ndarray:
-        r"""
-        Derivative of the chemical potential of each component with respect to its own mole fraction, enforcing thermodynamic consistency.
+    def dmu_dxi(self, units: str = "kJ/mol") -> np.ndarray:
+        r"""Calculates the chemical potential derivatives with respect to mole fraction.
+
+        This property returns the diagonal elements of the chemical potential derivative matrix, representing the response of each species' chemical potential to its own mole fraction, constrained by the Gibbs-Duhem relation.
 
         Returns
         -------
         np.ndarray
-            A 2D array of shape ``(n_sys, n_i)``,
-            where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
-
-        Notes
-        -----
-        For each system, the chemical potential derivative matrix :math:`M_{ij}` is used to construct the derivatives:
-
-        * For components :math:`i = 1, \ldots, n-1`:
+            A 2D array of shape ``(n_sys, n_i)``, where ``n_sys`` is the number
+            of systems and ``n_i`` is the number of unique components.
 
         .. math::
-            \left(\frac{\partial \mu_i}{\partial x_i}\right) = \mathrm{diag}\left(\frac{\partial \mu_i}{\partial x_j} - \frac{\partial \mu_i}{\partial x_n}\right)_{j=1}^{n-1}
+            \left(\frac{\partial \mu_i}{\partial x_i}\right)_{T,P}
 
-        This is implemented as:
+        .. note::
+            For the first :math:`n-1` components, the derivatives are transformed from the particle-number basis (**M**).
+            The :math:`n^{th}` component is calculated via the **Gibbs-Duhem equation**:
 
-        .. math::
-            dmui\_dxi[:, :-1] = \mathrm{diag}\left(\frac{\partial \mu_i}{\partial x_j} - \frac{\partial \mu_i}{\partial x_n}\right)
+            .. math::
+                \frac{\partial \mu_n}{\partial x_n} = \frac{1}{x_n} \sum_{j=1}^{n-1} x_j \frac{\partial \mu_j}{\partial x_j}
 
-        * For the last component ``n`` (by Gibbs-Duhem):
-
-        .. math::
-            \left(\frac{\partial \mu_n}{\partial x_n}\right) = \frac{1}{x_n} \sum_{j=1}^{n-1} x_j \left(\frac{\partial \mu_j}{\partial x_j}\right)
-
-        This ensures the sum of mole fraction derivatives is thermodynamically consistent.
+            This ensures that the composition derivatives are thermodynamically consistent across the entire mixture.
         """
         n = self.systems.n_i - 1
-        M = self.chemical_potential_deriv(units)
+        M = self.M(units)
 
         # compute dmu_dxs; shape n-1 x n-1
         dmu_dxs = M[:, :n, :n] - M[:, :n, -1][:, :, np.newaxis]
@@ -391,18 +438,32 @@ class KBThermo:
         return self._set_ref_to_zero(dmui_dxi, ref=1)
 
     @cached_property_value()
-    def ln_activity_coef_deriv(self) -> np.ndarray:
+    def Gamma(self) -> np.ndarray:
+        r"""Calculates the thermodynamic factors, :math:`\Gamma_i`.
+
+        The thermodynamic factor scales the composition dependence of the chemical potential.
+
+        Returns
+        -------
+        np.ndarray
+            A 2D array of shape ``(n_sys, n_i)``.
+
+        .. math::
+            \Gamma_i = \frac{x_i}{RT} \left( \frac{\partial \mu_i}{\partial x_i} \right)_{T,P}
+        """
+        return (self.systems.x * self.dmu_dxi()) / self.RT()[:,np.newaxis]
+
+    @cached_property_value()
+    def dlngamma_dxi(self) -> np.ndarray:
         r"""
         Derivative of natural logarithm of the activity coefficient of molecule :math:`i` with respect to its own mole fraction.
+
+        This represents the deviation from ideality in the chemical potential gradient.
 
         Returns
         -------
         np.ndarray
             A 3D matrix with shape ``(n_sys, n_i, n_i)``
-
-        Notes
-        -----
-        Activity coefficient derivatives are calculated as follows:
 
         .. math::
             \frac{\partial \ln{\gamma_i}}{\partial x_i} = \frac{1}{R T}\left(\frac{\partial \mu_i}{\partial x_i}\right) - \frac{1}{x_i}
@@ -413,7 +474,7 @@ class KBThermo:
             - :math:`x_i` is the mole fraction of molecule :math:`i`
         """
         with np.errstate(divide="ignore", invalid="ignore"):
-            return (1 / self.RT("kJ/mol"))[:, np.newaxis] * self.chemical_potential_deriv_diag("kJ/mol") - 1 / self.systems.x
+            return (1 / self.RT("kJ/mol"))[:, np.newaxis] * self.dmu_dxi("kJ/mol") - 1 / self.systems.x
 
     def _get_ref_state(self, mol: str) -> float:
         """Return reference state for a molecule; 1: `pure component`, 0: `infinite dilution`."""
@@ -433,7 +494,7 @@ class KBThermo:
         return weight_fns_mapped[int(ref_state)](x)
 
     @cached_property_value()
-    def ln_activity_coef(self) -> np.ndarray:
+    def lngamma(self) -> np.ndarray:
         r"""
         Natural logarithm of activity coefficients.
 
@@ -478,7 +539,7 @@ class KBThermo:
         The integration starts at a reference state where :math:`x_i = a_0` and :math:`\ln{\gamma_i}(a_0) = 0`.
         """
         # now for the calculation
-        dlng_dxs = self.ln_activity_coef_deriv()
+        dlng_dxs = self.dlngamma_dxi()
 
         ln_gammas = np.full_like(self.systems.x, fill_value=np.nan)
         for i, mol in enumerate(self.systems.molecules):
@@ -572,9 +633,11 @@ class KBThermo:
         unsort_idx = np.argsort(sort_idx)
         return lng_sorted[unsort_idx]
 
-    @property
+    @cached_property
     def activity_metadata(self) -> ActivityMetadata:
         """ActivityMetadata: Container for results from activity coefficient integration."""
+        if not self._activity_coef_meta:
+            self.lngamma()
         return ActivityMetadata(self._activity_coef_meta)
 
     @cached_property_value(default_units="kJ/mol")
@@ -593,7 +656,7 @@ class KBThermo:
             - :math:`x_i` is mole fraction of molecule :math:`i`
             - :math:`\gamma_i` is activity coefficient of molecule :math:`i`
         """
-        ge = self.RT(units) * (self.systems.x * self.ln_activity_coef()).sum(axis=1)
+        ge = self.RT(units) * (self.systems.x * self.lngamma()).sum(axis=1)
         # where any system contains a pure component, set excess to zero
         return self._set_ref_to_zero(ge, ref=1)
 
@@ -703,13 +766,12 @@ class KBThermo:
 
         where:
             - :math:`G_{ij}` is the KBI value for molecules :math:`i,j` (:meth:`kbi`)
-            - :math:`A_{ij}^{-1}` is the inverse A matrix (:meth:`A_inv`)
+            - :math:`B` is the inverse A matrix (:meth:`B`)
 
         .. note::
             Note that the normalization used here differs from that of the Ashcroft-Langreth partial structure factors used in some texts.
-
         """
-        return self.A_inv()
+        return self.B()
 
     @cached_property_value()
     def s0_x(self) -> np.ndarray:
