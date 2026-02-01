@@ -20,13 +20,14 @@ Mocking strategy
 from __future__ import annotations
 
 import warnings
+
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
 
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import numpy as np
 import pytest
@@ -146,15 +147,14 @@ def _stub_rdf(converged: bool = True):
 # ===========================================================================
 # Import the class under test (after helpers are defined so patches work)
 # ===========================================================================
-from kbkit.kbi.calculator import KBICalculator  # noqa: E402
-
+from kbkit.kbi.calculator import KBICalculator
 
 # ===========================================================================
 # Fixtures
 # ===========================================================================
 
 
-@pytest.fixture()
+@pytest.fixture
 def two_component_systems():
     """2-system, 2-component collection with no charges (residue path)."""
     metas = [
@@ -164,7 +164,7 @@ def two_component_systems():
     return _make_systems(n_sys=2, residue_molecules=["A", "B"], metas=metas)
 
 
-@pytest.fixture()
+@pytest.fixture
 def electrolyte_systems():
     """
     3-component residue system (Na, Cl, Water) mapped to
@@ -416,7 +416,7 @@ class TestElectrolyteKbi:
 
     def _seed_residue_cache(self, calc, kbis: np.ndarray):
         """Manually seed the residue_kbi cache so electrolyte_kbi uses it."""
-        from kbkit.schema.property_result import PropertyResult  # noqa: F811
+        from kbkit.schema.property_result import PropertyResult
 
         result = MagicMock()
         result.value = kbis

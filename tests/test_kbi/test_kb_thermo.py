@@ -35,7 +35,7 @@ def mock_system_collection():
         [0.8, 0.2]
     ])
     mock_sc.get_mol_index = Mock(side_effect=lambda mol: ["MOL1", "MOL2"].index(mol))
-    mock_sc.charges = {mol: 0 for mol in mock_sc.molecules}
+    mock_sc.charges = dict.fromkeys(mock_sc.molecules, 0)
 
     # Mock properties
     mock_props = Mock()

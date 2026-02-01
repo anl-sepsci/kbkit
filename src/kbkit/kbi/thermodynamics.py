@@ -661,7 +661,6 @@ class KBThermo:
         r"""
         Gibbs excess energy from activity coefficients.
 
-        
         .. math::
             \frac{G^E}{RT} = \sum_{i=1}^n x_i \ln{\gamma_i}
 
@@ -678,7 +677,6 @@ class KBThermo:
         r"""
         Enthalpy of mixing. Requires pure component simulations.
 
-
         .. math::
             \Delta H_{mix} = H - \sum_{i} x_i H_i^{pure}
 
@@ -691,7 +689,6 @@ class KBThermo:
     @cached_property_value(default_units="kJ/mol/K")
     def s_ex(self, units: str = "kJ/mol/K") -> np.ndarray:
         r"""Excess entropy from mixing enthalpy and Gibbs excess energy. Requires pure component simulations.
-
 
         .. math::
             S^E = \frac{\Delta H_{mix} - G^E}{T}
@@ -710,7 +707,6 @@ class KBThermo:
         r"""
         Ideal free energy calculated from mole fractions.
 
-
         .. math::
             \frac{G^{id}}{RT} = \sum_{i=1}^n x_i \ln{x_i}
 
@@ -724,7 +720,6 @@ class KBThermo:
     @cached_property_value(default_units="kJ/mol/K")
     def s_mix(self, units: str = "kJ/mol/K") -> np.ndarray:
         r"""Mixing entropy, requires pure component simulations.
-
 
         .. math::
             \begin{aligned}
@@ -744,7 +739,6 @@ class KBThermo:
     def g_mix(self, units: str = "kJ/mol") -> np.ndarray:
         r"""
         Gibbs mixing free energy calculated from excess and ideal contributions.
-
 
         .. math::
             \begin{aligned}

@@ -1,30 +1,30 @@
 """
-Unit tests for ThermoPlotter – targeting >95 % branch + line coverage.
+Unit tests for ThermoPlotter - targeting >95 % branch + line coverage.
 
 Mocking strategy
 ----------------
-* ``matplotlib.pyplot`` – patched via ``plt.subplots``, ``plt.show``,
+* ``matplotlib.pyplot`` - patched via ``plt.subplots``, ``plt.show``,
   ``plt.close``, ``plt.get_cmap`` so nothing renders and no display is needed.
-* ``KBThermo`` – a lightweight ``MagicMock`` exposing ``.systems`` (with
+* ``KBThermo`` - a lightweight ``MagicMock`` exposing ``.systems`` (with
   ``.molecules``, ``.x``, ``.get_mol_index``, ``.n_i``) and every property
   method the plotter calls (``kbi``, ``lngamma``, ``dlngamma_dxi``, …).
-* ``format_unit_str`` – patched to a simple pass-through so ylabel
+* ``format_unit_str`` - patched to a simple pass-through so ylabel
   assertions are predictable.
-* ``load_mplstyle`` – patched to a no-op so the style file isn't required.
+* ``load_mplstyle`` - patched to a no-op so the style file isn't required.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch, call, PropertyMock
 import os
 import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import numpy as np
 import pytest
 
 # ---------------------------------------------------------------------------
-# Patch targets – must match the *import* location inside the module under test
+# Patch targets - must match the *import* location inside the module under test
 # ---------------------------------------------------------------------------
 MOD = "kbkit.visualization.thermo"
 _PATCH_PLT            = f"{MOD}.plt"
@@ -58,7 +58,7 @@ def _make_thermo(
     if n_i is None:
         n_i = n_mol
     if x is None:
-        # shape (N_SYS, n_mol) – each row sums to 1
+        # shape (N_SYS, n_mol) - each row sums to 1
         x = np.ones((N_SYS, n_mol)) / n_mol
 
     systems = MagicMock()
@@ -158,7 +158,7 @@ class TestInit:
 
 
 # ===========================================================================
-# 2. plot()  –  every y.ndim branch + x flattening + save/show paths
+# 2. plot()  -  every y.ndim branch + x flattening + save/show paths
 # ===========================================================================
 
 class TestPlot:
@@ -269,7 +269,8 @@ class TestPlot:
         assert Path(saved_path).name == "thermo_property.pdf"
 
     # --- show=True calls plt.show() ------------------------------------------
-    def test_show_true(self, _patch_matplotlib):
+    @pytest.mark.usefixtures(_patch_matplotlib())
+    def test_show_true(self):
         p = _make_plotter()
         x = np.linspace(0, 1, N_SYS)
         y = np.ones(N_SYS)
@@ -277,7 +278,8 @@ class TestPlot:
         _patch_matplotlib.show.assert_called()
 
     # --- show=False calls plt.close() ----------------------------------------
-    def test_show_false(self, _patch_matplotlib):
+    @pytest.mark.usefixtures(_patch_matplotlib())
+    def test_show_false(self):
         p = _make_plotter()
         x = np.linspace(0, 1, N_SYS)
         y = np.ones(N_SYS)
@@ -413,7 +415,8 @@ class TestPlotTernary:
             p.plot_ternary(x, y)
 
     # --- happy path: valid_mask filters out NaN / Inf / negatives -------------
-    def test_happy_path_filters_invalid(self, _patch_matplotlib):
+    @pytest.mark.usefixtures(_patch_matplotlib())
+    def test_happy_path_filters_invalid(self):
         p = _make_plotter()
         x = self._ternary_x()
         y = np.ones(N_SYS)
@@ -451,7 +454,8 @@ class TestPlotTernary:
         assert saved.name == "ternary_property.pdf"
 
     # --- show=True path -------------------------------------------------------
-    def test_show_true(self, _patch_matplotlib):
+    @pytest.mark.usefixtures(_patch_matplotlib())
+    def test_show_true(self):
         p = _make_plotter()
         x = self._ternary_x()
         y = np.ones(N_SYS)
