@@ -137,7 +137,7 @@ class KBThermo:
             \Delta Z_i = Z_i - Z_n
 
         where:
-            - :math:`Z_n` is the last element in :meth:`Z_i`
+            - :math:`Z_n`: Last element in :meth:`Z_i`
 
         from :math:`i=1 \rightarrow n-1` where :math:`n` is the number of molecule types present.
 
@@ -183,17 +183,17 @@ class KBThermo:
 
 
         .. math::
-            B_{ij} = (A^{-1})_{ij} = \frac{\langle \Delta N_i \Delta N_j \rangle}{RT V} = \rho x_i (\delta_{ij} + \rho x_j G_{ij})
+            B_{ij} = (A^{-1})_{ij} = \frac{\langle \Delta N_i \Delta N_j \rangle}{V} = x_i \delta_{ij} + \rho x_i x_j G_{ij}
 
         where:
-            - :math:`\rho`: Mixture molar density.
+            - :math:`\rho`: Mixture number density.
             - :math:`x_i`: Mole fraction of species :math:`i`.
             - :math:`G_{ij}`: Kirkwood-Buff integral (KBI) for the pair :math:`i,j`.
             - :math:`\delta_{ij}`: Kronecker delta (:math:`\delta_{ij}=1` if :math:`i=j`, else `0`).
 
 
         .. note::
-            This matrix describes the system in the **grand canonical ($\mu VT$)** limit.
+            This matrix describes the system in the **grand canonical** (:math:`\mu VT`) limit.
             It is the direct mathematical inverse of the Helmholtz Hessian at constant volume (:math:`B = A^{-1}`).
         """
         return (
@@ -251,8 +251,8 @@ class KBThermo:
             l = \sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}
 
         where:
-            - :math:`\mathbf{A}_{mn}` is the Helmholtz stability matrix for molecules :math:`m,n`.
-            - :math:`x_m` is the mole fraction of molecule :math:`m`.
+            - :math:`\mathbf{A}_{mn}`: Helmholtz Hessian matrix for molecules :math:`m,n`.
+            - :math:`x_m`: Mole fraction of molecule :math:`m`.
         """
         value = self._x_3d_sq * self.A()
         return value.sum(axis=(2, 1))
@@ -273,17 +273,20 @@ class KBThermo:
 
         .. math::
             \begin{aligned}
-            M_{ij} = \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,P,N_k} = \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,V,N_k} - \frac{\bar{V}_i \bar{V}_j}{\bar{V} \kappa_T}
+            M_{ij} &= \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,P,N_{k \neq j}} = \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,V,N_{k \neq j}} - \frac{\bar{V}_i \bar{V}_j}{\bar{V} \kappa_T} \\
             &= RT \left[ A_{ij} - \frac{\left(\sum_{k=1}^n x_k A_{ik}\right) \left(\sum_{k=1}^n x_k A_{jk}\right)}{\sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}} \right] \\
             \end{aligned}
 
         where:
             - :math:`A_{ij}`: Elements of the Helmholtz Hessian.
-            - :math:`x_k`: Mole fraction of species :math:`k`.
+            - :math:`x_k`: Mole fraction of molecule :math:`k`.
+            - :math:`\bar{V}_i`: Partial molar volume of molecule :math:`i`.
+            - :math:`\bar{V}`: Molar volume of the mixture.
+            - :math:`\kappa_T`: Isothermal compressibility of the mixture.
 
 
         .. note::
-            This is the **full :math:`n \times n` curvature matrix** in the **constant pressure ensemble**.
+            This matrix corresponds to the **constant pressure ensemble**.
             Due to the Gibbs-Duhem relation, this matrix is mathematically singular (:math:`\det(M) = 0`).
         """
         upper = (self._x_3d * self.A()).sum(axis=1)
@@ -308,8 +311,8 @@ class KBThermo:
             \kappa_T RT = \frac{1}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
 
         where:
-            - :math:`\rho` is the mixture number density.
-            - :math:`A_{ij}` is the stability matrix (see :meth:`A`).
+            - :math:`\rho`: Mixture number density.
+            - :math:`A_{ij}`: Element of Helmholtz Hessian matrix for molecules :math:`i,j`.
         """
         value = 1 / (self.rho(units="mol/m^3") * self.RT("kJ/mol") * self._l())
         return self.Q_(value, "1/kPa").to(units).magnitude
@@ -317,7 +320,7 @@ class KBThermo:
     @cached_property_value(default_units="cm^3/mol")
     def molar_volume(self, units: str = "cm^3/mol") -> np.ndarray:
         r"""
-        Molar volume of individual components.
+        Partial molar volume of individual components.
 
         Parameters
         ----------
@@ -335,8 +338,8 @@ class KBThermo:
             \bar{V}_i = \frac{\sum_{j=1}^n x_j A_{ij}}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
 
         where:
-            - :math:`\rho` is the mixture number density.
-            - :math:`A_{ij}` is the Hessian matrix of Helmholtz free energy.
+            - :math:`\rho`: Mixture number density.
+            - :math:`A_{ij}`: Element of Helmholtz Hessian matrix for molecules :math:`i,j`.
         """
         xj_Aij = self.systems.x[:,np.newaxis,:] * self.A()
         rho_units = "/".join(units.split("/")[::-1])
@@ -363,18 +366,16 @@ class KBThermo:
 
 
         .. math::
-            \begin{aligned}
-            H_{ij} &= \left( \frac{\partial \mu_i}{\partial x_j} \right)_{T,P} \\
-                   &= M_{ij} - M_{in} - M_{jn} + M_{nn}
-            \end{aligned}
+            H_{ij} = \left( \frac{\partial \mu_i}{\partial x_j} \right)_{T,P} = M_{ij} - M_{in} - M_{jn} + M_{nn}
+
 
         where:
-            - :math:`M_{ij}` is the curvature matrix **M** for molecules :math:`i,j`
+            - :math:`M_{ij}`: Element of the curvature matrix **M** for molecules :math:`i,j`
 
 
         .. note::
-            This matrix is defined in the $(n-1) \times (n-1)$ composition space.
-            It represents the stability of the system at **constant pressure and temperature**.
+            This matrix is defined in the (n-1) x (n-1) composition space.
+            It represents the stability of the system at **constant pressure**.
             A state is considered stable only if this matrix is positive definite.
         """
         return self._subtract_nth_elements(self.M(units))
@@ -424,8 +425,7 @@ class KBThermo:
 
 
         .. math::
-            \left(\frac{\partial \mu_i}{\partial x_i}\right)_{T,P}
-
+            \left(\frac{\partial \mu_i}{\partial x_i}\right)_{T,P} = \sum_j \left(\frac{\partial \mu_i}{\partial n_i}\right)_{T,P} \delta_{ij}
 
         .. note::
             For the first :math:`n-1` components, the derivatives are transformed from the particle-number basis (**M**).
@@ -482,12 +482,12 @@ class KBThermo:
 
 
         .. math::
-            \frac{\partial \ln{\gamma_i}}{\partial x_i} = \frac{1}{R T}\left(\frac{\partial \mu_i}{\partial x_i}\right) - \frac{1}{x_i}
+            \frac{\partial \ln{\gamma_i}}{\partial x_i} = \frac{1}{R T}\left(\frac{\partial \mu_i}{\partial x_i}\right)_{T,P} - \frac{1}{x_i}
 
         where:
-            - :math:`\mu_i` is the chemical potential of molecule :math:`i`
-            - :math:`\gamma_i` is the activity coefficient of molecule :math:`i`
-            - :math:`x_i` is the mole fraction of molecule :math:`i`
+            - :math:`\mu_i`: Chemical potential of molecule :math:`i`
+            - :math:`\gamma_i`: Activity coefficient of molecule :math:`i`
+            - :math:`x_i`: Mole fraction of molecule :math:`i`
         """
         with np.errstate(divide="ignore", invalid="ignore"):
             return (1 / self.RT("kJ/mol"))[:, np.newaxis] * self.dmu_dxi("kJ/mol") - 1 / self.systems.x
@@ -545,12 +545,12 @@ class KBThermo:
            \ln{\gamma_i}(x_i) \approx \sum_{a=a_0}^{N-1} \frac{(x_i)_{a+1}-(x_i)_a}{2} \left[\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a} + \left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a+1}\right]
 
         where:
-            *  :math:`\ln{\gamma_i}(x_i)` is the natural logarithm of the activity coefficient of component `i` at mole fraction :math:`x_i`.
-            *  :math:`a` is the index of summation.
-            *  :math:`a_0` is the starting value for index of summation.
-            *  :math:`N` is the number of data points to sum over.
-            *  :math:`x_i` is the mole fraction of component :math:`i`.
-            *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}` is the derivative of the natural logarithm of the activity coefficient of component `i` with respect to its mole fraction, evaluated at point `a`.
+            *  :math:`\ln{\gamma_i}(x_i)`: Natural logarithm of the activity coefficient of molecule `i` at mole fraction :math:`x_i`.
+            *  :math:`a`: Index of summation.
+            *  :math:`a_0`: Starting value for index of summation.
+            *  :math:`N`: Number of data points to sum over.
+            *  :math:`x_i`: Mole fraction of component :math:`i`.
+            *  :math:`\left(\frac{\partial \ln{\gamma_i}}{\partial x_i}\right)_{a}`: Derivative of the natural logarithm of the activity coefficient of component `i` with respect to its mole fraction, evaluated at point `a`.
 
         The integration starts at a reference state where :math:`x_i = a_0` and :math:`\ln{\gamma_i}(a_0) = 0`.
         """
@@ -661,16 +661,13 @@ class KBThermo:
         r"""
         Gibbs excess energy from activity coefficients.
 
-        Notes
-        -----
-        Excess free energy, :math:`G^E`, is calculated according to:
-
+        
         .. math::
             \frac{G^E}{RT} = \sum_{i=1}^n x_i \ln{\gamma_i}
 
         where:
-            - :math:`x_i` is mole fraction of molecule :math:`i`
-            - :math:`\gamma_i` is activity coefficient of molecule :math:`i`
+            - :math:`x_i`: Mole fraction of molecule :math:`i`.
+            - :math:`\gamma_i`: Activity coefficient of molecule :math:`i`.
         """
         ge = self.RT(units) * (self.systems.x * self.lngamma()).sum(axis=1)
         # where any system contains a pure component, set excess to zero
@@ -681,20 +678,13 @@ class KBThermo:
         r"""
         Enthalpy of mixing. Requires pure component simulations.
 
-        Notes
-        -----
-        Mixing enthalpy, :math:`\Delta H_{mix}`, is calculated via:
 
         .. math::
             \Delta H_{mix} = H - \sum_{i} x_i H_i^{pure}
 
         where:
-            - :math:`H` is the enthalpy directly from simulation
-            - :math:`H_i^{pure}` is the enthalpy directly from simulation for pure :math:`i`
-
-        See Also
-        --------
-        :func:`~kbkit.systems.collection.SystemCollection.excess_property` for calculation from simulation properties.
+            - :math:`H`: Enthalpy directly from simulation.
+            - :math:`H_i^{pure}`: Enthalpy directly from simulation for pure :math:`i`.
         """
         return self.systems.excess_property(name="enthalpy", units=units).value
 
@@ -702,15 +692,14 @@ class KBThermo:
     def s_ex(self, units: str = "kJ/mol/K") -> np.ndarray:
         r"""Excess entropy from mixing enthalpy and Gibbs excess energy. Requires pure component simulations.
 
-        Notes
-        -----
-        Excess entropy, :math:`S^E`, is calculated according to:
 
         .. math::
             S^E = \frac{\Delta H_{mix} - G^E}{T}
 
         where:
-            - :math:`x_i` is mole fraction of molecule :math:`i`
+            - :math:`x_i`: Mole fraction of molecule :math:`i`.
+            - :math:`\Delta H_{mix}`: Enthalpy of mixing.
+            - :math:`G^E`: Excess Gibbs energy.
         """
         energy_units = "/".join(units.split("/")[:2])
         se = (self.h_mix(energy_units) - self.g_ex(energy_units)) / self.temperature()
@@ -721,15 +710,12 @@ class KBThermo:
         r"""
         Ideal free energy calculated from mole fractions.
 
-        Notes
-        -----
-        Ideal free energy, :math:`G^{id}`, is calculated according to:
 
         .. math::
             \frac{G^{id}}{RT} = \sum_{i=1}^n x_i \ln{x_i}
 
         where:
-            - :math:`x_i` is mole fraction of molecule :math:`i`
+            - :math:`x_i` is mole fraction of molecule :math:`i`.
         """
         with np.errstate(divide="ignore", invalid="ignore"):
             gid = self.RT(units) * (self.systems.x * np.log(self.systems.x)).sum(axis=1)
@@ -739,15 +725,17 @@ class KBThermo:
     def s_mix(self, units: str = "kJ/mol/K") -> np.ndarray:
         r"""Mixing entropy, requires pure component simulations.
 
-        Notes
-        -----
-        Mixing entropy, :math:`\Delta S_{mix}`, is calculated according to:
 
         .. math::
             \begin{aligned}
             \Delta S_{mix} &= S^E + S^{id} \\
                            &= S^E - R \sum_{i=1}^n x_i \ln{x_i}
             \end{aligned}
+
+        where:
+            - :math:`x_i`: Mole fraction of molecule :math:`i`.
+            - :math:`S^E`: Excess entropy.
+            - :math:`S^{id}`: Ideal entropy.
         """
         energy_units = "/".join(units.split("/")[:2])
         return self.s_ex(units) - self.g_id(energy_units) / self.temperature()
@@ -757,15 +745,19 @@ class KBThermo:
         r"""
         Gibbs mixing free energy calculated from excess and ideal contributions.
 
-        Notes
-        -----
-        Gibbs mixing free energy, :math:`\Delta G_{mix}`, is calculated according to:
 
         .. math::
             \begin{aligned}
             \Delta G_{mix} &= G^E + G^{id} \\
                            &= \Delta H_{mix} - T \Delta S_{mix}
             \end{aligned}
+
+        where:
+            - :math:`x_i`: Mole fraction of molecule :math:`i`.
+            - :math:`G^E`: Excess Gibbs energy.
+            - :math:`\Delta G_{mix}`: Gibbs free energy of mixing.
+            - :math:`\Delta H_{mix}`: Enthalpy of mixing.
+            - :math:`\Delta S_{mix}`: Entropy of mixing.
         """
         return self.g_ex(units) + self.g_id(units)
 
@@ -778,11 +770,11 @@ class KBThermo:
         Partial structure factor, :math:`\hat{S}_{ij}(0)`, is calculated via:
 
         .. math::
-            \hat{S}_{ij}(0) = A_{ij}^{-1} = \rho x_i x_j G_{ij} + x_i \delta_{i,j}
+            \hat{S}_{ij}(0) = B_{ij} = \rho x_i x_j G_{ij} + x_i \delta_{i,j}
 
         where:
-            - :math:`G_{ij}` is the KBI value for molecules :math:`i,j` (:meth:`kbi`)
-            - :math:`B` is the inverse A matrix (:meth:`B`)
+            - :math:`G_{ij}` is the KBI value for molecules :math:`i,j`.
+            - :math:`B` is the fluctuation matrix.
 
         .. note::
             Note that the normalization used here differs from that of the Ashcroft-Langreth partial structure factors used in some texts.
