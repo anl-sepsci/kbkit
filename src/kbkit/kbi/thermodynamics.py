@@ -99,7 +99,7 @@ class KBThermo:
         r"""Ideal molar volumes.
 
         .. math::
-            \bar{V} = \sum_i x_i V_i^{pure}
+            \bar{V} = \sum_i x_i \bar{V}_i^{pure}
 
         Returns
         -------
@@ -118,10 +118,10 @@ class KBThermo:
 
     @property
     def z_bar(self) -> np.ndarray:
-        r"""Ideal electrons as a function of composition.
+        r"""Electrons as a function of composition.
 
         .. math::
-            \bar{Z} = \sum_i x_i Z_i^{pure}
+            \bar{Z} = \sum_i x_i Z_i
 
         Returns
         -------
@@ -273,7 +273,8 @@ class KBThermo:
 
         .. math::
             \begin{aligned}
-            M_{ij} &= \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,P,N_{k \neq j}} = \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,V,N_{k \neq j}} - \frac{\bar{V}_i \bar{V}_j}{\bar{V} \kappa_T} \\
+            M_{ij} &= \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,P,N_{k \neq j}} \\
+            &= \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,V,N_{k \neq j}} - \frac{\bar{V}_i \bar{V}_j}{\bar{V} \kappa_T} \\
             &= RT \left[ A_{ij} - \frac{\left(\sum_{k=1}^n x_k A_{ik}\right) \left(\sum_{k=1}^n x_k A_{jk}\right)}{\sum_{m=1}^n\sum_{n=1}^n x_m x_n A_{mn}} \right] \\
             \end{aligned}
 
