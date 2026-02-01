@@ -1,7 +1,7 @@
 """
 Calculator for Kirkwood-Buff Integrals (KBIs) as a function of composition.
 
-This calculator operates on a :class:`~kbkit.systems.collection.SystemCollection` that contains molecular dynamics properties from structure (.gro) and energy (.edr) files.
+This calculator operates on a :class:`~kbkit.systems.collection.SystemCollection` that contains molecular dynamics properties from structure and energy files.
 Additional inputs are key parameters used for the KBI corrections provided in :class:`~kbkit.kbi.integrator.KBIntegrator`.
 """
 
@@ -204,10 +204,10 @@ class KBICalculator:
 
         .. math::
             \begin{aligned}
-            x_{+} &= \frac{n_{+}}{n_{+} + n_{-}}} \\
-            x_{-} &= \frac{n_{-}}{n_{+} + n_{-}}} \\
-            x_{+'} &= \frac{n_{+'}}{n_{+'} + n_{-'}}} \\
-            x_{-'} &= \frac{n_{-'}}{n_{+'} + n_{-'}}} \\
+            x_{+} &= \frac{n_{+}}{n_{+} + n_{-}} \\
+            x_{-} &= \frac{n_{-}}{n_{+} + n_{-}} \\
+            x_{+'} &= \frac{n_{+'}}{n_{+'} + n_{-'}} \\
+            x_{-'} &= \frac{n_{-'}}{n_{+'} + n_{-'}} \\
             \end{aligned}
 
         Salt-molecule KBI, :math:`G_{iI}`, are computed from molecule-ion KBIs according to:

@@ -287,7 +287,7 @@ class KBThermo:
 
 
         .. note::
-            This matrix corresponds to the **constant pressure ensemble**.
+            This matrix corresponds to the **constant pressure (isobaric-isothermal)** ensemble.
             Due to the Gibbs-Duhem relation, this matrix is mathematically singular (:math:`\det(M) = 0`).
         """
         upper = (self._x_3d * self.A()).sum(axis=1)
