@@ -181,14 +181,16 @@ class KBThermo:
             A 3D matrix with shape ``(n_sys, n_i, n_i)``,
             where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
+
         .. math::
-            B_{ij} = \frac{\langle \Delta N_i \Delta N_j \rangle}{RT V} = \rho x_i (\delta_{ij} + \rho x_j G_{ij})
+            B_{ij} = (A^{-1})_{ij} = \frac{\langle \Delta N_i \Delta N_j \rangle}{RT V} = \rho x_i (\delta_{ij} + \rho x_j G_{ij})
 
         where:
             - :math:`\rho`: Mixture molar density.
             - :math:`x_i`: Mole fraction of species :math:`i`.
             - :math:`G_{ij}`: Kirkwood-Buff integral (KBI) for the pair :math:`i,j`.
             - :math:`\delta_{ij}`: Kronecker delta (:math:`\delta_{ij}=1` if :math:`i=j`, else `0`).
+
 
         .. note::
             This matrix describes the system in the **grand canonical ($\mu VT$)** limit.
@@ -212,12 +214,14 @@ class KBThermo:
             A 3D matrix with shape ``(n_sys, n_i, n_i)``,
             where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
+
         .. math::
             A_{ij} = (B^{-1})_{ij} = \frac{1}{RT} \left( \frac{\partial \mu_i}{\partial N_j} \right)_{T,V,N_{k \neq j}}
 
         where:
             - :math:`\mu_i`: Chemical potential of species :math:`i`.
             - :math:`N_j`: Particle number (moles) of species :math:`j`.
+
 
         .. note::
             This matrix corresponds to the **constant volume (canonical)** ensemble.
@@ -266,6 +270,7 @@ class KBThermo:
             A 3D matrix with shape ``(n_sys, n_i, n_i)``,
             where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
+
         .. math::
             \begin{aligned}
             M_{ij} = \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,P,N_k} = \left(\frac{\partial \mu_i}{\partial N_j}\right)_{T,V,N_k} - \frac{\bar{V}_i \bar{V}_j}{\bar{V} \kappa_T}
@@ -275,6 +280,7 @@ class KBThermo:
         where:
             - :math:`A_{ij}`: Elements of the Helmholtz Hessian.
             - :math:`x_k`: Mole fraction of species :math:`k`.
+
 
         .. note::
             This is the **full :math:`n \times n` curvature matrix** in the **constant pressure ensemble**.
@@ -296,6 +302,7 @@ class KBThermo:
         np.ndarray
             A 1D array with shape ``(n_sys)``,
             where ``n_sys`` is the number of systems.
+
 
         .. math::
             \kappa_T RT = \frac{1}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
@@ -322,6 +329,7 @@ class KBThermo:
         np.ndarray
             A 2D array with shape ``(n_sys, n_i)``,
             where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
+
 
         .. math::
             \bar{V}_i = \frac{\sum_{j=1}^n x_j A_{ij}}{\rho \sum_{j=1}^n \sum_{k=1}^n x_j x_k A_{jk}}
@@ -353,6 +361,7 @@ class KBThermo:
             A 3D matrix with shape ``(n_sys, n_i-1, n_i-1)``,
             where ``n_sys`` is the number of systems and ``n_i`` is the number of unique components.
 
+
         .. math::
             \begin{aligned}
             H_{ij} &= \left( \frac{\partial \mu_i}{\partial x_j} \right)_{T,P} \\
@@ -361,6 +370,7 @@ class KBThermo:
 
         where:
             - :math:`M_{ij}` is the curvature matrix **M** for molecules :math:`i,j`
+
 
         .. note::
             This matrix is defined in the $(n-1) \times (n-1)$ composition space.
@@ -380,8 +390,10 @@ class KBThermo:
         np.ndarray
             A 1D array of shape ``(n_sys)``
 
+
         .. math::
             \mathcal{D} = \det(\mathbf{H})
+
 
         .. note::
             A system is thermodynamically stable if and only if :math:`\det(H) > 0`.
@@ -410,8 +422,10 @@ class KBThermo:
             A 2D array of shape ``(n_sys, n_i)``, where ``n_sys`` is the number
             of systems and ``n_i`` is the number of unique components.
 
+
         .. math::
             \left(\frac{\partial \mu_i}{\partial x_i}\right)_{T,P}
+
 
         .. note::
             For the first :math:`n-1` components, the derivatives are transformed from the particle-number basis (**M**).
@@ -448,6 +462,7 @@ class KBThermo:
         np.ndarray
             A 2D array of shape ``(n_sys, n_i)``.
 
+
         .. math::
             \Gamma_i = \frac{x_i}{RT} \left( \frac{\partial \mu_i}{\partial x_i} \right)_{T,P}
         """
@@ -464,6 +479,7 @@ class KBThermo:
         -------
         np.ndarray
             A 3D matrix with shape ``(n_sys, n_i, n_i)``
+
 
         .. math::
             \frac{\partial \ln{\gamma_i}}{\partial x_i} = \frac{1}{R T}\left(\frac{\partial \mu_i}{\partial x_i}\right) - \frac{1}{x_i}
