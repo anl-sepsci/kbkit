@@ -7,13 +7,14 @@ The purpose of `SystemCollection` is to load a set of systems and access :class:
     * Additionally, this object is used to calculating `Excess`, `Simulation`, and `Ideal` properties.
 """
 
+import itertools
 import os
 import re
 from collections import defaultdict
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
-import itertools
+
 import numpy as np
 
 from kbkit.io import EdrParser
@@ -337,7 +338,7 @@ class SystemCollection:
 
         # We MUST assign the result of sorted() back to a variable
         return sorted(systems, key=mol_fr_vector)
-    
+
     # --- electrolyte helpers ---
 
     def _validate_charges(self) -> None:
@@ -353,52 +354,52 @@ class SystemCollection:
         if not cations and not anions:
             return []
         return [(c, a) for c, a in itertools.product(cations, anions)]
-    
+
     def _build_nu_matrix(self, salt_pairs: list[tuple[str, str]]) -> np.ndarray:
         """Build stoichiometric matrix nu (residue_molecules x nsalts)."""
         nmol = len(self._residue_molecules)
         nsalts = len(salt_pairs)
         nu = np.zeros((nmol, nsalts))
-        
+
         for i, (cat, an) in enumerate(salt_pairs):
             try:
                 cat_idx = self._residue_molecules.index(cat)
                 an_idx = self._residue_molecules.index(an)
-            except ValueError:
-                raise ValueError(f"Salt component '{cat}' or '{an}' not found in residue_molecules.")
-            
+            except ValueError as e:
+                raise ValueError(f"Salt component '{cat}' or '{an}' not found in residue_molecules.") from e
+
             q_cat = self.charges[cat]
             q_an = self.charges[an]
             if q_cat <= 0 or q_an >= 0:
                 raise ValueError( f"Inconsistent charges for salt pair ({cat}, {an}): " f"q_cat={q_cat}, q_an={q_an}. Expected cation>0, anion<0." )
-        
+
             nu[cat_idx, i] = abs(q_an)
             nu[an_idx, i] = abs(q_cat)
-        
+
         return nu
-    
+
     def _solve_salt_counts(self, nu: np.ndarray, N: np.ndarray) -> np.ndarray:
         """Solve for salt counts for each system given nu and residue counts N."""
         if nu.shape[1] == 0:
             return np.zeros((N.shape[0], 0))
-        
+
         salt_counts = np.linalg.lstsq(nu, N.T, rcond=None)[0].T
         salt_counts[salt_counts < 0] = 0.0
         return salt_counts
-    
+
     def _canonical_salt_names(self, salt_pairs: list[tuple[str, str]], nu: np.ndarray) -> list[str]:
-        """ Build canonical salt names like: - Na.Cl - Ca.Cl2 """
+        """Build canonical salt names like: - Na.Cl - Ca.Cl2."""
         names: list[str] = []
         for col_idx, (c, a) in enumerate(salt_pairs):
             c_idx = self._residue_molecules.index(c)
             a_idx = self._residue_molecules.index(a)
             n_c = int(nu[c_idx, col_idx])
-            n_a = int(nu[a_idx, col_idx]) 
+            n_a = int(nu[a_idx, col_idx])
             # we encode stoichiometry on anion side: Ca.Cl2, Na.Cl
             c_part = c if n_c == 1 else f"{c}{n_c}"
             a_part = a if n_a == 1 else f"{a}{n_a}"
-            names.append(f"{c_part}.{a_part}") 
-        return names       
+            names.append(f"{c_part}.{a_part}")
+        return names
 
     # ---------- Basis accessors ----------
 
@@ -406,12 +407,12 @@ class SystemCollection:
     def residue_molecules(self) -> list[str]:
         """Raw MD residue basis (unique residues from topology)."""
         return self._residue_molecules
-    
+
     @cached_property
     def residue_counts(self) -> np.ndarray:
         """np.ndarray: (N_systems, N_residues) mole fractions in residue basis."""
         return self.x * self.total_molecules[:,np.newaxis]
-    
+
     @cached_property
     def residue_x(self) -> np.ndarray:
         """np.ndarray: (N_systems, N_residues) mole fractions in residue basis."""
@@ -425,25 +426,26 @@ class SystemCollection:
 
     @cached_property
     def electrolyte_basis(self) -> dict[str, np.ndarray]:
-        """ Build electrolyte basis: 
-            - new_molecules: neutral molecules + salts 
-            - new_N: counts in new basis 
-            - new_x: mole fractions in new basis 
-            - nu: stoichiometric matrix (residue x salts) Returns None if no charges.
+        """Build electrolyte basis.
+
+        - new_molecules: neutral molecules + salts.
+        - new_N: counts in new basis.
+        - new_x: mole fractions in new basis.
+        - nu: stoichiometric matrix (residue x salts) Returns None if no charges.
         """
         if not self.charges:
-            return None    
-        
+            return {}
+
         self._validate_charges()
         salt_pairs = self._build_salt_pairs()
         if not salt_pairs:
-            return { 
-                "molecules": list(self._residue_molecules), 
-                "N": self.residue_counts, 
-                "x": self.residue_x, 
-                "nu": np.zeros((len(self._residue_molecules), 0)), 
+            return {
+                "molecules": np.array(self._residue_molecules),
+                "N": self.residue_counts,
+                "x": self.residue_x,
+                "nu": np.zeros((len(self._residue_molecules), 0)),
             }
-        
+
         nu = self._build_nu_matrix(salt_pairs)
         N = (self.residue_x).astype(float)
 
@@ -459,18 +461,18 @@ class SystemCollection:
         new_x = new_N / totals
 
         neutral_names = list(np.array(self._residue_molecules)[neutral_mask])
-        salt_names = self._canonical_salt_names(salt_pairs, nu)
+        salt_names = list(self._canonical_salt_names(salt_pairs, nu))
         new_molecules = neutral_names + salt_names
 
-        return {"molecules": new_molecules, "N": new_N, "x": new_x, "nu": nu}
-    
+        return {"molecules": np.array(new_molecules), "N": new_N, "x": new_x, "nu": nu}
+
     @property
     def electrolyte_molecules(self) -> list[str]:
         """List of molecule names for electrolyte basis (neutral molecules + salts)."""
-        if not self.charges: 
-            raise ValueError("No charges provided; electrolyte basis unavailable.") 
+        if not self.charges:
+            raise ValueError("No charges provided; electrolyte basis unavailable.")
         assert self.electrolyte_basis is not None
-        return self.electrolyte_basis["molecules"] 
+        return list(self.electrolyte_basis["molecules"])
 
     @property
     def electrolyte_x(self) -> np.ndarray:
@@ -479,7 +481,7 @@ class SystemCollection:
             raise ValueError("No charges provided; electrolyte basis unavailable.")
         assert self.electrolyte_basis is not None
         return self.electrolyte_basis["x"]
-    
+
     @property
     def nu(self) -> np.ndarray:
         """Stoichiometric matrix (residue basis x salts) if charges provided."""
@@ -590,20 +592,7 @@ class SystemCollection:
 
     def has_all_required_pures(self) -> bool:
         """Check that collection has required pure components for excess properties calculation."""
-        if not self.pures:
-            return False
-
-        # check that all molecules in mixtures have pure references
-        mixture_mols = set(self.molecules)
-        pure_mols = set()
-        for pure in self.pures:
-            pure_mols.update(pure.props.topology.molecules)
-
-        missing = mixture_mols - pure_mols
-        if missing:
-            return False
-
-        return True
+        return True if len(self.pures) == len(self.molecules) else False
 
     @cached_property_result()
     def simulated_property(self, name: str, units: str | None = None, avg: bool = True):
@@ -766,20 +755,20 @@ class SystemCollection:
             mol_counts = pure_sys.props.topology.molecule_count
             residue_names = list(mol_counts.keys())
 
-            if self.charges: 
-                # electrolyte-aware reduction 
-                # reuse internal helpers on a per-system basis 
-                # build a temporary salt composition for this pure system 
-                temp_collection = SystemCollection(systems=[pure_sys], molecules=residue_names, charges=self.charges,) 
+            if self.charges:
+                # electrolyte-aware reduction
+                # reuse internal helpers on a per-system basis
+                # build a temporary salt composition for this pure system
+                temp_collection = SystemCollection(systems=[pure_sys], molecules=residue_names, charges=self.charges,)
                 basis = temp_collection.electrolyte_basis
                 assert basis is not None
                 new_molecules = basis["molecules"]
                 if len(new_molecules) != 1:
-                    raise ValueError( f"Pure system {pure_sys.name} does not reduce to a single component in electrolyte basis: " f"{new_molecules}" ) 
+                    raise ValueError( f"Pure system {pure_sys.name} does not reduce to a single component in electrolyte basis: " f"{new_molecules}" )
                 comp_name = new_molecules[0]
             else:
                 # neutral case: must be a single residue
-                if len(mol_counts) != 1: 
+                if len(mol_counts) != 1:
                     raise ValueError(f"Pure system {pure_sys.name} contains multiple molecules: {mol_counts}")
                 comp_name = next(iter(mol_counts.keys()))
 

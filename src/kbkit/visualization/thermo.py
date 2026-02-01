@@ -363,7 +363,7 @@ class ThermoPlotter:
             Display the figure.
         """
         x = self.thermo.systems.x
-        values = getattr(self.thermo, "ln_activity_coef_deriv")()
+        values = self.thermo.dlngamma_dxi()
         n_colors = values.shape[1]
         cmap_obj = plt.get_cmap(cmap)
         colors = cmap_obj(np.linspace(0, 1, n_colors))
@@ -507,7 +507,7 @@ class ThermoPlotter:
             )
         else:
             self.plot_property(
-                name="ln_activity_coef_deriv",
+                name="dlngamma_dxi",
                 xmol=xmol,
                 ylabel=r"$\partial \ln \gamma_i / \partial x_i$",
                 cmap=cmap,
@@ -516,7 +516,7 @@ class ThermoPlotter:
             )
 
         self.plot_property(
-            name="ln_activity_coef",
+            name="lngamma",
             xmol=xmol,
             ylabel=r"$\ln \gamma_i$",
             cmap=cmap,
@@ -542,7 +542,7 @@ class ThermoPlotter:
         if sys_type == "BINARY":
             # plot structure factors
             self.plot_property(
-                name="hessian_determinant",
+                name="det_H",
                 units="kJ/mol",
                 xmol=xmol,
                 ylabel=r"$|H|$",
@@ -561,7 +561,7 @@ class ThermoPlotter:
 
         else:
             self.plot_property(
-                name="hessian_determinant",
+                name="det_H",
                 units="kJ/mol",
                 cmap=cmap,
                 savepath=Path(savepath) / "hessian_determinant.pdf",

@@ -5,6 +5,7 @@ This calculator operates on a :class:`~kbkit.systems.collection.SystemCollection
 Additional inputs are key parameters used for the KBI corrections provided in :class:`~kbkit.kbi.integrator.KBIntegrator`.
 """
 
+import itertools
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -175,7 +176,7 @@ class KBICalculator:
 
         self._cache[cache_key] = result
         return result.to(units)
-    
+
     def electrolyte_kbi(self, units: str = "nm^3/molecule") -> PropertyResult:
         r"""
         Build the transformed KBI matrix for salts + molecules.
@@ -194,13 +195,13 @@ class KBICalculator:
 
         Notes
         -----
-        Electrolyte KBI applys corrections to transform KBI for ions into neutral species accounting for charge neutrality, using mole fraction weighted combinations of cation and anion contributions.
+        Electrolyte KBI applys corrections to transform KBI for ions into neutral species accounting for charge neutrality, sing mole fraction weighted combinations of cation and anion contributions.
 
-        Salt-salt KBI, :math:`G_{II'}`, are computed from ion-ion KBIs according to: 
+        Salt-salt KBI, :math:`G_{II'}`, are computed from ion-ion KBIs according to:
 
         .. math::
             G_{II'} = x_{+}x_{+'}G_{++'} + x_{+}x_{-'}G_{+-'} + x_{+'}x_{-}G_{+'-} + x_{-}x_{-'}G_{--'}
-        
+
         .. math::
             \begin{aligned}
             x_{+} &= \frac{n_{+}}{n_{+} + n_{-}}} \\
@@ -219,10 +220,18 @@ class KBICalculator:
             - :math:`x_{+/-}` represent the mole fraction of the cation/anion between two ions in a given salt.
             - :math:`i` represents a neutral molecule.
         """
-        kbis = self.residue_kbi(units=units)
+        units = units or "nm^3/molecule"
 
+        # first check if cached
+        cache_key = ("electrolyte_kbi",)
+        if cache_key in self._cache:
+            return self._cache[cache_key].to(units)
+
+        kbis = self.residue_kbi(units=units).value
+        residues = self.systems.residue_molecules
         new_molecules = self.systems.electrolyte_molecules
         nmol_new = len(new_molecules)
+        MAX_SALT = 2
 
         new_kbis = np.zeros((self.systems.n_sys, nmol_new, nmol_new))
 
@@ -234,19 +243,19 @@ class KBICalculator:
             sp_k = parsed[k]
 
             # Case 1: both are salts
-            if len(sp_j) == 2 and len(sp_k) == 2:
+            if len(sp_j) == MAX_SALT and len(sp_k) == MAX_SALT:
                 c1, a1 = sp_j
                 c2, a2 = sp_k
                 try:
-                    c1_i = molecules.index(c1)
-                    a1_i = molecules.index(a1)
-                    c2_i = molecules.index(c2)
-                    a2_i = molecules.index(a2)
+                    c1_i = residues.index(c1)
+                    a1_i = residues.index(a1)
+                    c2_i = residues.index(c2)
+                    a2_i = residues.index(a2)
                 except ValueError as e:
-                    raise ValueError(f"Salt species in new_molecules not found in original molecules: {e}")
+                    raise ValueError(f"Salt species in new_molecules not found in original molecules: {e}") from e
 
-                xc1, xa1 = self._ion_fraction(N, c1_i, a1_i)
-                xc2, xa2 = self._ion_fraction(N, c2_i, a2_i)
+                xc1, xa1 = self._ion_fraction(c1_i, a1_i)
+                xc2, xa2 = self._ion_fraction(c2_i, a2_i)
 
                 value = (
                     xc1 * xc2 * kbis[:, c1_i, c2_i] +
@@ -256,28 +265,28 @@ class KBICalculator:
                 )
 
             # Case 2: one salt, one molecule/ion
-            elif len(sp_j) == 2 or len(sp_k) == 2:
-                salt = sp_j if len(sp_j) == 2 else sp_k
+            elif len(sp_j) == MAX_SALT or len(sp_k) == MAX_SALT:
+                salt = sp_j if len(sp_j) == MAX_SALT else sp_k
                 molec = sp_k[0] if salt is sp_j else sp_j[0]
 
                 c, a = salt
                 try:
-                    c_i = molecules.index(c)
-                    a_i = molecules.index(a)
-                    m_i = molecules.index(molec)
+                    c_i = residues.index(c)
+                    a_i = residues.index(a)
+                    m_i = residues.index(molec)
                 except ValueError as e:
-                    raise ValueError(f"Species in new_molecules not found in original molecules: {e}")
+                    raise ValueError(f"Species in new_molecules not found in original molecules: {e}") from e
 
-                xc, xa = self._ion_fraction(N, c_i, a_i)
+                xc, xa = self._ion_fraction(c_i, a_i)
                 value = xc * kbis[:, m_i, c_i] + xa * kbis[:, m_i, a_i]
 
             # Case 3: neither is a salt -> direct lookup
             else:
                 try:
-                    m_j = molecules.index(sp_j[0])
-                    m_k = molecules.index(sp_k[0])
+                    m_j = residues.index(sp_j[0])
+                    m_k = residues.index(sp_k[0])
                 except ValueError as e:
-                    raise ValueError(f"Species in new_molecules not found in original molecules: {e}")
+                    raise ValueError(f"Species in new_molecules not found in original molecules: {e}") from e
 
                 value = kbis[:, m_j, m_k]
 
@@ -285,11 +294,19 @@ class KBICalculator:
             new_kbis[:, j, k] = value
             new_kbis[:, k, j] = value
 
-        return new_kbis
+        result = PropertyResult(
+            name="electrolyte_kbi",
+            value=new_kbis,
+            units=units,
+        )
+
+        self._cache[cache_key] = result
+        return result
+
 
     # --- electrolyte kbi helpers ---
 
-    def _parse_species(self, name: str) -> tuple[str]:
+    def _parse_species(self, name: str) -> tuple[str, ...]:
         """
         Parse a species name.
 
@@ -297,7 +314,8 @@ class KBICalculator:
         - If it's a molecule/ion, returns ('Na',)
         """
         parts = name.split('.')
-        if len(parts) > 2:
+        MAX_SALT = 2
+        if len(parts) > MAX_SALT:
             raise ValueError(f"Invalid species name '{name}'. Expected 'Cation.Anion' or single molecule.")
         return tuple(parts)
 

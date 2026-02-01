@@ -97,7 +97,7 @@ class ActivityMetadata:
     def __iter__(self):
         """Creates an iterable type object."""
         return iter(self.results)
-    
+
     def __len__(self) -> int:
         """Allows len(ActivityMetadata) to return num systems in registry."""
         return len(self.results)
