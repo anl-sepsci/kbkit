@@ -35,6 +35,7 @@ def mock_system_collection():
         [0.8, 0.2]
     ])
     mock_sc.get_mol_index = Mock(side_effect=lambda mol: ["MOL1", "MOL2"].index(mol))
+    mock_sc.charges = {mol: 0 for mol in mock_sc.molecules}
 
     # Mock properties
     mock_props = Mock()
@@ -241,48 +242,48 @@ class TestKBThermoMatrixProperties:
 
 
 class TestKBThermoAInvAndA:
-    """Test A_inv and A matrix calculations."""
+    """Test B and A matrix calculations."""
 
-    def test_A_inv_shape(self, kb_thermo):
-        """Test A_inv has correct shape."""
-        a_inv = kb_thermo.A_inv()
+    def test_B_shape(self, kb_thermo):
+        """Test B has correct shape."""
+        B = kb_thermo.B()
 
-        assert a_inv.shape == (3, 2, 2)
+        assert B.shape == (3, 2, 2)
 
-    def test_A_inv_calculation(self, kb_thermo):
-        """Test A_inv calculation formula."""
-        a_inv = kb_thermo.A_inv()
+    def test_B_calculation(self, kb_thermo):
+        """Test B calculation formula."""
+        B = kb_thermo.B()
 
         # Check that it's not all zeros
-        assert not np.all(a_inv == 0)
+        assert not np.all(B == 0)
         # Check that diagonal elements are positive
         for i in range(3):
-            assert np.all(np.diag(a_inv[i]) > 0)
+            assert np.all(np.diag(B[i]) > 0)
 
-    def test_A_inverts_A_inv(self, kb_thermo):
-        """Test that A is inverse of A_inv."""
+    def test_Berts_B(self, kb_thermo):
+        """Test that A is inverse of B."""
         a = kb_thermo.A()
-        a_inv = kb_thermo.A_inv()
+        B = kb_thermo.B()
 
         # Check shape
         assert a.shape == (3, 2, 2)
 
-        # Check that A @ A_inv ≈ I for each system
+        # Check that A @ B ≈ I for each system
         for i in range(3):
-            product = a[i] @ a_inv[i]
+            product = a[i] @ B[i]
             np.testing.assert_array_almost_equal(product, np.eye(2), decimal=5)
 
     def test_A_raises_on_singular_matrix(self, kb_thermo):
-        """Test that A raises error for singular A_inv."""
-        # Create a singular A_inv matrix (rows/columns are linearly dependent)
-        a_inv_singular = np.array([
+        """Test that A raises error for singular B."""
+        # Create a singular B matrix (rows/columns are linearly dependent)
+        B_singular = np.array([
             [[1.0, 1.0], [1.0, 1.0]],  # Singular: rows are identical
             [[2.0, 2.0], [2.0, 2.0]],
             [[3.0, 3.0], [3.0, 3.0]]
         ])
 
-        # Patch the A_inv method to return singular matrix
-        with patch.object(kb_thermo, 'A_inv', return_value=a_inv_singular):
+        # Patch the B method to return singular matrix
+        with patch.object(kb_thermo, 'B', return_value=B_singular):
             with pytest.raises(ValueError, match="singular and cannot be inverted"):
                 _ = kb_thermo.A()
 
@@ -298,9 +299,9 @@ class TestKBThermoStabilityMetrics:
         # Stability array should be positive for stable mixtures
         assert np.all(l > 0)
 
-    def test_chemical_potential_deriv_shape(self, kb_thermo):
-        """Test chemical_potential_deriv has correct shape."""
-        m = kb_thermo.chemical_potential_deriv(units="kJ/mol")
+    def test_M_shape(self, kb_thermo):
+        """Test M has correct shape."""
+        m = kb_thermo.M(units="kJ/mol")
 
         assert m.shape == (3, 2, 2)
 
@@ -326,13 +327,13 @@ class TestKBThermoHessian:
 
     def test_hessian_shape(self, kb_thermo):
         """Test hessian has correct shape."""
-        h = kb_thermo.hessian(units="kJ/mol")
+        h = kb_thermo.H(units="kJ/mol")
 
         assert h.shape == (3, 1, 1)  # n_sys, n_i-1, n_i-1
 
     def test_hessian_determinant_shape(self, kb_thermo):
         """Test hessian_determinant has correct shape."""
-        det_h = kb_thermo.hessian_determinant(units="kJ/mol")
+        det_h = kb_thermo.det_H(units="kJ/mol")
 
         assert det_h.shape == (3,)
 
@@ -340,15 +341,15 @@ class TestKBThermoHessian:
 class TestKBThermoChemicalPotentialDerivDiag:
     """Test diagonal chemical potential derivatives."""
 
-    def test_chemical_potential_deriv_diag_shape(self, kb_thermo):
-        """Test chemical_potential_deriv_diag has correct shape."""
-        dmui_dxi = kb_thermo.chemical_potential_deriv_diag(units="kJ/mol")
+    def test_dmu_dxi_shape(self, kb_thermo):
+        """Test dmu_dxi has correct shape."""
+        dmui_dxi = kb_thermo.dmu_dxi(units="kJ/mol")
 
         assert dmui_dxi.shape == (3, 2)
 
-    def test_chemical_potential_deriv_diag_no_pure_components(self, kb_thermo):
+    def test_dmu_dxi_no_pure_components(self, kb_thermo):
         """Test that derivatives are non-zero for mixtures."""
-        dmui_dxi = kb_thermo.chemical_potential_deriv_diag(units="kJ/mol")
+        dmui_dxi = kb_thermo.dmu_dxi(units="kJ/mol")
 
         # For mixtures, derivatives should be non-zero
         assert not np.all(dmui_dxi == 0)
@@ -357,9 +358,9 @@ class TestKBThermoChemicalPotentialDerivDiag:
 class TestKBThermoActivityCoefficients:
     """Test activity coefficient calculations."""
 
-    def test_ln_activity_coef_deriv_shape(self, kb_thermo):
-        """Test ln_activity_coef_deriv has correct shape."""
-        dlng = kb_thermo.ln_activity_coef_deriv()
+    def test_dlngamma_dxi_shape(self, kb_thermo):
+        """Test dlngamma_dxi has correct shape."""
+        dlng = kb_thermo.dlngamma_dxi()
 
         assert dlng.shape == (3, 2)
 
@@ -450,21 +451,21 @@ class TestKBThermoActivityIntegration:
 class TestKBThermoActivityCoefficientResults:
     """Test activity coefficient result properties."""
 
-    def test_ln_activity_coef_shape(self, kb_thermo):
-        """Test ln_activity_coef has correct shape."""
-        lng = kb_thermo.ln_activity_coef()
+    def test_lngamma_shape(self, kb_thermo):
+        """Test lngamma has correct shape."""
+        lng = kb_thermo.lngamma()
 
         assert lng.shape == (3, 2)
 
-    def test_ln_activity_coef_populates_metadata(self, kb_thermo):
-        """Test that ln_activity_coef populates metadata."""
-        _ = kb_thermo.ln_activity_coef()
+    def test_lngamma_populates_metadata(self, kb_thermo):
+        """Test that lngamma populates metadata."""
+        _ = kb_thermo.lngamma()
 
         assert len(kb_thermo._activity_coef_meta) > 0
 
     def test_activity_metadata_returns_container(self, kb_thermo):
         """Test activity_metadata returns ActivityMetadata."""
-        _ = kb_thermo.ln_activity_coef()  # Populate metadata
+        _ = kb_thermo.lngamma()  # Populate metadata
 
         metadata = kb_thermo.activity_metadata
 
@@ -542,12 +543,12 @@ class TestKBThermoThermodynamicProperties:
 class TestKBThermoStructureFactors:
     """Test structure factor calculations."""
 
-    def test_s0_ij_equals_A_inv(self, kb_thermo):
-        """Test that s0_ij equals A_inv."""
+    def test_s0_ij_equals_B(self, kb_thermo):
+        """Test that s0_ij equals B."""
         s0_ij = kb_thermo.s0_ij()
-        a_inv = kb_thermo.A_inv()
+        B = kb_thermo.B()
 
-        np.testing.assert_array_almost_equal(s0_ij, a_inv)
+        np.testing.assert_array_almost_equal(s0_ij, B)
 
     def test_s0_x_shape(self, kb_thermo):
         """Test s0_x has correct shape."""
@@ -693,6 +694,7 @@ class TestKBThermoResults:
         results = kb_thermo.results
 
         assert isinstance(results, dict)
+        # Do NOT evaluate values
 
     def test_results_excludes_private_attributes(self, kb_thermo):
         """Test that results excludes private attributes."""
@@ -778,15 +780,15 @@ class TestKBThermoIntegration:
 
         # Calculate various properties
         kbi = kb.kbi()
-        a_inv = kb.A_inv()
+        B = kb.B()
         a = kb.A()
-        lng = kb.ln_activity_coef()
+        lng = kb.lngamma()
         g_ex = kb.g_ex()
         g_mix = kb.g_mix()
 
         # Verify shapes
         assert kbi.shape == (3, 2, 2)
-        assert a_inv.shape == (3, 2, 2)
+        assert B.shape == (3, 2, 2)
         assert a.shape == (3, 2, 2)
         assert lng.shape == (3, 2)
         assert g_ex.shape == (3,)
@@ -832,7 +834,7 @@ class TestKBThermoIntegration:
         )
 
         # Calculate activity coefficients
-        lng = kb.ln_activity_coef()
+        lng = kb.lngamma()
 
         # Verify polynomial functions were stored
         assert len(kb._lngamma_fn_dict) > 0
@@ -845,7 +847,7 @@ class TestKBThermoEdgeCases:
     def test_handles_nan_in_activity_integration(self, kb_thermo):
         """Test handling of NaN values in activity coefficient integration."""
         # This should not raise an error
-        lng = kb_thermo.ln_activity_coef()
+        lng = kb_thermo.lngamma()
 
         # NaN values should be preserved where appropriate
         assert isinstance(lng, np.ndarray)

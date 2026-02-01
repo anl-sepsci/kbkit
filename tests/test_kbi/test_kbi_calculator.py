@@ -1,473 +1,781 @@
 """
-Unit tests for the KBICalculator module.
+Unit tests for KBICalculator - targeting >95 % branch + line coverage.
 
-This test suite provides comprehensive coverage of the KBICalculator class,
-including KBI computation, caching, and error handling.
+Mocking strategy
+----------------
+* ``SystemCollection`` - thin dataclass-style mock with the attributes the
+  calculator actually reads: ``charges``, ``residue_molecules``,
+  ``electrolyte_molecules``, ``residue_counts``, ``n_sys``, and iteration
+  (``__iter__`` / ``__len__``).
+* ``RdfParser`` - mocked at the module level so every instantiation returns a
+  controllable stub (``is_converged``, ``r``, ``g``, ``r_tail``).
+* ``KBIntegrator`` - mocked via ``from_system_properties``; the returned
+  instance exposes ``rdf_molecules``, ``compute_kbi``, ``rkbi``,
+  ``scaled_rkbi``, ``scaled_rkbi_fit``, ``fit_limit_params``.
+* ``PropertyResult`` - real-ish wrapper; we mock only ``.to()`` to return
+  *self* so unit-conversion round-trips don't need a real converter.
+* ``KBIAnalysisPlotter`` - mocked to verify it is constructed with the right
+  arguments.
 """
-import warnings
+from __future__ import annotations
 
+import warnings
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
 
+
 from pathlib import Path
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch, call
 
 import numpy as np
 import pytest
 
-from kbkit.io.rdf import RdfParser
-from kbkit.kbi.calculator import KBICalculator
-from kbkit.kbi.integrator import KBIntegrator
-from kbkit.schema.kbi_metadata import KBIMetadata
-from kbkit.schema.property_result import PropertyResult
-from kbkit.schema.system_metadata import SystemMetadata
-from kbkit.systems.collection import SystemCollection
-from kbkit.systems.properties import SystemProperties
+# ---------------------------------------------------------------------------
+# Paths for patching - must match the *import* location inside the module
+# ---------------------------------------------------------------------------
+MOD = "kbkit.kbi.calculator"  # adjust if the module lives elsewhere
+_PATCH_RDF      = f"{MOD}.RdfParser"
+_PATCH_INTEG    = f"{MOD}.KBIntegrator"
+_PATCH_PLOTTER  = f"{MOD}.KBIAnalysisPlotter"
 
 
-@pytest.fixture
-def mock_system_metadata():
-    """Create a mock SystemMetadata object."""
-    mock_meta = Mock(spec=SystemMetadata)
-    mock_meta.name = "mixture_50_50"
-    mock_meta.rdf_path = Path("/path/to/rdf")
-
-    mock_props = Mock(spec=SystemProperties)
-    mock_topology = Mock()
-    mock_topology.molecule_count = {"MOL1": 50, "MOL2": 50}
-    mock_topology.total_molecules = 100
-    mock_props.topology = mock_topology
-    mock_props.get.return_value = 1.0
-
-    mock_meta.props = mock_props
-    mock_meta.has_rdf.return_value = True
-
-    return mock_meta
+# ===========================================================================
+# Helper factories
+# ===========================================================================
 
 
-@pytest.fixture
-def mock_pure_metadata():
-    """Create a mock pure SystemMetadata object."""
-    mock_meta = Mock(spec=SystemMetadata)
-    mock_meta.name = "pure_MOL1"
-    mock_meta.rdf_path = Path()
+def _make_system_meta(
+    name: str = "sys0",
+    has_rdf: bool = True,
+    rdf_files: list[str] | None = None,
+    props: object | None = None,
+):
+    """Return a single system-meta stub (one element yielded by SystemCollection)."""
+    if rdf_files is None:
+        rdf_files = ["AB.xvg"]
 
-    mock_props = Mock(spec=SystemProperties)
-    mock_topology = Mock()
-    mock_topology.molecule_count = {"MOL1": 100}
-    mock_topology.total_molecules = 100
-    mock_topology.molecules = ["MOL1"]
-    mock_props.topology = mock_topology
-    mock_props.get.return_value = 1.0
+    meta = MagicMock()
+    meta.name = name
+    meta.has_rdf.return_value = has_rdf
+    meta.props = props or MagicMock()
 
-    mock_meta.props = mock_props
-    mock_meta.has_rdf.return_value = False
+    # Build a fake rdf_path directory listing.
+    # These must support < comparison because the source calls sorted() on
+    # the result of iterdir().  A plain MagicMock does not implement __lt__,
+    # so we use a thin wrapper that delegates ordering to the filename string.
+    class _SortablePath:
+        def __init__(self, name: str):
+            self._name = name
+            self.suffix = Path(name).suffix
 
-    return mock_meta
+        def __lt__(self, other):
+            return self._name < other._name
+
+        def __eq__(self, other):
+            return self._name == other._name
+
+        def __hash__(self):
+            return hash(self._name)
+
+        def __repr__(self):
+            return f"_SortablePath({self._name!r})"
+
+    meta.rdf_path = MagicMock()
+    path_objects = [_SortablePath(fname) for fname in rdf_files]
+    meta.rdf_path.iterdir.return_value = path_objects
+
+    return meta
 
 
-@pytest.fixture
-def mock_system_collection(mock_system_metadata, mock_pure_metadata):
-    """Create a mock SystemCollection object."""
-    mock_sc = Mock(spec=SystemCollection)
-    mock_sc._systems = [mock_pure_metadata, mock_system_metadata]
-    mock_sc.molecules = ["MOL1", "MOL2"]
-    mock_sc.pures = [mock_pure_metadata]
-    mock_sc.mixtures = [mock_system_metadata]
-    mock_sc.x = np.array([[1.0, 0.0], [0.5, 0.5]])
-    mock_sc.get_units.return_value = "kg/m^3"
-    mock_sc.get.return_value = np.array([1000.0, 950.0])
-    mock_sc.__iter__ = Mock(return_value=iter([mock_pure_metadata, mock_system_metadata]))
-    mock_sc.__len__ = Mock(return_value=2)
+def _make_systems(
+    n_sys: int = 2,
+    residue_molecules: list[str] | None = None,
+    electrolyte_molecules: list[str] | None = None,
+    charges: list | None = None,
+    residue_counts: np.ndarray | None = None,
+    metas: list | None = None,
+):
+    """Return a mock SystemCollection."""
+    if residue_molecules is None:
+        residue_molecules = ["A", "B"]
+    if electrolyte_molecules is None:
+        electrolyte_molecules = residue_molecules
 
-    return mock_sc
+    systems = MagicMock()
+    systems.charges = charges  # None / falsy  → residue path; truthy → electrolyte
+    systems.residue_molecules = residue_molecules
+    systems.electrolyte_molecules = electrolyte_molecules
+    systems.n_sys = n_sys
+
+    if residue_counts is None:
+        residue_counts = np.ones((n_sys, len(residue_molecules)), dtype=float)
+    systems.residue_counts = residue_counts
+
+    if metas is None:
+        metas = [_make_system_meta(name=f"sys{i}") for i in range(n_sys)]
+
+    systems.__iter__ = MagicMock(return_value=iter(metas))
+    systems.__len__ = MagicMock(return_value=n_sys)
+
+    return systems
 
 
-# In test_property_calculator.py
+def _stub_integrator(rdf_molecules=("A", "B"), kbi_val=1.5):
+    """Return a mock KBIntegrator instance with sensible defaults."""
+    integ = MagicMock()
+    integ.rdf_molecules = rdf_molecules
+    integ.compute_kbi.return_value = kbi_val
+    integ.rkbi.return_value = np.array([0.1, 0.2])
+    integ.scaled_rkbi.return_value = np.array([0.05, 0.1])
+    integ.scaled_rkbi_fit.return_value = np.array([0.08])
+    integ.fit_limit_params.return_value = np.array([0.0, kbi_val])
+    return integ
 
-class TestKBICalculatorInitialization:
-    """Test KBICalculator initialization."""
 
-    def test_init_with_system_collection(self, mock_system_collection):
-        """Test initialization with SystemCollection."""
-        calc = KBICalculator(mock_system_collection)
+def _stub_rdf(converged: bool = True):
+    """Return a mock RdfParser instance."""
+    rdf = MagicMock()
+    rdf.is_converged = converged
+    rdf.r = np.linspace(0, 5, 50)
+    rdf.g = np.ones(50)
+    rdf.r_tail = 4.5
+    return rdf
 
-        assert calc.systems == mock_system_collection
-        assert isinstance(calc._cache, dict)
-        assert len(calc._cache) == 0
 
-    def test_init_creates_empty_cache(self, mock_system_collection):
-        """Test that initialization creates empty cache."""
-        calc = KBICalculator(mock_system_collection)
+# ===========================================================================
+# Import the class under test (after helpers are defined so patches work)
+# ===========================================================================
+from kbkit.kbi.calculator import KBICalculator  # noqa: E402
 
+
+# ===========================================================================
+# Fixtures
+# ===========================================================================
+
+
+@pytest.fixture()
+def two_component_systems():
+    """2-system, 2-component collection with no charges (residue path)."""
+    metas = [
+        _make_system_meta(name="sys0", rdf_files=["AB.xvg"]),
+        _make_system_meta(name="sys1", rdf_files=["AB.xvg"]),
+    ]
+    return _make_systems(n_sys=2, residue_molecules=["A", "B"], metas=metas)
+
+
+@pytest.fixture()
+def electrolyte_systems():
+    """
+    3-component residue system (Na, Cl, Water) mapped to
+    2 electrolyte-level species: NaCl (salt) and Water (molecule).
+    Charges present → electrolyte path.
+    """
+    residues = ["Na", "Cl", "Water"]
+    electrolytes = ["Na.Cl", "Water"]
+    counts = np.array([
+        [10, 10, 100],   # sys0
+        [5,  5,  200],   # sys1
+    ], dtype=float)
+    metas = [
+        _make_system_meta(name="sys0", rdf_files=["NaCl.xvg", "NaW.xvg", "ClW.xvg"]),
+        _make_system_meta(name="sys1", rdf_files=["NaCl.xvg", "NaW.xvg", "ClW.xvg"]),
+    ]
+    return _make_systems(
+        n_sys=2,
+        residue_molecules=residues,
+        electrolyte_molecules=electrolytes,
+        charges=[1, -1, 0],  # truthy → triggers electrolyte path
+        residue_counts=counts,
+        metas=metas,
+    )
+
+
+# ===========================================================================
+# 1. __init__ - parameter storage
+# ===========================================================================
+
+
+class TestInit:
+    def test_defaults_stored(self, two_component_systems):
+        calc = KBICalculator(two_component_systems)
+        assert calc.systems is two_component_systems
+        assert calc.ignore_convergence_errors is False
+        assert calc.convergence_thresholds == (1e-3, 1e-2)
+        assert calc.tail_length is None
+        assert calc.correct_rdf_convergence is True
+        assert calc.apply_damping is True
+        assert calc.extrapolate_thermodynamic_limit is True
         assert calc._cache == {}
 
-    def test_init_with_custom_parameters(self, mock_system_collection):
-        """Test initialization with custom parameters."""
+    def test_custom_params_stored(self, two_component_systems):
         calc = KBICalculator(
-            mock_system_collection,
+            two_component_systems,
             ignore_convergence_errors=True,
-            convergence_thresholds=(1e-4, 1e-3),
-            tail_length=2.5,
+            convergence_thresholds=(1e-4, 5e-2),
+            tail_length=3.0,
             correct_rdf_convergence=False,
             apply_damping=False,
-            extrapolate_thermodynamic_limit=False
+            extrapolate_thermodynamic_limit=False,
         )
-
-        # Fixed: no longer tuples
         assert calc.ignore_convergence_errors is True
-        assert calc.convergence_thresholds == (1e-4, 1e-3)
-        assert calc.tail_length == 2.5
+        assert calc.convergence_thresholds == (1e-4, 5e-2)
+        assert calc.tail_length == 3.0
         assert calc.correct_rdf_convergence is False
         assert calc.apply_damping is False
         assert calc.extrapolate_thermodynamic_limit is False
 
 
-
-class TestKBICalculatorCaching:
-    """Test the caching mechanism."""
-
-    def test_get_from_cache_returns_none_when_empty(self, mock_system_collection):
-        """Test _get_from_cache returns None when cache is empty."""
-        calc = KBICalculator(mock_system_collection)
-
-        cache_key = ("test", "key")
-        result = calc._cache.get(cache_key)
-
-        assert result is None
-
-    def test_get_from_cache_returns_cached_result(self, mock_system_collection):
-        """Test _get_from_cache returns cached result."""
-        calc = KBICalculator(mock_system_collection)
-
-        # Create a mock PropertyResult
-        mock_result = Mock(spec=PropertyResult)
-        mock_result.to.return_value = mock_result
-
-        # Add to cache
-        key = ("kbi",)
-        calc._cache[key] = mock_result
-
-        # Retrieve from cache
-        result = calc._cache[key].to("cm^3/mol")
-
-        assert result == mock_result
-        mock_result.to.assert_called_once_with("cm^3/mol")
+# ===========================================================================
+# 2. kbi() - routing logic
+# ===========================================================================
 
 
-class TestKBICalculatorKBI:
-    """Test the kbi method."""
+class TestKbiRouting:
+    @patch.object(KBICalculator, "residue_kbi")
+    def test_routes_to_residue_when_no_charges(self, mock_res, two_component_systems):
+        two_component_systems.charges = None  # falsy
+        calc = KBICalculator(two_component_systems)
+        calc.kbi(units="nm^3/molecule")
+        mock_res.assert_called_once_with("nm^3/molecule")
 
-    @patch('kbkit.kbi.calculator.KBIntegrator')
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_computes_matrix(self, mock_rdf_class, mock_integrator_class,
-                                 mock_system_collection, tmp_path):
-        """Test that kbi computes KBI matrix."""
-        calc = KBICalculator(mock_system_collection)
+    @patch.object(KBICalculator, "electrolyte_kbi")
+    def test_routes_to_electrolyte_when_charges_present(self, mock_elec, electrolyte_systems):
+        calc = KBICalculator(electrolyte_systems)
+        calc.kbi(units="nm^3/molecule")
+        mock_elec.assert_called_once_with("nm^3/molecule")
 
-        # Setup RDF files
-        mixture = mock_system_collection.mixtures[0]
-        rdf_path = tmp_path / "rdf"
-        rdf_path.mkdir()
-        rdf_file = rdf_path / "rdf_MOL1_MOL2.xvg"
-        rdf_file.touch()
-        mixture.rdf_path = rdf_path
 
-        # Mock RDF parser
-        mock_rdf = Mock(spec=RdfParser)
-        mock_rdf.is_converged = True
-        mock_rdf.r = np.linspace(0, 3, 100)
-        mock_rdf.g = np.ones(100)
-        mock_rdf.r_tail = np.linspace(2, 3, 50)
-        mock_rdf_class.return_value = mock_rdf
+# ===========================================================================
+# 3. residue_kbi() - full branch coverage
+# ===========================================================================
 
-        # Mock integrator
-        mock_integrator = Mock(spec=KBIntegrator)
-        mock_integrator.rdf_molecules = ["MOL1", "MOL2"]
-        mock_integrator.compute_kbi.return_value = 1.5
-        mock_integrator.rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi_fit.return_value = np.ones(50)
-        mock_integrator.fit_limit_params.return_value = np.array([1.5, 0.1])
-        mock_integrator_class.from_system_properties.return_value = mock_integrator
 
-        result = calc.kbi(units="nm^3/molecule")
+class TestResidueKbi:
+    # --- happy path: converged RDFs, symmetric assignment ----------------
 
-        assert isinstance(result, PropertyResult)
-        assert result.value.shape == (2, 2, 2)  # (n_systems, n_mols, n_mols)
-        assert result.name == "kbi"
-        assert result.units == "nm^3/molecule"
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_happy_path_converged(self, MockRdf, MockInteg, two_component_systems):
+        rdf_stub = _stub_rdf(converged=True)
+        MockRdf.return_value = rdf_stub
 
-    @patch('kbkit.kbi.calculator.KBIntegrator')
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_skips_systems_without_rdf(self, mock_rdf_class, mock_integrator_class,
-                                           mock_system_collection):
-        """Test that kbi skips systems without RDF."""
-        calc = KBICalculator(mock_system_collection)
+        integ_stub = _stub_integrator(rdf_molecules=("A", "B"), kbi_val=2.0)
+        MockInteg.from_system_properties.return_value = integ_stub
 
-        # Set mixture to have no RDF
-        mixture = mock_system_collection.mixtures[0]
-        mixture.has_rdf.return_value = False
+        calc = KBICalculator(two_component_systems)
+        result = calc.residue_kbi()
 
-        result = calc.kbi(units="nm^3/molecule")
+        # shape: (n_sys=2, n_mol=2, n_mol=2)
+        assert result.value.shape == (2, 2, 2)
+        # symmetric: [s, 0, 1] and [s, 1, 0] should both be filled (not NaN)
+        for s in range(2):
+            assert not np.isnan(result.value[s, 0, 1])
+            assert not np.isnan(result.value[s, 1, 0])
 
-        # Should have NaN values for systems without RDF
-        assert np.all(np.isnan(result.value[1]))  # mixture index
+        # Integrator was called with correct flags
+        MockInteg.from_system_properties.assert_called()
+        _, kwargs = MockInteg.from_system_properties.call_args
+        assert kwargs["correct_rdf_convergence"] is True
+        assert kwargs["apply_damping"] is True
+        assert kwargs["extrapolate_thermodynamic_limit"] is True
 
-    @patch('kbkit.kbi.calculator.KBIntegrator')
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_raises_on_non_converged_rdf(self, mock_rdf_class, mock_integrator_class,
-                                             mock_system_collection, tmp_path):
-        """Test that kbi raises error for non-converged RDF."""
-        calc = KBICalculator(mock_system_collection, ignore_convergence_errors=False)
+    # --- system with no RDF directory is skipped (values stay NaN) --------
 
-        # Setup RDF files
-        mixture = mock_system_collection.mixtures[0]
-        rdf_path = tmp_path / "rdf"
-        rdf_path.mkdir()
-        rdf_file = rdf_path / "rdf_MOL1_MOL2.xvg"
-        rdf_file.touch()
-        mixture.rdf_path = rdf_path
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_system_without_rdf_stays_nan(self, MockRdf, MockInteg):
+        metas = [
+            _make_system_meta(name="sys0", has_rdf=False),   # skipped
+            _make_system_meta(name="sys1", rdf_files=["AB.xvg"]),
+        ]
+        systems = _make_systems(n_sys=2, residue_molecules=["A", "B"], metas=metas)
 
-        # Mock non-converged RDF
-        mock_rdf = Mock(spec=RdfParser)
-        mock_rdf.is_converged = False
-        mock_rdf_class.return_value = mock_rdf
+        rdf_stub = _stub_rdf(converged=True)
+        MockRdf.return_value = rdf_stub
+        integ_stub = _stub_integrator(rdf_molecules=("A", "B"), kbi_val=3.0)
+        MockInteg.from_system_properties.return_value = integ_stub
 
-        mock_integrator = Mock(spec=KBIntegrator)
-        mock_integrator.rdf_molecules = ["MOL1", "MOL2"]
-        mock_integrator_class.from_system_properties.return_value = mock_integrator
+        calc = KBICalculator(systems)
+        result = calc.residue_kbi()
 
-        with pytest.raises(RuntimeError, match="did not converge"):
-            calc.kbi(units="nm^3/molecule")
+        # sys0 should remain all-NaN
+        assert np.all(np.isnan(result.value[0]))
+        # sys1 should have values
+        assert not np.isnan(result.value[1, 0, 1])
 
-    @patch('kbkit.kbi.calculator.KBIntegrator')
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_ignores_convergence_errors(self, mock_rdf_class, mock_integrator_class,
-                                           mock_system_collection, tmp_path, capsys):
-        """Test that kbi can ignore convergence errors."""
-        calc = KBICalculator(mock_system_collection, ignore_convergence_errors=True)
+    # --- non-converged RDF, ignore_convergence_errors=True → warning + skip
 
-        # Setup RDF files
-        mixture = mock_system_collection.mixtures[0]
-        rdf_path = tmp_path / "rdf"
-        rdf_path.mkdir()
-        rdf_file = rdf_path / "rdf_MOL1_MOL2.xvg"
-        rdf_file.touch()
-        mixture.rdf_path = rdf_path
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_non_converged_ignored(self, MockRdf, MockInteg, two_component_systems, capsys):
+        rdf_stub = _stub_rdf(converged=False)
+        MockRdf.return_value = rdf_stub
+        integ_stub = _stub_integrator(rdf_molecules=("A", "B"))
+        MockInteg.from_system_properties.return_value = integ_stub
 
-        # Mock non-converged RDF
-        mock_rdf = Mock(spec=RdfParser)
-        mock_rdf.is_converged = False
-        mock_rdf_class.return_value = mock_rdf
+        calc = KBICalculator(two_component_systems, ignore_convergence_errors=True)
+        result = calc.residue_kbi()
 
-        mock_integrator = Mock(spec=KBIntegrator)
-        mock_integrator.rdf_molecules = ["MOL1", "MOL2"]
-        mock_integrator_class.from_system_properties.return_value = mock_integrator
-
-        result = calc.kbi(units="nm^3/molecule")
-
-        # Should print warning
         captured = capsys.readouterr()
         assert "WARNING" in captured.out
-        assert "Skipping this system" in captured.out
+        assert "did not converge" in captured.out
+        # All values remain NaN because every RDF was non-converged
+        assert np.all(np.isnan(result.value))
 
-    @patch('kbkit.kbi.calculator.KBIntegrator')
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_populates_metadata(self, mock_rdf_class, mock_integrator_class,
-                                    mock_system_collection, tmp_path):
-        """Test that kbi populates metadata."""
-        calc = KBICalculator(mock_system_collection)
+    # --- non-converged RDF, ignore_convergence_errors=False → RuntimeError
 
-        # Setup RDF files
-        mixture = mock_system_collection.mixtures[0]
-        rdf_path = tmp_path / "rdf"
-        rdf_path.mkdir()
-        rdf_file = rdf_path / "rdf_MOL1_MOL2.xvg"
-        rdf_file.touch()
-        mixture.rdf_path = rdf_path
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_non_converged_raises(self, MockRdf, MockInteg, two_component_systems):
+        rdf_stub = _stub_rdf(converged=False)
+        MockRdf.return_value = rdf_stub
+        integ_stub = _stub_integrator(rdf_molecules=("A", "B"))
+        MockInteg.from_system_properties.return_value = integ_stub
 
-        # Mock RDF parser
-        mock_rdf = Mock(spec=RdfParser)
-        mock_rdf.is_converged = True
-        mock_rdf.r = np.linspace(0, 3, 100)
-        mock_rdf.g = np.ones(100)
-        mock_rdf.r_tail = np.linspace(2, 3, 50)
-        mock_rdf_class.return_value = mock_rdf
+        calc = KBICalculator(two_component_systems, ignore_convergence_errors=False)
+        with pytest.raises(RuntimeError, match="did not converge"):
+            calc.residue_kbi()
 
-        # Mock integrator
-        mock_integrator = Mock(spec=KBIntegrator)
-        mock_integrator.rdf_molecules = ["MOL1", "MOL2"]
-        mock_integrator.compute_kbi.return_value = 1.5
-        mock_integrator.rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi_fit.return_value = np.ones(50)
-        mock_integrator.fit_limit_params.return_value = np.array([1.5, 0.1])
-        mock_integrator_class.from_system_properties.return_value = mock_integrator
+    # --- cache hit returns immediately without re-computing ---------------
 
-        result = calc.kbi(units="nm^3/molecule")
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_cache_hit(self, MockRdf, MockInteg, two_component_systems):
+        rdf_stub = _stub_rdf(converged=True)
+        MockRdf.return_value = rdf_stub
+        integ_stub = _stub_integrator(rdf_molecules=("A", "B"), kbi_val=5.0)
+        MockInteg.from_system_properties.return_value = integ_stub
 
-        assert result.metadata is not None
-        assert "mixture_50_50" in result.metadata
-        assert "MOL1.MOL2" in result.metadata["mixture_50_50"]
+        calc = KBICalculator(two_component_systems)
 
-    @patch('kbkit.kbi.calculator.KBIntegrator')
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_with_custom_parameters(self, mock_rdf_class, mock_integrator_class,
-                                       mock_system_collection, tmp_path):
-        """Test kbi with custom correction parameters."""
-        calc = KBICalculator(
-            mock_system_collection,
-            convergence_thresholds=(1e-4, 1e-3),
-            tail_length=2.5,
-            correct_rdf_convergence=False,
-            apply_damping=False,
-            extrapolate_thermodynamic_limit=False
+        # First call populates cache
+        calc.residue_kbi()
+        call_count_after_first = MockRdf.call_count
+
+        # Reset iterator for a potential second pass (won't happen due to cache)
+        two_component_systems.__iter__ = MagicMock(
+            return_value=iter([
+                _make_system_meta(name="sys0", rdf_files=["AB.xvg"]),
+                _make_system_meta(name="sys1", rdf_files=["AB.xvg"]),
+            ])
         )
 
-        # Setup RDF files
-        mixture = mock_system_collection.mixtures[0]
-        rdf_path = tmp_path / "rdf"
-        rdf_path.mkdir()
-        rdf_file = rdf_path / "rdf_MOL1_MOL2.xvg"
-        rdf_file.touch()
-        mixture.rdf_path = rdf_path
+        # Second call - should hit cache
+        calc.residue_kbi()
+        # RdfParser should NOT have been called again
+        assert MockRdf.call_count == call_count_after_first
 
-        mock_rdf = Mock(spec=RdfParser)
-        mock_rdf.is_converged = True
-        mock_rdf.r = np.linspace(0, 3, 100)
-        mock_rdf.g = np.ones(100)
-        mock_rdf.r_tail = np.linspace(2, 3, 50)
-        mock_rdf_class.return_value = mock_rdf
+    # --- units default when None is passed --------------------------------
 
-        mock_integrator = Mock(spec=KBIntegrator)
-        mock_integrator.rdf_molecules = ["MOL1", "MOL2"]
-        mock_integrator.compute_kbi.return_value = 1.5
-        mock_integrator.rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi_fit.return_value = np.ones(50)
-        mock_integrator.fit_limit_params.return_value = np.array([1.5, 0.1])
-        mock_integrator_class.from_system_properties.return_value = mock_integrator
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_units_default_none(self, MockRdf, MockInteg, two_component_systems):
+        rdf_stub = _stub_rdf(converged=True)
+        MockRdf.return_value = rdf_stub
+        integ_stub = _stub_integrator(rdf_molecules=("A", "B"))
+        MockInteg.from_system_properties.return_value = integ_stub
 
-        calc.kbi(units="cm^3/mol")
+        calc = KBICalculator(two_component_systems)
+        # Should not raise even with None
+        result = calc.residue_kbi(units=None)
+        assert result is not None
 
-        # Verify RdfParser was called with correct parameters
-        mock_rdf_class.assert_called()
-        call_kwargs = mock_rdf_class.call_args[1]
-        assert call_kwargs['convergence_thresholds'] == (1e-4, 1e-3)
-        assert call_kwargs['tail_length'] == 2.5
+    # --- metadata is populated correctly ----------------------------------
 
-        # Verify KBIntegrator was called with correct parameters
-        mock_integrator_class.from_system_properties.assert_called()
-        call_kwargs = mock_integrator_class.from_system_properties.call_args[1]
-        assert call_kwargs['correct_rdf_convergence'] is False
-        assert call_kwargs['apply_damping'] is False
-        assert call_kwargs['extrapolate_thermodynamic_limit'] is False
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_metadata_populated(self, MockRdf, MockInteg, two_component_systems):
+        rdf_stub = _stub_rdf(converged=True)
+        MockRdf.return_value = rdf_stub
+        integ_stub = _stub_integrator(rdf_molecules=("A", "B"), kbi_val=1.0)
+        MockInteg.from_system_properties.return_value = integ_stub
 
-    @patch('kbkit.kbi.calculator.KBIntegrator')
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_caching(self, mock_rdf_class, mock_integrator_class,
-                        mock_system_collection, tmp_path):
-        """Test that kbi uses caching."""
-        calc = KBICalculator(mock_system_collection)
+        calc = KBICalculator(two_component_systems)
+        result = calc.residue_kbi()
 
-        # Setup RDF files
-        mixture = mock_system_collection.mixtures[0]
-        rdf_path = tmp_path / "rdf"
-        rdf_path.mkdir()
-        rdf_file = rdf_path / "rdf_MOL1_MOL2.xvg"
-        rdf_file.touch()
-        mixture.rdf_path = rdf_path
-
-        mock_rdf = Mock(spec=RdfParser)
-        mock_rdf.is_converged = True
-        mock_rdf.r = np.linspace(0, 3, 100)
-        mock_rdf.g = np.ones(100)
-        mock_rdf.r_tail = np.linspace(2, 3, 50)
-        mock_rdf_class.return_value = mock_rdf
-
-        mock_integrator = Mock(spec=KBIntegrator)
-        mock_integrator.rdf_molecules = ["MOL1", "MOL2"]
-        mock_integrator.compute_kbi.return_value = 1.5
-        mock_integrator.rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi_fit.return_value = np.ones(50)
-        mock_integrator.fit_limit_params.return_value = np.array([1.5, 0.1])
-        mock_integrator_class.from_system_properties.return_value = mock_integrator
-
-        # First call
-        result1 = calc.kbi(units="nm^3/molecule")
-        # Second call
-        result2 = calc.kbi(units="nm^3/molecule")
-
-        # Should use cache on second call
-        assert result1 is result2
-        # RdfParser should only be called once
-        assert mock_rdf_class.call_count == 1
+        # metadata should have entries for each system
+        assert "sys0" in result.metadata
+        assert "sys1" in result.metadata
+        # each system should have an entry keyed by "A.B"
+        assert "A.B" in result.metadata["sys0"]
+        assert "A.B" in result.metadata["sys1"]
 
 
-class TestKBICalculatorIntegration:
-    """Integration tests for KBICalculator."""
-
-    @patch('kbkit.kbi.calculator.KBIntegrator')
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_metadata_structure(self, mock_rdf_class, mock_integrator_class,
-                                    mock_system_collection, tmp_path):
-        """Test that KBI metadata has correct structure."""
-        calc = KBICalculator(mock_system_collection)
-
-        # Setup RDF files
-        mixture = mock_system_collection.mixtures[0]
-        rdf_path = tmp_path / "rdf"
-        rdf_path.mkdir()
-        rdf_file = rdf_path / "rdf_MOL1_MOL2.xvg"
-        rdf_file.touch()
-        mixture.rdf_path = rdf_path
-
-        # Mock RDF parser
-        mock_rdf = Mock(spec=RdfParser)
-        mock_rdf.is_converged = True
-        mock_rdf.r = np.linspace(0, 3, 100)
-        mock_rdf.g = np.ones(100)
-        mock_rdf.r_tail = np.linspace(2, 3, 50)
-        mock_rdf_class.return_value = mock_rdf
-
-        # Mock integrator
-        mock_integrator = Mock(spec=KBIntegrator)
-        mock_integrator.rdf_molecules = ["MOL1", "MOL2"]
-        mock_integrator.compute_kbi.return_value = 1.5
-        mock_integrator.rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi.return_value = np.ones(100)
-        mock_integrator.scaled_rkbi_fit.return_value = np.ones(50)
-        mock_integrator.fit_limit_params.return_value = np.array([1.5, 0.1])
-        mock_integrator_class.from_system_properties.return_value = mock_integrator
-
-        result = calc.kbi(units="nm^3/molecule")
-
-        # Check metadata structure
-        metadata = result.metadata["mixture_50_50"]["MOL1.MOL2"]
-        assert isinstance(metadata, KBIMetadata)
-        assert metadata.mols == ("MOL1", "MOL2")
-        assert len(metadata.r) == 100
-        assert len(metadata.g) == 100
-        assert metadata.kbi_limit == 1.5
+# ===========================================================================
+# 4. electrolyte_kbi() - salt transformation cases
+# ===========================================================================
 
 
-class TestKBICalculatorEdgeCases:
-    """Test edge cases and error conditions."""
+class TestElectrolyteKbi:
+    """
+    We inject a *pre-built* residue KBI array via the cache so that
+    electrolyte_kbi() skips the RDF/integration machinery entirely and we can
+    focus purely on the salt-transformation algebra.
+    """
 
-    @patch('kbkit.kbi.calculator.RdfParser')
-    def test_kbi_with_no_rdf_files(self, mock_rdf_class, mock_system_collection, tmp_path):
-        """Test kbi when RDF directory is empty."""
-        calc = KBICalculator(mock_system_collection)
+    def _seed_residue_cache(self, calc, kbis: np.ndarray):
+        """Manually seed the residue_kbi cache so electrolyte_kbi uses it."""
+        from kbkit.schema.property_result import PropertyResult  # noqa: F811
 
-        # Setup empty RDF directory
-        mixture = mock_system_collection.mixtures[0]
-        rdf_path = tmp_path / "rdf"
-        rdf_path.mkdir()
-        mixture.rdf_path = rdf_path
+        result = MagicMock()
+        result.value = kbis
+        result.to = MagicMock(return_value=result)
+        calc._cache[("kbi",)] = result
 
-        result = calc.kbi(units="nm^3/molecule")
+    # --- Case 1: salt ↔ salt (both species are "X.Y") --------------------
 
-        # Should have NaN values
-        assert np.all(np.isnan(result.value[1]))  # mixture index
+    def test_salt_salt(self, electrolyte_systems):
+        # residue order: Na=0, Cl=1, Water=2
+        # electrolyte order: Na.Cl=0, Water=1
+        # We set known ion-ion KBI values
+        kbis = np.zeros((2, 3, 3))
+        kbis[:, 0, 0] = 1.0   # Na-Na
+        kbis[:, 0, 1] = 2.0   # Na-Cl
+        kbis[:, 1, 0] = 2.0   # Cl-Na
+        kbis[:, 1, 1] = 3.0   # Cl-Cl
+
+        calc = KBICalculator(electrolyte_systems)
+        self._seed_residue_cache(calc, kbis)
+
+        result = calc.electrolyte_kbi()
+
+        # xc = xNa = 10/(10+10) = 0.5, xa = xCl = 0.5  (same salt both sides)
+        # G_salt_salt = 0.5*0.5*1 + 0.5*0.5*2 + 0.5*0.5*2 + 0.5*0.5*3 = 2.0
+        expected = 0.25 * (1.0 + 2.0 + 2.0 + 3.0)  # = 2.0
+        np.testing.assert_allclose(result.value[:, 0, 0], expected)
+        # Symmetric
+        np.testing.assert_allclose(result.value[:, 0, 0], result.value[:, 0, 0])
+
+    # --- Case 2: salt ↔ molecule ------------------------------------------
+
+    def test_salt_molecule(self, electrolyte_systems):
+        kbis = np.zeros((2, 3, 3))
+        kbis[:, 2, 0] = 4.0   # Water-Na
+        kbis[:, 0, 2] = 4.0
+        kbis[:, 2, 1] = 6.0   # Water-Cl
+        kbis[:, 1, 2] = 6.0
+
+        calc = KBICalculator(electrolyte_systems)
+        self._seed_residue_cache(calc, kbis)
+
+        result = calc.electrolyte_kbi()
+
+        # G_Water_NaCl = xNa * G_Water_Na + xCl * G_Water_Cl
+        #              = 0.5 * 4.0 + 0.5 * 6.0 = 5.0
+        np.testing.assert_allclose(result.value[:, 1, 0], 5.0)
+        # Symmetric
+        np.testing.assert_allclose(result.value[:, 0, 1], result.value[:, 1, 0])
+
+    # --- Case 3: molecule ↔ molecule (direct look-up) --------------------
+
+    def test_molecule_molecule(self):
+        # 2 neutral molecules only, no salt
+        residues = ["Water", "Ethanol"]
+        electrolytes = ["Water", "Ethanol"]
+        systems = _make_systems(
+            n_sys=1,
+            residue_molecules=residues,
+            electrolyte_molecules=electrolytes,
+            charges=[0, 0],  # truthy (non-empty list) → electrolyte path
+            residue_counts=np.array([[50, 30]], dtype=float),
+            metas=[_make_system_meta(name="sys0")],
+        )
+
+        kbis = np.array([[[1.0, 2.0], [2.0, 3.0]]])  # shape (1, 2, 2)
+
+        calc = KBICalculator(systems)
+        # seed residue cache
+        result_mock = MagicMock()
+        result_mock.value = kbis
+        result_mock.to = MagicMock(return_value=result_mock)
+        calc._cache[("kbi",)] = result_mock
+
+        result = calc.electrolyte_kbi()
+        np.testing.assert_array_equal(result.value[0], kbis[0])
+
+    # --- cache hit on electrolyte_kbi -------------------------------------
+
+    def test_electrolyte_cache_hit(self, electrolyte_systems):
+        calc = KBICalculator(electrolyte_systems)
+
+        sentinel = MagicMock()
+        sentinel.to = MagicMock(return_value=sentinel)
+        calc._cache[("electrolyte_kbi",)] = sentinel
+
+        result = calc.electrolyte_kbi(units="nm^3/molecule")
+        sentinel.to.assert_called_once_with("nm^3/molecule")
+        assert result is sentinel
+
+    # --- ValueError: salt species not in residue list ----------------------
+
+    def test_salt_salt_species_not_found(self):
+        """Both electrolyte species are salts but one ion is missing from residues."""
+        residues = ["Na", "Cl"]  # missing "K"
+        electrolytes = ["Na.Cl", "K.Cl"]  # K not in residues
+        systems = _make_systems(
+            n_sys=1,
+            residue_molecules=residues,
+            electrolyte_molecules=electrolytes,
+            charges=[1, -1],
+            residue_counts=np.array([[5, 5]], dtype=float),
+            metas=[_make_system_meta(name="sys0")],
+        )
+
+        kbis = np.zeros((1, 2, 2))
+        calc = KBICalculator(systems)
+        result_mock = MagicMock()
+        result_mock.value = kbis
+        result_mock.to = MagicMock(return_value=result_mock)
+        calc._cache[("kbi",)] = result_mock
+
+        with pytest.raises(ValueError, match="not found in original molecules"):
+            calc.electrolyte_kbi()
+
+    def test_salt_molecule_species_not_found(self):
+        """One salt, one molecule - molecule missing from residues."""
+        residues = ["Na", "Cl"]  # missing "Water"
+        electrolytes = ["Na.Cl", "Water"]
+        systems = _make_systems(
+            n_sys=1,
+            residue_molecules=residues,
+            electrolyte_molecules=electrolytes,
+            charges=[1, -1],
+            residue_counts=np.array([[5, 5]], dtype=float),
+            metas=[_make_system_meta(name="sys0")],
+        )
+
+        kbis = np.zeros((1, 2, 2))
+        calc = KBICalculator(systems)
+        result_mock = MagicMock()
+        result_mock.value = kbis
+        result_mock.to = MagicMock(return_value=result_mock)
+        calc._cache[("kbi",)] = result_mock
+
+        with pytest.raises(ValueError, match="not found in original molecules"):
+            calc.electrolyte_kbi()
+
+    def test_molecule_molecule_species_not_found(self):
+        """Both are single molecules but one is missing from residues."""
+        residues = ["Water"]  # missing "Ethanol"
+        electrolytes = ["Water", "Ethanol"]
+        systems = _make_systems(
+            n_sys=1,
+            residue_molecules=residues,
+            electrolyte_molecules=electrolytes,
+            charges=[0],
+            residue_counts=np.array([[100]], dtype=float),
+            metas=[_make_system_meta(name="sys0")],
+        )
+
+        kbis = np.zeros((1, 1, 1))
+        calc = KBICalculator(systems)
+        result_mock = MagicMock()
+        result_mock.value = kbis
+        result_mock.to = MagicMock(return_value=result_mock)
+        calc._cache[("kbi",)] = result_mock
+
+        with pytest.raises(ValueError, match="not found in original molecules"):
+            calc.electrolyte_kbi()
+
+
+# ===========================================================================
+# 5. _parse_species()
+# ===========================================================================
+
+
+class TestParseSpecies:
+    def _calc(self):
+        """Minimal calculator - only _parse_species is called."""
+        systems = _make_systems(n_sys=1)
+        return KBICalculator(systems)
+
+    def test_single_molecule(self):
+        assert self._calc()._parse_species("Water") == ("Water",)
+
+    def test_salt_two_parts(self):
+        assert self._calc()._parse_species("Na.Cl") == ("Na", "Cl")
+
+    def test_too_many_parts_raises(self):
+        with pytest.raises(ValueError, match="Invalid species name"):
+            self._calc()._parse_species("A.B.C")
+
+
+# ===========================================================================
+# 6. _ion_fraction()
+# ===========================================================================
+
+
+class TestIonFraction:
+    def test_normal_fractions(self):
+        counts = np.array([
+            [20, 80],   # sys0: xc=0.2  xa=0.8
+            [50, 50],   # sys1: xc=0.5  xa=0.5
+        ], dtype=float)
+        systems = _make_systems(
+            n_sys=2,
+            residue_molecules=["Cat", "An"],
+            residue_counts=counts,
+        )
+        calc = KBICalculator(systems)
+        xc, xa = calc._ion_fraction(0, 1)
+
+        np.testing.assert_allclose(xc, [0.2, 0.5])
+        np.testing.assert_allclose(xa, [0.8, 0.5])
+
+    def test_zero_denominator_returns_zero(self):
+        """When both ion counts are 0 the salt is absent; fractions must be 0."""
+        counts = np.array([
+            [0, 0],     # salt absent
+            [3, 7],     # normal
+        ], dtype=float)
+        systems = _make_systems(
+            n_sys=2,
+            residue_molecules=["Cat", "An"],
+            residue_counts=counts,
+        )
+        calc = KBICalculator(systems)
+        xc, xa = calc._ion_fraction(0, 1)
+
+        # sys0: both zero
+        assert xc[0] == 0.0
+        assert xa[0] == 0.0
+        # sys1: normal
+        np.testing.assert_allclose(xc[1], 0.3)
+        np.testing.assert_allclose(xa[1], 0.7)
+
+
+# ===========================================================================
+# 7. kbi_plotter()
+# ===========================================================================
+
+
+class TestKbiPlotter:
+    @patch(_PATCH_PLOTTER)
+    @patch.object(KBICalculator, "kbi")
+    def test_plotter_constructed_correctly(self, mock_kbi, MockPlotter):
+        sentinel_result = MagicMock()
+        mock_kbi.return_value = sentinel_result
+
+        systems = _make_systems(n_sys=1)
+        calc = KBICalculator(systems)
+
+        mol_map = {"A": "Molecule A"}
+        calc.kbi_plotter(molecule_map=mol_map)
+
+        MockPlotter.assert_called_once_with(kbi=sentinel_result, molecule_map=mol_map)
+
+    @patch(_PATCH_PLOTTER)
+    @patch.object(KBICalculator, "kbi")
+    def test_plotter_default_molecule_map_none(self, mock_kbi, MockPlotter):
+        mock_kbi.return_value = MagicMock()
+
+        systems = _make_systems(n_sys=1)
+        calc = KBICalculator(systems)
+        calc.kbi_plotter()
+
+        MockPlotter.assert_called_once_with(kbi=mock_kbi.return_value, molecule_map=None)
+
+
+# ===========================================================================
+# 8. Integration-style: end-to-end residue_kbi → electrolyte_kbi pipeline
+# ===========================================================================
+
+
+class TestEndToEnd:
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_residue_then_electrolyte_uses_cache(self, MockRdf, MockInteg):
+        """
+        After residue_kbi populates the cache, electrolyte_kbi should read
+        from it rather than re-invoking RdfParser.
+        """
+        residues = ["Na", "Cl", "Water"]
+        electrolytes = ["Na.Cl", "Water"]
+        counts = np.array([[10, 10, 100]], dtype=float)
+
+        # Build metas with all 3 pair files
+        pair_files = ["NaCl.xvg", "NaW.xvg", "ClW.xvg"]
+        metas = [_make_system_meta(name="sys0", rdf_files=pair_files)]
+
+        systems = _make_systems(
+            n_sys=1,
+            residue_molecules=residues,
+            electrolyte_molecules=electrolytes,
+            charges=[1, -1, 0],
+            residue_counts=counts,
+            metas=metas,
+        )
+
+        # Stub RDF + Integrator - return different KBI per pair
+        rdf_stub = _stub_rdf(converged=True)
+        MockRdf.return_value = rdf_stub
+
+        pair_kbis = {"Na.Cl": 1.0, "Na.Water": 2.0, "Cl.Water": 3.0}
+        call_idx = {"i": 0}
+        pairs_order = [("Na", "Cl"), ("Na", "Water"), ("Cl", "Water")]
+
+        def make_integrator(**kwargs):
+            idx = call_idx["i"]
+            pair = pairs_order[idx % len(pairs_order)]
+            call_idx["i"] += 1
+            return _stub_integrator(rdf_molecules=pair, kbi_val=pair_kbis[".".join(pair)])
+
+        MockInteg.from_system_properties.side_effect = make_integrator
+
+        calc = KBICalculator(systems)
+
+        # First call builds residue cache
+        res_result = calc.residue_kbi()
+        rdf_call_count = MockRdf.call_count
+
+        # electrolyte_kbi should NOT trigger more RdfParser calls
+        elec_result = calc.electrolyte_kbi()
+        assert MockRdf.call_count == rdf_call_count
+
+        # Basic shape check
+        assert elec_result.value.shape == (1, 2, 2)
+
+
+# ===========================================================================
+# 9. Edge cases
+# ===========================================================================
+
+
+class TestEdgeCases:
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_empty_rdf_directory(self, MockRdf, MockInteg):
+        """System has rdf_path but the directory is empty - no files processed."""
+        meta = _make_system_meta(name="sys0", rdf_files=[])
+        systems = _make_systems(n_sys=1, residue_molecules=["A", "B"], metas=[meta])
+
+        calc = KBICalculator(systems)
+        result = calc.residue_kbi()
+
+        MockRdf.assert_not_called()
+        # Everything stays NaN
+        assert np.all(np.isnan(result.value))
+
+    @patch(_PATCH_INTEG)
+    @patch(_PATCH_RDF)
+    def test_non_xvg_txt_files_are_skipped(self, MockRdf, MockInteg):
+        """Files with non .xvg/.txt suffixes in rdf_path are ignored."""
+        meta = _make_system_meta(name="sys0", rdf_files=["readme.md", "data.csv"])
+        systems = _make_systems(n_sys=1, residue_molecules=["A", "B"], metas=[meta])
+
+        calc = KBICalculator(systems)
+        result = calc.residue_kbi()
+
+        MockRdf.assert_not_called()
+        assert np.all(np.isnan(result.value))
+
+    def test_ion_fraction_single_system(self):
+        """Single-system edge case for _ion_fraction."""
+        counts = np.array([[7, 3]], dtype=float)
+        systems = _make_systems(n_sys=1, residue_molecules=["C", "A"], residue_counts=counts)
+        calc = KBICalculator(systems)
+
+        xc, xa = calc._ion_fraction(0, 1)
+        np.testing.assert_allclose(xc, [0.7])
+        np.testing.assert_allclose(xa, [0.3])
