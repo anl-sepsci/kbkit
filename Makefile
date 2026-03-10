@@ -10,7 +10,7 @@ setup-dev: dev-install test
 
 # Create user environment and install kbkit from local build
 setup-user:
-	conda create -n kbkit python=3.12 kbkit --use-local
+	conda env create --name kbkit -f environment.yaml
 	conda run -n kbkit pip install .
 
 # Run tests using pytest
