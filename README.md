@@ -65,6 +65,7 @@ This organization enables automated parsing, reproducible KB integrals, and scal
 * NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
 
 An example of file structure:
+
 ```python
 kbi_dir/
 ├── project/
@@ -94,6 +95,10 @@ kbi_dir/
     * .edr energy file
     * all other files (optional)
 
+## Documentation
+
+Thorough documentation of **KBKit** is located at [https://kbkit.readthedocs.io/en/latest/](https://kbkit.readthedocs.io/en/latest/).
+
 ## Examples
 
 Below are several examples on various ways to implement **KBKit**.
@@ -108,13 +113,13 @@ from kbkit.systems import SystemProperties
 from kbkit.io import RdfParser
 
 syspath = "./examples/test_data/ethanol_water_26C/sys_405"
-rdf_path = os.path.join(sys_path, "kbi_rdf_files_gmx25", "rdf_ETHOL_SPCEW.xvg")
+rdf_path = os.path.join(syspath, "kbi_rdf_files_gmx25", "rdf_ETHOL_SPCEW.xvg")
 
 # create integrator object from single RDF file
 rdf = RDFParser(path=rdf_path)
 integrator = KBIntegrator.from_system_properties(
     rdf=rdf,
-    system_properties=SystemProperties(sys_path),
+    system_properties=SystemProperties(syspath),
 )
 
 # calculate KBI in thermodynamic limit
@@ -138,9 +143,9 @@ pipe = Pipeline(
 # Access the properties in PropertyResults objects
 res = pipe.results
 
-# Convert units from kJ/mol -> kcal/mol
+# Convert units to kcal/mol
 # current units will be read from existing PropertyResult object
-g_ex_res = res["g_ex"].to("kJ/mol")
+g_ex_res = res["g_ex"].to("kcal/mol")
 
 # make figures for KBI analysis and select thermodynamic properties
 pipe.make_figures(xmol="ETHOL")
