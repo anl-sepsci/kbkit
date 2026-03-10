@@ -453,8 +453,8 @@ class KBIntegrator:
         ax[0].set_ylabel(r"$g(r)$")
         ax[0].legend()
 
-        ax[1].plot(self.rdf.r, integrand_gv, c="tomato", label="undamped")
-        ax[1].plot(self.rdf.r, integrand_damp, c="k", alpha=0.65, ls="--", label="damped")
+        ax[1].plot(self.rdf.r, integrand_gv, c="tomato", label="vdV")
+        ax[1].plot(self.rdf.r, integrand_damp, c="k", alpha=0.65, ls="--", label=r"vdV + Kr$\ddot{u}$ger")
         ax[1].set_xlabel(r"$R$ [$nm$]")
         ax[1].set_ylabel(r"$4 \pi r^2 \ [g(r) - 1]$")
         ax[1].legend()
