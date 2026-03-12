@@ -447,17 +447,20 @@ class KBIntegrator:
         integrand_gv = A * (self.ganguly_correction_factor(mol_j) * self.rdf.g - 1)
         integrand_damp = self.kruger_damping_factor() * integrand_gv
 
-        fig, ax = plt.subplots(1, 2, figsize=(7.5, 3.5), sharex=True)
-        ax[0].plot(self.rdf.r, self.rdf.g, c="tomato", label="-".join(self.rdf_molecules))
+        fig, ax = plt.subplots(1, 2, figsize=(9, 4), sharex=True)
+        ax[0].plot(self.rdf.r, self.rdf.g, c="skyblue", label="-".join(self.rdf_molecules))
         ax[0].set_xlabel(r"$r$ [$nm$]")
         ax[0].set_ylabel(r"$g(r)$")
-        ax[0].legend()
+        ax[0].legend(fontsize=10)
 
-        ax[1].plot(self.rdf.r, integrand_gv, c="tomato", label="vdV")
-        ax[1].plot(self.rdf.r, integrand_damp, c="k", alpha=0.65, ls="--", label=r"vdV + Kr$\ddot{u}$ger")
+        ax[1].plot(self.rdf.r, integrand_gv, c="skyblue", label=r"vdV, $\omega(r)=1$")
+        ax[1].plot(self.rdf.r, integrand_damp, c="k", ls="-.", lw=1.2, label=r"vdV + Kr$\ddot{u}$ger, $\omega(r)=1 - \left(\frac{r}{max(r)}\right)^3$")
         ax[1].set_xlabel(r"$R$ [$nm$]")
-        ax[1].set_ylabel(r"$4 \pi r^2 \ [g(r) - 1]$")
-        ax[1].legend()
+        ax[1].set_ylabel(r"$4 \pi r^2 \ \omega (r) \ [g(r) - 1]$")
+        ax[1].legend(fontsize=10)
+
+        ax[0].set_title("A", fontweight="bold", fontsize=18, family="Arial")
+        ax[1].set_title("B", fontweight="bold", fontsize=18, family="Arial")
 
         if save_dir is not None:
             mols = "_".join(self.rdf_molecules)
@@ -477,16 +480,16 @@ class KBIntegrator:
         label = "-".join(self.rdf_molecules)
 
         fig, ax = plt.subplots(1, 3, figsize=(12, 3.6), sharex=True)
-        ax[0].plot(self.rdf.r, self.rdf.g, c="tomato", label=label)
+        ax[0].plot(self.rdf.r, self.rdf.g, c="skyblue", label=label)
         ax[0].set_xlabel(r"$r$ [$nm$]")
         ax[0].set_ylabel(r"$g(r)$")
         ax[0].legend()
 
-        ax[1].plot(self.rdf.r, self.rkbi(mol_j), c="tomato")
+        ax[1].plot(self.rdf.r, self.rkbi(mol_j), c="skyblue")
         ax[1].set_xlabel(r"$R$ [$nm$]")
         ax[1].set_ylabel(r"$G_{{ij}}^R$ [$nm^3$]")
 
-        ax[2].plot(self.rdf.r, self.scaled_rkbi(mol_j), c="tomato")
+        ax[2].plot(self.rdf.r, self.scaled_rkbi(mol_j), c="skyblue")
         kbi_inf = self.fit_limit_params(mol_j)[0]
         ax[2].plot(
             self.rdf.r_tail, self.scaled_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=rf"G_{{ij}}^\infty={kbi_inf:.3f}"
