@@ -1,5 +1,6 @@
 """Parses a GROMACS .gro file to extract residue electron counts and box volume."""
 
+import re
 from functools import cached_property
 from pathlib import Path
 from typing import ClassVar
@@ -56,20 +57,20 @@ class GroParser:
                 atom_name = parts[2]
                 atom_id = int(parts[3])
                 x, y, z = float(parts[4]), float(parts[5]), float(parts[6])
-            except ValueError:
+            except ValueError as e:
                 # If first part contains non-numeric characters, extract numeric part
-                import re
-                res_id_match = re.search(r'\d+', parts[0])
+
+                res_id_match = re.search(r"\d+", parts[0])
                 if res_id_match:
                     res_id = int(res_id_match.group())
                     # Extract residue name from the same field
-                    res_name_match = re.search(r'[A-Za-z]+', parts[0])
+                    res_name_match = re.search(r"[A-Za-z]+", parts[0])
                     res_name = res_name_match.group() if res_name_match else "UNK"
                     atom_name = parts[1]
                     atom_id = int(parts[2])
                     x, y, z = float(parts[3]), float(parts[4]), float(parts[5])
                 else:
-                    raise ValueError(f"Could not parse residue ID from: '{parts[0]}'")
+                    raise ValueError(f"Could not parse residue ID from: '{parts[0]}'") from e
 
             # Strict GROMACS fixed-column format:
             # %5d%-5s%5s%5d%8.3f%8.3f%8.3f
