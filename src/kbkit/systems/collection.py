@@ -13,20 +13,21 @@ import re
 from collections import defaultdict
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import numpy as np
 
 from kbkit.io import EdrParser
+
+# if TYPE_CHECKING:
+from kbkit.schema.property_result import PropertyResult
 from kbkit.schema.system_metadata import SystemMetadata
 from kbkit.systems.properties import SystemProperties
-from kbkit.utils.decorators import cached_property_result
+from kbkit.utils.decorators import cached_property_value
 from kbkit.utils.format import ENERGY_ALIASES, resolve_attr_key
 from kbkit.utils.validation import validate_path
 from kbkit.visualization.timeseries import TimeseriesPlotter
 
-if TYPE_CHECKING:
-    from kbkit.schema.property_result import PropertyResult
 
 class SystemCollection:
     """
@@ -45,7 +46,9 @@ class SystemCollection:
         Optional charge dictionary for ions. If provided, enables electrolyte basis.
     """
 
-    def __init__(self, systems: list["SystemMetadata"], molecules: list[str], charges: dict[str, int] | None = None) -> None:
+    def __init__(
+        self, systems: list["SystemMetadata"], molecules: list[str], charges: dict[str, int] | None = None
+    ) -> None:
         self._systems = systems
         self._residue_molecules = molecules  # Global unique molecules used for sorting
         self._lookup = {s.name: s for s in systems}
@@ -265,7 +268,6 @@ class SystemCollection:
             return temp
         raise TypeError(f"Expected float, {type(temp)} observed.")
 
-
     @staticmethod
     def _is_valid(path: Path, deep: bool = False) -> bool:
         """Check if systems are valid; requires it to be a directory and contains the necessary GROMACS output files."""
@@ -285,7 +287,9 @@ class SystemCollection:
                 for candidate in parent.glob(f"*{word}*"):
                     if SystemCollection._is_valid(candidate, deep=True):
                         return candidate
-        raise FileNotFoundError(f"No parent directories for pure-components were found containing keywords: {keywords}.")
+        raise FileNotFoundError(
+            f"No parent directories for pure-components were found containing keywords: {keywords}."
+        )
 
     @staticmethod
     def _resolve_rdf_path(path: Path, rdf_dir: str, is_pure: bool) -> Path:
@@ -345,7 +349,9 @@ class SystemCollection:
         """Ensure all charged species exist in residue_molecules."""
         for ion in self.charges:
             if ion not in self._residue_molecules:
-                raise ValueError(f"Charge declared for '{ion}', but it is not in residue_molecules: {self._residue_molecules}")
+                raise ValueError(
+                    f"Charge declared for '{ion}', but it is not in residue_molecules: {self._residue_molecules}"
+                )
 
     def _build_salt_pairs(self) -> list[tuple[str, str]]:
         """Return list of (cation, anion) pairs based on charges."""
@@ -371,7 +377,10 @@ class SystemCollection:
             q_cat = self.charges[cat]
             q_an = self.charges[an]
             if q_cat <= 0 or q_an >= 0:
-                raise ValueError( f"Inconsistent charges for salt pair ({cat}, {an}): " f"q_cat={q_cat}, q_an={q_an}. Expected cation>0, anion<0." )
+                raise ValueError(
+                    f"Inconsistent charges for salt pair ({cat}, {an}): "
+                    f"q_cat={q_cat}, q_an={q_an}. Expected cation>0, anion<0."
+                )
 
             nu[cat_idx, i] = abs(q_an)
             nu[an_idx, i] = abs(q_cat)
@@ -411,7 +420,7 @@ class SystemCollection:
     @cached_property
     def residue_counts(self) -> np.ndarray:
         """np.ndarray: (N_systems, N_residues) mole fractions in residue basis."""
-        return self.x * self.total_molecules[:,np.newaxis]
+        return self.x * self.total_molecules[:, np.newaxis]
 
     @cached_property
     def residue_x(self) -> np.ndarray:
@@ -447,7 +456,7 @@ class SystemCollection:
             }
 
         nu = self._build_nu_matrix(salt_pairs)
-        N = (self.residue_x).astype(float)
+        N: np.ndarray = (self.residue_x).astype(float)
 
         neutral_mask = np.all(nu == 0, axis=1)
         salt_counts = self._solve_salt_counts(nu, N)
@@ -594,21 +603,21 @@ class SystemCollection:
         """Check that collection has required pure components for excess properties calculation."""
         return True if len(self.pures) == len(self.molecules) else False
 
-    @cached_property_result()
-    def simulated_property(self, name: str, units: str | None = None, avg: bool = True):
+    @cached_property_value()
+    def simulated_property(self, name: str, units: str | None = None, avg: bool = True) -> np.ndarray:
         """
         Extract raw values directly from MD simulation (EDR files).
 
         Returns
         -------
-        PropertyResult
+        np.ndarray
             Values as simulated in the MD engine.
         """
         units = units or self.get_units(name)
-        return self.get(name, units=units, avg=avg)
+        return np.asarray(self.get(name, units=units, avg=avg))
 
-    @cached_property_result()
-    def pure_property(self, name: str, units: str | None = None, avg: bool = True):
+    @cached_property_value()
+    def pure_property(self, name: str, units: str | None = None, avg: bool = True) -> np.ndarray:
         """
         Extract pure component properties.
 
@@ -623,7 +632,7 @@ class SystemCollection:
 
         Returns
         -------
-        PropertyResult
+        np.ndarray
             Pure component property values with metadata.
         """
         units = units or self.get_units(name)
@@ -631,14 +640,14 @@ class SystemCollection:
         pure_dict = self._build_pure_lookup(name, units, avg)
         return np.array([pure_dict[mol] for mol in self.molecules])
 
-    @cached_property_result()
+    @cached_property_value()
     def ideal_property(
         self,
         name: str,
         mixing_rule: Literal["linear", "volume_weighted"] = "linear",
         units: str | None = None,
         avg: bool = True,
-    ):
+    ) -> np.ndarray:
         r"""
         Calculate ideal mixing property using specified mixing rule.
 
@@ -670,7 +679,7 @@ class SystemCollection:
 
         Returns
         -------
-        PropertyResult
+        np.ndarray
             Ideal property values for each mixture composition.
         """
         units = units or self.get_units(name)
@@ -678,22 +687,22 @@ class SystemCollection:
         compositions = self.x
 
         if "lin" in mixing_rule.lower():
-            ideal_values = compositions @ pure_res.value
+            ideal_values = compositions @ pure_res
         elif "vol" in mixing_rule.lower():
-            ideal_values = 1.0 / (compositions @ (1.0 / pure_res.value))
+            ideal_values = 1.0 / (compositions @ (1.0 / pure_res))
         else:
             raise ValueError(f"Unknown mixing rule: {mixing_rule}")
 
         return ideal_values
 
-    @cached_property_result()
+    @cached_property_value()
     def excess_property(
         self,
         name: str,
         mixing_rule: Literal["linear", "volume_weighted"] = "linear",
         units: str | None = None,
         avg: bool = True,
-    ):
+    ) -> np.ndarray:
         r"""
         Calculate excess property: Excess = Real - Ideal.
 
@@ -710,7 +719,7 @@ class SystemCollection:
 
         Returns
         -------
-        PropertyResult
+        np.ndarray
             Excess property values.
 
         Notes
@@ -728,9 +737,34 @@ class SystemCollection:
         units = units or self.get_units(name)
         sim_res = self.simulated_property(name=name, units=units, avg=avg)
         ideal_res = self.ideal_property(name=name, units=units, mixing_rule=mixing_rule, avg=avg)
-        return sim_res.value - ideal_res.value
+        return sim_res - ideal_res
 
-    def _build_pure_lookup(self, name: str, units: str | None = None, avg: bool = True) -> dict[str, float | np.ndarray | list[np.ndarray]]:
+    @cached_property
+    def property_results(self) -> dict[str, PropertyResult]:
+        """Dictionary of :class:`~kbkit.schema.property_result.PropertyResult` with mapped names and values for simulated, excess, and ideal properties.
+
+        Returns
+        -------
+        dict[str, PropertyResult]
+            Mapped property result objects for properties.
+        """
+        results = {}
+        for prop, units in self.units.items():
+            if "time" in prop.lower():
+                continue
+            values = {
+                "simulated": self.simulated_property(name=prop, units=units, avg=True),
+                "ideal": self.ideal_property(name=prop, units=units, avg=True),
+                "excess": self.excess_property(name=prop, units=units, avg=True),
+            }
+            for ptype, val in values.items():
+                key = f"{ptype}_{prop.lower().replace('-', '_')}"
+                results[key] = PropertyResult(name=key, value=val, units=units, property_type=ptype)
+        return results
+
+    def _build_pure_lookup(
+        self, name: str, units: str | None = None, avg: bool = True
+    ) -> dict[str, float | np.ndarray | list[np.ndarray]]:
         r"""
         Build a lookup dictionary mapping molecule names to pure property values.
 
@@ -759,18 +793,25 @@ class SystemCollection:
                 # electrolyte-aware reduction
                 # reuse internal helpers on a per-system basis
                 # build a temporary salt composition for this pure system
-                temp_collection = SystemCollection(systems=[pure_sys], molecules=residue_names, charges=self.charges,)
+                temp_collection = SystemCollection(
+                    systems=[pure_sys],
+                    molecules=residue_names,
+                    charges=self.charges,
+                )
                 basis = temp_collection.electrolyte_basis
                 assert basis is not None
                 new_molecules = basis["molecules"]
                 if len(new_molecules) != 1:
-                    raise ValueError( f"Pure system {pure_sys.name} does not reduce to a single component in electrolyte basis: " f"{new_molecules}" )
-                comp_name = new_molecules[0]
+                    raise ValueError(
+                        f"Pure system {pure_sys.name} does not reduce to a single component in electrolyte basis: "
+                        f"{new_molecules}"
+                    )
+                comp_name = str(new_molecules[0])
             else:
                 # neutral case: must be a single residue
                 if len(mol_counts) != 1:
                     raise ValueError(f"Pure system {pure_sys.name} contains multiple molecules: {mol_counts}")
-                comp_name = next(iter(mol_counts.keys()))
+                comp_name = str(residue_names[0])
 
             pure_value = pure_sys.props.get(name, units=units, avg=avg)
             if isinstance(pure_value, dict):
@@ -796,5 +837,3 @@ class SystemCollection:
             Plotter instance for computing simulation energy properties.
         """
         return TimeseriesPlotter.from_collection(self, system_name=system, start_time=start_time)
-
-

@@ -16,12 +16,7 @@ class TestActivityCoefficientResult:
         y = np.array([0.0, 0.1, 0.2, 0.3, 0.4])
         property_type = "derivative"
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type=property_type
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type=property_type)
 
         assert result.mol == mol
         assert np.array_equal(result.x, x)
@@ -37,13 +32,7 @@ class TestActivityCoefficientResult:
         property_type = "integrated"
         fn = np.poly1d([1, 2, 3])  # x^2 + 2x + 3
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type=property_type,
-            fn=fn
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type=property_type, fn=fn)
 
         assert result.mol == mol
         assert result.fn == fn
@@ -56,13 +45,7 @@ class TestActivityCoefficientResult:
         y = np.array([0.0, 0.5, 1.0])
         fn = np.poly1d([1, 0])  # y = x
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type="derivative",
-            fn=fn
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type="derivative", fn=fn)
 
         x_eval = result.x_eval
         assert x_eval is not None
@@ -77,12 +60,7 @@ class TestActivityCoefficientResult:
         x = np.array([0.0, 0.5, 1.0])
         y = np.array([0.0, 0.5, 1.0])
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type="derivative"
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type="derivative")
 
         assert result.x_eval is None
 
@@ -93,13 +71,7 @@ class TestActivityCoefficientResult:
         y = np.array([0.0, 0.5, 1.0])
         fn = np.poly1d([2, 0])  # y = 2x
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type="derivative",
-            fn=fn
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type="derivative", fn=fn)
 
         y_eval = result.y_eval
         assert y_eval is not None
@@ -115,12 +87,7 @@ class TestActivityCoefficientResult:
         x = np.array([0.0, 0.5, 1.0])
         y = np.array([0.0, 0.5, 1.0])
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type="derivative"
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type="derivative")
 
         assert result.y_eval is None
 
@@ -131,13 +98,7 @@ class TestActivityCoefficientResult:
         y = np.array([0.0, 0.5, 1.0])
         fn = np.poly1d([1, 0])
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type="derivative",
-            fn=fn
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type="derivative", fn=fn)
 
         assert result.has_fn is True
 
@@ -147,22 +108,14 @@ class TestActivityCoefficientResult:
         x = np.array([0.0, 0.5, 1.0])
         y = np.array([0.0, 0.5, 1.0])
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type="derivative"
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type="derivative")
 
         assert result.has_fn is False
 
     def test_property_type_derivative(self):
         """Test with derivative property type."""
         result = ActivityCoefficientResult(
-            mol="Water",
-            x=np.array([0.0, 1.0]),
-            y=np.array([0.0, 1.0]),
-            property_type="derivative"
+            mol="Water", x=np.array([0.0, 1.0]), y=np.array([0.0, 1.0]), property_type="derivative"
         )
 
         assert result.property_type == "derivative"
@@ -170,10 +123,7 @@ class TestActivityCoefficientResult:
     def test_property_type_integrated(self):
         """Test with integrated property type."""
         result = ActivityCoefficientResult(
-            mol="Water",
-            x=np.array([0.0, 1.0]),
-            y=np.array([0.0, 1.0]),
-            property_type="integrated"
+            mol="Water", x=np.array([0.0, 1.0]), y=np.array([0.0, 1.0]), property_type="integrated"
         )
 
         assert result.property_type == "integrated"
@@ -186,13 +136,7 @@ class TestActivityCoefficientResult:
         # Create polynomial: y = 2x + 3
         fn = np.poly1d([2, 3])
 
-        result = ActivityCoefficientResult(
-            mol=mol,
-            x=x,
-            y=y,
-            property_type="derivative",
-            fn=fn
-        )
+        result = ActivityCoefficientResult(mol=mol, x=x, y=y, property_type="derivative", fn=fn)
 
         # Test evaluation at specific points
         assert fn(0.0) == 3.0
@@ -216,7 +160,7 @@ class TestActivityMetadata:
             x=np.array([0.0, 0.5, 1.0]),
             y=np.array([0.0, 0.5, 1.0]),
             property_type="derivative",
-            fn=np.poly1d([1, 0])
+            fn=np.poly1d([1, 0]),
         )
 
         result2 = ActivityCoefficientResult(
@@ -224,21 +168,15 @@ class TestActivityMetadata:
             x=np.array([0.0, 0.5, 1.0]),
             y=np.array([0.0, 0.25, 1.0]),
             property_type="derivative",
-            fn=np.poly1d([1, 0, 0])
+            fn=np.poly1d([1, 0, 0]),
         )
 
         result3 = ActivityCoefficientResult(
-            mol="Water",
-            x=np.array([0.0, 0.5, 1.0]),
-            y=np.array([1.0, 1.5, 2.0]),
-            property_type="integrated"
+            mol="Water", x=np.array([0.0, 0.5, 1.0]), y=np.array([1.0, 1.5, 2.0]), property_type="integrated"
         )
 
         result4 = ActivityCoefficientResult(
-            mol="Ethanol",
-            x=np.array([0.0, 0.5, 1.0]),
-            y=np.array([2.0, 2.5, 3.0]),
-            property_type="integrated"
+            mol="Ethanol", x=np.array([0.0, 0.5, 1.0]), y=np.array([2.0, 2.5, 3.0]), property_type="integrated"
         )
 
         return [result1, result2, result3, result4]
@@ -359,17 +297,11 @@ class TestActivityMetadata:
         """Test by_types with only one property type."""
         results = [
             ActivityCoefficientResult(
-                mol="Water",
-                x=np.array([0.0, 1.0]),
-                y=np.array([0.0, 1.0]),
-                property_type="derivative"
+                mol="Water", x=np.array([0.0, 1.0]), y=np.array([0.0, 1.0]), property_type="derivative"
             ),
             ActivityCoefficientResult(
-                mol="Ethanol",
-                x=np.array([0.0, 1.0]),
-                y=np.array([0.0, 1.0]),
-                property_type="derivative"
-            )
+                mol="Ethanol", x=np.array([0.0, 1.0]), y=np.array([0.0, 1.0]), property_type="derivative"
+            ),
         ]
 
         metadata = ActivityMetadata(results=results)
@@ -397,12 +329,7 @@ class TestActivityCoefficientResultEdgeCases:
 
     def test_empty_arrays(self):
         """Test with empty numpy arrays."""
-        result = ActivityCoefficientResult(
-            mol="Water",
-            x=np.array([]),
-            y=np.array([]),
-            property_type="derivative"
-        )
+        result = ActivityCoefficientResult(mol="Water", x=np.array([]), y=np.array([]), property_type="derivative")
 
         assert len(result.x) == 0
         assert len(result.y) == 0
@@ -410,10 +337,7 @@ class TestActivityCoefficientResultEdgeCases:
     def test_single_point(self):
         """Test with single data point."""
         result = ActivityCoefficientResult(
-            mol="Water",
-            x=np.array([0.5]),
-            y=np.array([0.25]),
-            property_type="derivative"
+            mol="Water", x=np.array([0.5]), y=np.array([0.25]), property_type="derivative"
         )
 
         assert len(result.x) == 1
@@ -427,11 +351,7 @@ class TestActivityCoefficientResultEdgeCases:
         fn = np.poly1d([1, 2, 3, 4, 5, 6])
 
         result = ActivityCoefficientResult(
-            mol="Water",
-            x=np.array([0.0, 0.5, 1.0]),
-            y=np.array([6.0, 10.0, 21.0]),
-            property_type="derivative",
-            fn=fn
+            mol="Water", x=np.array([0.0, 0.5, 1.0]), y=np.array([6.0, 10.0, 21.0]), property_type="derivative", fn=fn
         )
 
         assert result.has_fn is True
@@ -442,11 +362,7 @@ class TestActivityCoefficientResultEdgeCases:
         fn = np.poly1d([5])  # y = 5
 
         result = ActivityCoefficientResult(
-            mol="Water",
-            x=np.array([0.0, 0.5, 1.0]),
-            y=np.array([5.0, 5.0, 5.0]),
-            property_type="derivative",
-            fn=fn
+            mol="Water", x=np.array([0.0, 0.5, 1.0]), y=np.array([5.0, 5.0, 5.0]), property_type="derivative", fn=fn
         )
 
         # y_eval has 101 elements (one per x_eval point); a constant
@@ -458,10 +374,7 @@ class TestActivityCoefficientResultEdgeCases:
     def test_negative_values(self):
         """Test with negative x and y values."""
         result = ActivityCoefficientResult(
-            mol="Water",
-            x=np.array([-1.0, 0.0, 1.0]),
-            y=np.array([-2.0, 0.0, 2.0]),
-            property_type="derivative"
+            mol="Water", x=np.array([-1.0, 0.0, 1.0]), y=np.array([-2.0, 0.0, 2.0]), property_type="derivative"
         )
 
         assert result.x[0] == -1.0
@@ -472,12 +385,7 @@ class TestActivityCoefficientResultEdgeCases:
         x = np.linspace(0, 1, 10000)
         y = np.sin(x)
 
-        result = ActivityCoefficientResult(
-            mol="Water",
-            x=x,
-            y=y,
-            property_type="derivative"
-        )
+        result = ActivityCoefficientResult(mol="Water", x=x, y=y, property_type="derivative")
 
         assert len(result.x) == 10000
         assert len(result.y) == 10000
@@ -490,17 +398,14 @@ class TestActivityMetadataEdgeCases:
         """Test with duplicate molecules of same type (last one wins)."""
         results = [
             ActivityCoefficientResult(
-                mol="Water",
-                x=np.array([0.0, 1.0]),
-                y=np.array([0.0, 1.0]),
-                property_type="derivative"
+                mol="Water", x=np.array([0.0, 1.0]), y=np.array([0.0, 1.0]), property_type="derivative"
             ),
             ActivityCoefficientResult(
                 mol="Water",
                 x=np.array([0.0, 1.0]),
                 y=np.array([1.0, 2.0]),  # Different y values
-                property_type="derivative"
-            )
+                property_type="derivative",
+            ),
         ]
 
         metadata = ActivityMetadata(results=results)
@@ -515,10 +420,7 @@ class TestActivityMetadataEdgeCases:
         """Test with many different molecules."""
         results = [
             ActivityCoefficientResult(
-                mol=f"Molecule_{i}",
-                x=np.array([0.0, 1.0]),
-                y=np.array([0.0, float(i)]),
-                property_type="derivative"
+                mol=f"Molecule_{i}", x=np.array([0.0, 1.0]), y=np.array([0.0, float(i)]), property_type="derivative"
             )
             for i in range(100)
         ]
@@ -532,10 +434,7 @@ class TestActivityMetadataEdgeCases:
         """Test that get requires exact property_type match."""
         results = [
             ActivityCoefficientResult(
-                mol="Water",
-                x=np.array([0.0, 1.0]),
-                y=np.array([0.0, 1.0]),
-                property_type="derivative"
+                mol="Water", x=np.array([0.0, 1.0]), y=np.array([0.0, 1.0]), property_type="derivative"
             )
         ]
 

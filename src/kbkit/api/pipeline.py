@@ -91,18 +91,13 @@ class Pipeline:
         Start time for time-averaged properties.
     include_mode: str, optional
         Optional string to filter files (.edr, .gro, .top) if multiple are found of a given type.
-    ignore_convergence_errors : bool, optional
-        If True, ingnores convergence errors and forces KBI calculations to skip entire systems with non-converged RDFs.
-    rdf_convergence_thresholds: tuple[float, float], optional
-        Thresholds for convergence requirements of RDF tail.
-    rdf_tail_length: float, optional
-        Length of RDF tail (nm) to use for convergence evaluation & KBI corrections. If this is set, no iteration to find maximum length for RDF convergence will be performed.
-    kbi_correct_rdf_convergence: bool, optional
-        Whether to correct RDF for excess/depletion, i.e., Ganguly correction.
-    kbi_apply_damping: bool, optional
-        Whether to apply damping function to correlation function, i.e., Kruger correction.
-    kbi_extrapolate_thermodynamic_limit: bool, optional
-        Whether to extrapolate KBI value to the thermodynamic limit.
+    min_r_range : float
+        Minimum r-range to consider for KBI convergence (must be > 0).
+    r2_threshold : float, optional
+        Desired minimum R² value (default: 0.999).
+    raise_on_convergence_error : bool, optional
+        If True, raises KBIConvergenceError when convergence checks fail.
+        If False, returns NaN and prints warning. Default: True.
     activity_integration_type: str, optional
         Method for performing integration of activity coefficient derivatives.
     activity_polynomial_degree: int, optional
@@ -120,12 +115,9 @@ class Pipeline:
         rdf_dir: str = "",
         start_time: int = 10000,
         include_mode: str = "npt",
-        ignore_convergence_errors: bool = False,
-        rdf_convergence_thresholds: tuple = (1e-3, 1e-2),
-        rdf_tail_length: float | None = None,
-        kbi_correct_rdf_convergence: bool = True,
-        kbi_apply_damping: bool = True,
-        kbi_extrapolate_thermodynamic_limit: bool = True,
+        min_r_range: float = 0.5,
+        r2_threshold: float = 0.999,
+        raise_on_convergence_error: bool = True,
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
         activity_polynomial_degree: int = 5,
         molecule_map: dict[str, str] | None = None,
@@ -137,18 +129,16 @@ class Pipeline:
         self.rdf_dir = rdf_dir
         self.start_time = start_time
         self.include_mode = include_mode
-        self.ignore_convergence_errors = ignore_convergence_errors
-        self.rdf_convergence_thresholds = rdf_convergence_thresholds
-        self.rdf_tail_length = rdf_tail_length
-        self.kbi_correct_rdf_convergence = kbi_correct_rdf_convergence
-        self.kbi_apply_damping = kbi_apply_damping
-        self.kbi_extrapolate_thermodynamic_limit = kbi_extrapolate_thermodynamic_limit
+        self.min_r_range = min_r_range
+        self.r2_threshold = r2_threshold
+        self.raise_on_convergence_error = raise_on_convergence_error
         self.activity_integration_type = activity_integration_type
         self.activity_polynomial_degree = int(activity_polynomial_degree)
         self.molecule_map = molecule_map
 
-    def _build_systems(self) -> SystemCollection:
-        """Build SystemCollection object."""
+    @cached_property
+    def systems(self) -> SystemCollection:
+        """SystemCollection: Configuration for a thermodynamic state, includes topology and energy properties."""
         return SystemCollection.load(
             base_path=self.base_path,
             base_systems=self.base_systems,
@@ -160,21 +150,13 @@ class Pipeline:
         )
 
     @cached_property
-    def systems(self) -> SystemCollection:
-        """SystemCollection: Configuration for a thermodynamic state, includes topology and energy properties."""
-        return self._build_systems()
-
-    @cached_property
     def calculator(self) -> KBICalculator:
         """KBICalculator: Calculator for KBIs as a function of composition."""
         return KBICalculator(
             systems=self.systems,
-            ignore_convergence_errors=self.ignore_convergence_errors,
-            convergence_thresholds=self.rdf_convergence_thresholds,
-            tail_length=self.rdf_tail_length,
-            correct_rdf_convergence=self.kbi_correct_rdf_convergence,
-            apply_damping=self.kbi_apply_damping,
-            extrapolate_thermodynamic_limit=self.kbi_extrapolate_thermodynamic_limit,
+            min_r_range=self.min_r_range,
+            r2_threshold=self.r2_threshold,
+            raise_on_convergence_error=self.raise_on_convergence_error,
         )
 
     @property
@@ -191,27 +173,6 @@ class Pipeline:
             activity_integration_type=self.activity_integration_type,
             activity_polynomial_degree=self.activity_polynomial_degree,
         )
-
-    @cached_property
-    def results(self) -> dict[str, PropertyResult]:
-        """Dictionary of :class:`~kbkit.schema.property_result.PropertyResult` with mapped names and values."""
-        res = {}
-        # add properties from KBThermo
-        res.update({k: v for k, v in self.thermo.results.items() if isinstance(v, PropertyResult)})
-        # compute system properties
-        for prop, units in self.systems.units.items():
-            if "time" in prop.lower():
-                continue
-            res[f"simulated_{prop.lower().replace('-', '_')}"] = self.systems.simulated_property(
-                name=prop, units=units, avg=True
-            )
-            res[f"ideal_{prop.lower().replace('-', '_')}"] = self.systems.ideal_property(
-                name=prop, units=units, avg=True
-            )
-            res[f"excess_{prop.lower().replace('-', '_')}"] = self.systems.excess_property(
-                name=prop, units=units, avg=True
-            )
-        return res
 
     def timeseries_plotter(self, system: str, start_time: int = 0) -> "TimeseriesPlotter":
         """TimeseriesPlotter: Plotter for visualizing property timeseries."""

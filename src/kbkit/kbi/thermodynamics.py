@@ -85,7 +85,7 @@ class KBThermo:
 
     def temperature(self, units: str = "K") -> np.ndarray:
         """np.ndarray: 1D array of Temperatures of each system."""
-        return self.systems.simulated_property(name="Temperature", units=units).value
+        return self.systems.simulated_property(name="Temperature", units=units)
 
     def RT(self, units: str = "kJ/mol") -> np.ndarray:
         """np.ndarray: Gas constant (kJ/mol/K) x simulation Temperature."""
@@ -93,7 +93,7 @@ class KBThermo:
 
     def rho(self, units: str = "molecule/nm^3") -> np.ndarray:
         """np.ndarray: 1D array of number density of each system."""
-        return self.systems.simulated_property(name="number_density", units=units).value
+        return self.systems.simulated_property(name="number_density", units=units)
 
     def v_bar(self, units: str = "cm^3/mol") -> np.ndarray:
         r"""Ideal molar volumes.
@@ -107,14 +107,14 @@ class KBThermo:
         """
         # first try for pure components & if not enough, then fall back to KBI values
         if self.systems.has_all_required_pures():
-            return self.systems.ideal_property(name="molar_volume", units=units).value
+            return self.systems.ideal_property(name="molar_volume", units=units)
         # otherwise use kbi values
         return (self.systems.x * self.molar_volume(units=units)).sum(axis=1)
 
     @property
     def z_i(self) -> np.ndarray:
         """np.ndarray: Electrons present in the system mapped to ``molecules``."""
-        return self.systems.pure_property(name="electron_count").value
+        return self.systems.pure_property(name="electron_count")
 
     @property
     def z_bar(self) -> np.ndarray:
@@ -127,7 +127,7 @@ class KBThermo:
         -------
         np.ndarray
         """
-        return self.systems.ideal_property(name="electron_count").value
+        return self.systems.ideal_property(name="electron_count")
 
     @property
     def z_i_diff(self) -> np.ndarray:
@@ -196,10 +196,9 @@ class KBThermo:
             This matrix describes the system in the **grand canonical** (:math:`\mu VT`) limit.
             It is the direct mathematical inverse of the Helmholtz Hessian at constant volume (:math:`B = A^{-1}`).
         """
-        return (
-            self._x_3d * self.delta_ij[np.newaxis, :]
-            + self.rho("molecule/nm^3")[:, np.newaxis, np.newaxis] * self._x_3d_sq * self.kbi("nm^3/molecule")
-        )
+        return self._x_3d * self.delta_ij[np.newaxis, :] + self.rho("molecule/nm^3")[
+            :, np.newaxis, np.newaxis
+        ] * self._x_3d_sq * self.kbi("nm^3/molecule")
 
     @cached_property_value()
     def A(self) -> np.ndarray:
@@ -342,9 +341,9 @@ class KBThermo:
             - :math:`\rho`: Mixture number density.
             - :math:`A_{ij}`: Element of Helmholtz Hessian matrix for molecules :math:`i,j`.
         """
-        xj_Aij = self.systems.x[:,np.newaxis,:] * self.A()
+        xj_Aij = self.systems.x[:, np.newaxis, :] * self.A()
         rho_units = "/".join(units.split("/")[::-1])
-        return xj_Aij.sum(axis=2) / (self._l() * self.rho(units=rho_units))[:,np.newaxis]
+        return xj_Aij.sum(axis=2) / (self._l() * self.rho(units=rho_units))[:, np.newaxis]
 
     def _subtract_nth_elements(self, matrix: np.ndarray) -> np.ndarray:
         """Set up matrices for multicomponent analysis."""
@@ -467,7 +466,7 @@ class KBThermo:
         .. math::
             \Gamma_i = \frac{x_i}{RT} \left( \frac{\partial \mu_i}{\partial x_i} \right)_{T,P}
         """
-        return (self.systems.x * self.dmu_dxi()) / self.RT()[:,np.newaxis]
+        return (self.systems.x * self.dmu_dxi()) / self.RT()[:, np.newaxis]
 
     @cached_property_value()
     def dlngamma_dxi(self) -> np.ndarray:
@@ -499,7 +498,7 @@ class KBThermo:
         comp_max = z0.max(axis=1)
         i = self.systems.get_mol_index(mol)
         is_max = z0[:, i] == comp_max
-        return 1. if np.any(is_max) else 0.
+        return 1.0 if np.any(is_max) else 0.0
 
     def _get_weights(self, mol: str, x: np.ndarray) -> np.ndarray:
         """Get fitting weights based on reference state."""
@@ -598,8 +597,8 @@ class KBThermo:
     ) -> np.ndarray:
         """Fit polynomial to dlng/dx and integrate analytically."""
         # Include reference point in fit
-        xi_fit = np.append(xi, x_ref)
-        dlng_fit_data = np.append(dlng, 0.0)  # dlng = 0 at reference
+        xi_fit: np.ndarray = np.append(xi, x_ref)
+        dlng_fit_data: np.ndarray = np.append(dlng, 0.0)  # dlng = 0 at reference
 
         # Compute weights
         weights = self._get_weights(mol, xi_fit)
@@ -641,8 +640,8 @@ class KBThermo:
             lng_sorted -= lng_sorted[ref_idx]  # Set lng(x_ref) = 0
         else:
             # Insert reference point
-            xi_with_ref = np.insert(xi_sorted, ref_idx, x_ref)
-            dlng_with_ref = np.insert(dlng_sorted, ref_idx, 0.0)
+            xi_with_ref: np.ndarray = np.insert(xi_sorted, ref_idx, x_ref)
+            dlng_with_ref: np.ndarray = np.insert(dlng_sorted, ref_idx, 0.0)
             lng_sorted = cumulative_trapezoid(dlng_with_ref, xi_with_ref, initial=0)
             lng_sorted = np.delete(lng_sorted, ref_idx)  # Remove inserted point
 
@@ -685,7 +684,7 @@ class KBThermo:
             - :math:`H`: Enthalpy directly from simulation.
             - :math:`H_i^{pure}`: Enthalpy directly from simulation for pure :math:`i`.
         """
-        return self.systems.excess_property(name="enthalpy", units=units).value
+        return self.systems.excess_property(name="enthalpy", units=units)
 
     @cached_property_value(default_units="kJ/mol/K")
     def s_ex(self, units: str = "kJ/mol/K") -> np.ndarray:
@@ -1005,7 +1004,7 @@ class KBThermo:
                 continue
 
             if attr in self._cache:
-                props[attr] =self._cache[attr]
+                props[attr] = self._cache[attr]
 
         # manually add desired props
         return props

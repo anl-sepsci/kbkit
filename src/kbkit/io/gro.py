@@ -27,11 +27,11 @@ class GroParser:
         valid_path = validate_path(path, suffix=".gro")
         try:
             self._universe = MDAnalysis.Universe(valid_path)
-        except Exception: # only reformat if mda doesn't work.
+        except Exception:  # only reformat if mda doesn't work.
             self._universe = MDAnalysis.Universe(self._resolve_gro_formatting(valid_path))
 
     def _resolve_gro_formatting(self, input_file: Path) -> str:
-        with open(input_file, 'r') as f:
+        with open(input_file, "r") as f:
             lines = f.readlines()
 
         # The .gro format:
@@ -39,32 +39,50 @@ class GroParser:
         # 2. Number of atoms (Line 2)
         # 3. Atom data (Line 3 to N+2)
         # 4. Box vectors (Last line)
-        
+
         reformatted = [lines[0], lines[1]]  # Keep header and atom count
-        
+
         # Process only the atom lines (skip header/footer)
         for line in lines[2:-1]:
             parts = line.split()
-            if len(parts) < 6: continue  # Skip malformed empty lines
-            
-            res_id = int(parts[0])
-            res_name = parts[1]
-            atom_name = parts[2]
-            atom_id = int(parts[3])
-            x, y, z = float(parts[4]), float(parts[5]), float(parts[6])
-            
+            MAGIC_SIX = 6
+            if len(parts) < MAGIC_SIX:
+                continue  # Skip malformed empty lines
+
+            # Handle cases where residue ID might be mixed with residue name
+            try:
+                res_id = int(parts[0])
+                res_name = parts[1]
+                atom_name = parts[2]
+                atom_id = int(parts[3])
+                x, y, z = float(parts[4]), float(parts[5]), float(parts[6])
+            except ValueError:
+                # If first part contains non-numeric characters, extract numeric part
+                import re
+                res_id_match = re.search(r'\d+', parts[0])
+                if res_id_match:
+                    res_id = int(res_id_match.group())
+                    # Extract residue name from the same field
+                    res_name_match = re.search(r'[A-Za-z]+', parts[0])
+                    res_name = res_name_match.group() if res_name_match else "UNK"
+                    atom_name = parts[1]
+                    atom_id = int(parts[2])
+                    x, y, z = float(parts[3]), float(parts[4]), float(parts[5])
+                else:
+                    raise ValueError(f"Could not parse residue ID from: '{parts[0]}'")
+
             # Strict GROMACS fixed-column format:
             # %5d%-5s%5s%5d%8.3f%8.3f%8.3f
             new_line = f"{res_id:>5}{res_name:<5}{atom_name:>5}{atom_id:>5}{x:>8.3f}{y:>8.3f}{z:>8.3f}\n"
             reformatted.append(new_line)
-            
+
         reformatted.append(lines[-1])  # Add box vectors back
-        
-        output_file = input_file.strip(".gro") + "_reformatted.gro"
-        with open(output_file, 'w') as f:
+
+        output_file = Path(str(input_file).strip(".gro") + "_reformatted.gro")
+        with open(output_file, "w") as f:
             f.writelines(reformatted)
 
-        return output_file
+        return str(output_file)
 
     @property
     def residues(self) -> MDAnalysis.core.groups.ResidueGroup:
@@ -163,4 +181,3 @@ class GroParser:
             return ptable.GetAtomicNumber(symbol)
         else:
             raise ValueError(f"Symbol '{symbol}' is not a valid element.")
-

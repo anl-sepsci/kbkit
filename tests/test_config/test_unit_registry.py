@@ -2,6 +2,7 @@
 Complete test coverage for kbkit.config.unit_registry module.
 Target: >95% coverage
 """
+
 from kbkit.config.unit_registry import *
 
 
@@ -11,6 +12,7 @@ class TestUnitRegistry:
     def test_import_unit_registry(self):
         """Test that unit registry can be imported."""
         import kbkit.config.unit_registry as ur_module
+
         assert ur_module is not None
 
     def test_unit_registry_exists(self):
@@ -30,8 +32,6 @@ class TestUnitRegistry:
         # This test will depend on what's actually in the module
         # For now, just verify the module loads
         assert True
-
-
 
 
 class TestUnitConversions:
@@ -93,8 +93,6 @@ class TestUnitConversions:
         assert pa == 101325
 
 
-
-
 class TestUnitRegistryEdgeCases:
     """Test edge cases for unit registry."""
 
@@ -116,5 +114,3 @@ class TestUnitRegistryEdgeCases:
         frequency_hz = 1.0  # 1/s
         period_s = 1.0 / frequency_hz
         assert period_s == 1.0
-
-

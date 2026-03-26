@@ -1,15 +1,14 @@
-"""
-Computes Kirkwood-Buff integrals (KBIs) from RDF file (`.xvg`) and properties or a :class:`~kbkit.systems.properties.SystemProperties` object.
+r"""
+Computes Kirkwood-Buff integrals (KBIs) from radial distribution function (RDF) and properties or a :class:`~kbkit.systems.properties.SystemProperties` object.
 
-There are three corrections that by default are implemented to correct KBIs to thermodynamic limit values:
-    * RDF convergence correction (``correct_rdf_convergence``): Corrects RDF for molecule excess/depletion. [`Ganguly (2013) <https://doi.org/10.1021/ct301017q>`_]
-    * RDF damping correction (``apply_damping``): Forces the tail of the RDF to 1 (required to ensure convergence of KBI in finite systems). [`Krüger (2013) <https://doi.org/10.1021/jz301992u>`_]
-    * Thermodynamic limit extrapolation (``extrapolate_thermodynamic_limit``): Extrapolated KBI in a finite system to the thermodynamic limit where relationships between thermodynamic properties and KBIs are defined. [`Simon (2022) <https://doi.org/10.1063/5.0106162>`_]
-
-Each of the corrections can be turned off by setting the attribute to ``False``.
+The following RDF and finite-volume correction options are implemented, following the procedure outlined by `Simon (2022) <https://doi.org/10.1063/5.0106162>`_:
+    * Corrects RDF for molecule excess/depletion to accurately recover bulk density. [`Ganguly and van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_]
+    * Uses the analytically correct form for hyperspheres to calculate finite-volume KBI [`Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_]
+    * KBI is extrapolated to the thermodynamic limit [`Dawass, Krüger, et al. (2020) <https://doi.org/10.3390/nano10040771>`_]
 """
 
 import os
+import warnings
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
@@ -22,7 +21,16 @@ from kbkit.io.rdf import RdfParser
 if TYPE_CHECKING:
     from kbkit.systems.properties import SystemProperties
 
+# load plotting style
 load_mplstyle()
+
+
+class KBIConvergenceError(Exception):
+    """Raised when KBI fails to converge according to one or more metrics."""
+
+
+class LinearityError(KBIConvergenceError):
+    """Raised when R² linearity metric is not satisfied."""
 
 
 class KBIntegrator:
@@ -31,97 +39,102 @@ class KBIntegrator:
 
     Parameters
     ----------
-    rdf: RdfParser
-        RdfParser object.
-    volume : float
-        Averaged simulation box volume.
+    r: np.ndarray
+        Radial distance array (nm).
+    g: np.ndarray
+        Radial distribution function values.
+    volume: float
+        Averaged simulation box volume (nm³).
     molecule_count: dict[str, int]
-        Dictionary mapping molecule names to their numbers.
-    correct_rdf_convergence: bool, optional
-        Whether to correct RDF for excess/depletion, i.e., Ganguly correction (default: True).
-    apply_damping: bool, optional
-        Whether to apply damping function to correlation function, i.e., Kruger correction (default: True).
-    extrapolate_thermodynamic_limit: bool, optional
-        Whether to extrapolate KBI value to the thermodynamic limit (default: True).
+        Dictionary mapping molecule names to their counts.
+    rdf_molecules: list[str], optional
+        The two molecules in this RDF pair. If None, inferred from molecule_count.
     """
 
     def __init__(
         self,
+        r: np.ndarray,
+        g: np.ndarray,
+        volume: float,
+        molecule_count: dict[str, int],
+        rdf_molecules: list[str],
+    ) -> None:
+        self.r = r
+        self.g = g
+        self.box_volume = volume
+        self.molecule_count = molecule_count
+        self.rdf_molecules = rdf_molecules
+
+    @classmethod
+    def from_rdf_parser(
+        cls,
         rdf: RdfParser,
         volume: float,
         molecule_count: dict[str, int],
-        correct_rdf_convergence: bool = True,
-        apply_damping: bool = True,
-        extrapolate_thermodynamic_limit: bool = True,
-    ) -> None:
-        self.rdf = rdf
-        self.box_volume = volume
-        self.molecules = list(dict.fromkeys(molecule_count))
-        self.molecule_count = molecule_count
-        self.correct_rdf_convergence = correct_rdf_convergence
-        self.apply_damping = apply_damping
-        self.extrapolate_thermodynamic_limit = extrapolate_thermodynamic_limit
+    ) -> "KBIntegrator":
+        """
+        Create KBIntegrator from an RdfParser object.
+
+        Parameters
+        ----------
+        rdf: RdfParser
+            Parsed RDF data with r, g attributes.
+        volume: float
+            Averaged simulation box volume (nm³).
+        molecule_count: dict[str, int]
+            Dictionary mapping molecule names to their counts.
+
+        Returns
+        -------
+        KBIntegrator
+            Initialized integrator with molecules extracted from rdf.fname.
+        """
+        # Extract molecule pair from filename
+        rdf_molecules = RdfParser.extract_molecules(text=rdf.fname, mol_list=list(molecule_count.keys()))
+
+        return cls(
+            r=rdf.r,
+            g=rdf.g,
+            volume=volume,
+            molecule_count=molecule_count,
+            rdf_molecules=rdf_molecules,
+        )
 
     @classmethod
     def from_system_properties(
         cls,
         rdf: RdfParser,
         system_properties: "SystemProperties",
-        correct_rdf_convergence: bool = True,
-        apply_damping: bool = True,
-        extrapolate_thermodynamic_limit: bool = True,
     ) -> "KBIntegrator":
         """
-        Construct a :class:`KBIntegrator` object from :class:`~kbkit.systems.properties.SystemProperties` object.
+        Create KBIntegrator from RdfParser and SystemProperties.
+
+        Automatically extracts volume and molecule_count from system_properties.
 
         Parameters
         ----------
         rdf: RdfParser
-            RdfParser object.
-        system_properties : SystemProperties
-            SystemProperties object for simulation.
-        correct_rdf_convergence: bool, optional
-            Whether to correct RDF for excess/depletion, i.e., Ganguly correction (default: True).
-        apply_damping: bool, optional
-            Whether to apply damping function to correlation function, i.e., Kruger correction (default: True).
-        extrapolate_thermodynamic_limit: bool, optional
-            Whether to extrapolate KBI value to the thermodynamic limit (default: True).
+            Parsed RDF data.
+        system_properties: SystemProperties
+            System properties containing volume and topology.
 
         Returns
         -------
         KBIntegrator
-            Integrator object containing properties necessary to perform KBI corrections.
+            Initialized integrator.
         """
         volume = system_properties.get("volume", units="nm^3", avg=True)
         if not isinstance(volume, float):
-            raise TypeError(f"Expected float, {type(volume)} detected.")
+            raise TypeError(f"Expected float for volume, got {type(volume)}")
 
         molecule_count = system_properties.topology.molecule_count
-        return cls(
+
+        # Delegate to from_rdf_parser for molecule extraction
+        return cls.from_rdf_parser(
             rdf=rdf,
             volume=volume,
             molecule_count=molecule_count,
-            correct_rdf_convergence=correct_rdf_convergence,
-            apply_damping=apply_damping,
-            extrapolate_thermodynamic_limit=extrapolate_thermodynamic_limit,
         )
-
-    @property
-    def rdf_molecules(self) -> list[str]:
-        """Get the molecules corresponding to the RDF file from the system topology.
-
-        Returns
-        -------
-        list
-            List of molecule IDs used in RDF file.
-        """
-        molecules = RdfParser.extract_molecules(text=self.rdf.fname, mol_list=self.molecules)
-        MAGIC_TWO = 2
-        if len(molecules) != MAGIC_TWO:
-            raise ValueError(
-                f"Number of molecules detected in RDF calculation is '{len(molecules)}', expected 2. Check that filname is appropriately named."
-            )
-        return molecules
 
     @property
     def _mol_j(self) -> str:
@@ -132,21 +145,16 @@ class KBIntegrator:
         """Return the Kronecker delta between molecules in RDF, i.e., determines if molecules :math:`i,j` are the same (returns True)."""
         return int(self.rdf_molecules[0] == self.rdf_molecules[1])
 
-    def n_j(self, mol_j: str | None = None) -> int:
+    @property
+    def n_j(self) -> int:
         r"""Number of molecule :math:`j` in the system.
-
-        Parameters
-        ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
         Returns
         -------
         int
             Number of molecules :math:`j` in the system.
         """
-        if mol_j is None:
-            mol_j = self._mol_j
+        mol_j = self._mol_j
 
         # Validate molecule to be used in RDF integration for coordination number calculation.
         if len(mol_j) == 0:
@@ -157,26 +165,21 @@ class KBIntegrator:
         # compute molecule number
         return self.molecule_count[mol_j]
 
-    def ganguly_correction_factor(self, mol_j: str | None = None) -> np.ndarray:
+    def g_vdv(self) -> np.ndarray:
         r"""
         Compute the corrected radial distribution function, accounting for finite-size effects in the simulation box, based on the approach by `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_.
-
-        Parameters
-        ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
         Returns
         -------
         np.ndarray
-            Corrected g(r) values as a numpy array corresponding to distances `r` from the RDF.
+            Factor for correcting RDF so density follows the bulk density of the system.
 
         Notes
         -----
-        The correction is calculated as
+        The correction is calculated as,
 
         .. math::
-            g^{Ganguly}(r) = g(r) \left[ \frac{N_j f(r)}{N_j f(r) - \Delta N_j(r) - \delta_{ij}} \right]
+           g^{vdV}(r) = g(r) \frac{N_j f(r)}{N_j f(r) - \Delta N_j(r) - \delta_{ij}}
 
         .. math::
             f(r) = 1 - \frac{\frac{4}{3} \pi r^3}{\langle V \rangle}
@@ -192,8 +195,9 @@ class KBIntegrator:
          - :math:`r` is the distance
          - :math:`\langle V \rangle` is the box volume
          - :math:`N_j` is the number of particles of type \( j \)
-         - :math:`g(r)` is the raw radial distribution function
+         - :math:`g(r)` is the radial distribution function directly from simulation
          - :math:`\delta_{ij}` is a kronecker delta
+
 
         .. note::
             The cumulative integral :math:`\Delta N_j(r)` is approximated numerically using the trapezoidal rule.
@@ -205,56 +209,48 @@ class KBIntegrator:
             raise ValueError("Simulation box volume required for Ganguly correction!")
 
         # calculate the reduced volume
-        vr = 1 - ((4 / 3) * np.pi * self.rdf.r**3 / self.box_volume)
+        vr = 1 - ((4 / 3) * np.pi * self.r**3 / self.box_volume)
 
         # get the number density for Molecule :math:`j`
-        Nj = self.n_j(mol_j)
-        rho_j = Nj / self.box_volume
+        rho_j = self.n_j / self.box_volume
 
         # function to integrate over
-        f = 4.0 * np.pi * self.rdf.r**2 * rho_j * (self.rdf.g - 1)
+        f = 4.0 * np.pi * self.r**2 * rho_j * (self.g - 1)
         try:
-            Delta_Nj = cumulative_trapezoid(f, x=self.rdf.r, dx=self.rdf.r[1] - self.rdf.r[0])
+            Delta_Nj = cumulative_trapezoid(f, x=self.r, dx=self.r[1] - self.r[0])
             Delta_Nj = np.append(Delta_Nj, Delta_Nj[-1])
         except IndexError as e:
-            raise IndexError(f"RDF file is too short; {len(self.rdf.r)} lines detected!") from e
+            raise IndexError(f"RDF file is too short; {len(self.r)} lines detected!") from e
 
         # correct g(r) with GV correction
-        g_gv = Nj * vr / (Nj * vr - Delta_Nj - self.kronecker_delta())
-        return np.asarray(g_gv)  # make sure that an array is returned
+        vdv_f = self.n_j * vr / (self.n_j * vr - Delta_Nj - self.kronecker_delta())
+        return np.asarray(self.g * vdv_f)  # make sure that an array is returned
 
-    def kruger_damping_factor(self) -> np.ndarray:
+    def hypersphere_weight(self) -> np.ndarray:
         r"""
-        Damp the radial distribution function, which is useful for ensuring that the integral converges properly at larger distances, based on the method described by `Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_.
+        Correct KBI for finite volumes with an exact analytically correct form for hyperspheres, based on the method described by `Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_.
 
         Returns
         -------
         np.ndarray
-           Damping factor for the RDF
+           Correction factor for finite volumes.
 
         Notes
         -----
-        The damping factor, :math:`\omega(r)`, is defined as:
+        The correction factor, :math:`w(r)`, is defined as:
 
         .. math::
-            \omega(r) = \left[1 - \left(\frac{r}{r_{max}}\right)^3\right]
+            w(r) = 1 - \frac{3}{2} \left( \frac{r}{r_{max}} \right) + \frac{1}{2} \left( \frac{r}{r_{max}} \right)^3
 
         where:
             - :math:`r` is the radial distance
-            - :math:`r_{max}` is the maximum radial distance of :math:`r`
+            - :math:`r_{max}` is the maximum value in the RDF, typically half the length of the simulation box
         """
-        return np.asarray(1 - (self.rdf.r / self.rdf.r.max()) ** 3)
+        return np.asarray(1 - (3 / 2) * (self.r / self.r.max()) + (1 / 2) * (self.r / self.r.max()) ** 3)
 
-    def h(self, mol_j: str | None = None) -> np.ndarray:
+    def h_vdv(self) -> np.ndarray:
         r"""
-        Calculate correlation function h(r) from g(r).
-
-        If ``correct_rdf_convergence`` is `True`, Ganguly correction factor is applied.
-
-        Parameters
-        ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+        Calculate correlation function h(r) from van der Vegt corrected g:math:`^{vdV}`(r).
 
         Returns
         -------
@@ -266,25 +262,13 @@ class KBIntegrator:
         The correlation function is defined as:
 
         .. math::
-            h(r) = g(r) - 1
-
+            h(r) = g^{vdV}(r) - 1
         """
-        # apply necessary corrections; here is where ganguly is applied
-        if self.correct_rdf_convergence:
-            return self.ganguly_correction_factor(mol_j=mol_j) * self.rdf.g - 1
-        else:
-            return self.rdf.g - 1
+        return self.g_vdv() - 1
 
-    def rkbi(self, mol_j: str | None = None) -> np.ndarray:
+    def running_kbi(self) -> np.ndarray:
         r"""
         Compute KBI as a function of radial distance between molecules :math:`i` and :math:`j`, i.e., running KBI (RKBI).
-
-        Takes in the correlation function, and applies Kruger damping function if ``apply_damping`` is set to True.
-
-        Parameters
-        ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
 
         Returns
         -------
@@ -296,204 +280,324 @@ class KBIntegrator:
         The KBI is computed using the formula:
 
         .. math::
-            G_{ij}^R = \int_0^R 4 \pi r^2 \omega(r) h(r) dr
+            G_{ij}^R = \int_0^R 4 \pi r^2 w(r) h(r) dr
 
         where:
             - :math:`h(r)` is the correlation function
-            - :math:`\omega(r)` is the damp factor, this is set to 1 if damping is not desired.
+            - :math:`w(r)` is the finite volume correction factor
             - :math:`r` is the radial distance
 
         .. note::
             The integration is performed using the trapezoidal rule.
         """
-        integrand = 4 * np.pi * self.rdf.r**2 * self.h(mol_j)
-        corrected_integrand = self.kruger_damping_factor() * integrand if self.apply_damping else integrand
-        rkbi_arr = cumulative_trapezoid(corrected_integrand, self.rdf.r, initial=0)
+        integrand = 4 * np.pi * self.r**2 * self.h_vdv() * self.hypersphere_weight()
+        rkbi_arr = cumulative_trapezoid(integrand, self.r, initial=0)
         return np.asarray(rkbi_arr)
 
-    def _compute_rkbi(self, mol_j: str | None = None, correct_rdf_convergence: bool = True, apply_damping: bool = True):
-        r"""Enables comparison of various running KBIs."""
-        g = self.ganguly_correction_factor(mol_j=mol_j) * self.rdf.g if correct_rdf_convergence else self.rdf.g
-        omega = self.kruger_damping_factor() if apply_damping else 1
-        integrand = 4 * np.pi * self.rdf.r**2 * omega * (g - 1)
-        rkbi_arr = cumulative_trapezoid(integrand, self.rdf.r, initial=0)
-        return np.asarray(rkbi_arr)
+    @staticmethod
+    def _find_max_linear_range(
+        x: np.ndarray,
+        y: np.ndarray,
+        min_x_range: float,
+        r2_threshold: float = 0.999,
+    ) -> dict:
+        """
+        Find the maximum x-range where linear regression R² stays above threshold.
 
-    def scaled_rkbi(self, mol_j: str | None = None) -> np.ndarray:
-        r"""Product of R and KBI values from 0 \to R.
+        Implements convergence metric:
+        1. Linearity: R² >= r2_threshold
 
         Parameters
         ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+        x : np.ndarray
+            Array of x values (must be strictly increasing).
+        y : np.ndarray
+            Array of y values corresponding to x.
+        min_x_range : float
+            Minimum x-range to consider (must be > 0).
+        r2_threshold : float, optional
+            Desired minimum R² value (default: 0.999).
 
         Returns
         -------
-        np.ndarray
-            R x running KBI corresponding to distances :math:`r` from the RDF.
+        dict
+            - 'x_start'   : Start of the optimal x-range.
+            - 'x_end'     : End of the optimal x-range.
+            - 'x_range'   : Total x-range (x_end - x_start).
+            - 'r2'        : R² value for the optimal range.
+            - 'slope'     : Slope of the linear fit (G_∞).
+            - 'intercept' : Intercept of the linear fit.
+            - 'x_fit'     : x values used in the fit.
+            - 'y_fit'     : y values used in the fit.
+
+        Raises
+        ------
+        LinearityError
+            If no range meets the R² threshold.
         """
-        return self.rdf.r * self.rkbi(mol_j)
+        # --- Input validation ---
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
 
-    def scaled_rkbi_fit(self, mol_j: str | None = None) -> np.ndarray:
-        r"""Compute the product of R and KBI values from :math:`0 \rightarrow R` in the range of [:math:`r_{min}`, :math:`r_{max}`].
+        if x.ndim != 1 or y.ndim != 1:
+            raise ValueError("x and y must be 1D arrays.")
+        if len(x) != len(y):
+            raise ValueError("x and y must have the same length.")
+        MAGIC_THREE = 3
+        if len(x) < MAGIC_THREE:
+            raise ValueError("At least 3 data points are required.")
+        if not np.all(np.diff(x) > 0):
+            raise ValueError("x must be strictly increasing (sorted).")
+        if min_x_range <= 0:
+            raise ValueError("min_x_range must be positive.")
+        if not (0 < r2_threshold <= 1):
+            raise ValueError("r2_threshold must be in the range (0, 1].")
 
-        Parameters
-        ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+        n = len(x)
 
-        Returns
-        -------
-        np.ndarray
-            R x running KBI corresponding to distances :math:`r_{min} \rightarrow r_{max}` from the RDF.
-        """
-        return self.scaled_rkbi(mol_j)[self.rdf.mask]
+        # --- Precompute cumulative sums for O(1) regression stats ---
+        # We need: sum(x), sum(y), sum(x^2), sum(xy), sum(y^2), count
+        cum_x = np.concatenate(([0.0], np.cumsum(x)))
+        cum_y = np.concatenate(([0.0], np.cumsum(y)))
+        cum_x2 = np.concatenate(([0.0], np.cumsum(x * x)))
+        cum_xy = np.concatenate(([0.0], np.cumsum(x * y)))
+        cum_y2 = np.concatenate(([0.0], np.cumsum(y * y)))
 
-    def fit_limit_params(self, mol_j: str | None = None) -> np.ndarray:
+        def compute_regression_fast(i: int, j: int) -> tuple[float, float, float] | None:
+            """
+            Compute slope, intercept, and R² for x[i:j+1] in O(1).
+
+            Returns None if fewer than 3 points or degenerate case.
+            """
+            count = j - i + 1
+            MAGIC_THREE = 3
+            if count < MAGIC_THREE:
+                return None
+
+            sx = cum_x[j + 1] - cum_x[i]
+            sy = cum_y[j + 1] - cum_y[i]
+            sx2 = cum_x2[j + 1] - cum_x2[i]
+            sxy = cum_xy[j + 1] - cum_xy[i]
+            sy2 = cum_y2[j + 1] - cum_y2[i]
+
+            ss_xx = sx2 - (sx * sx) / count
+            ss_yy = sy2 - (sy * sy) / count
+            ss_xy = sxy - (sx * sy) / count
+
+            if ss_xx <= 0 or ss_yy <= 0:
+                return None
+
+            slope = ss_xy / ss_xx
+            intercept = (sy - slope * sx) / count
+            r2 = (ss_xy**2) / (ss_xx * ss_yy)
+
+            return slope, intercept, r2
+
+        # --- Find all valid windows and track slope consistency ---
+        valid_windows = []
+
+        i_start = 0
+        while i_start < n - 1:
+            # Find minimum end index using searchsorted
+            i_min_end = int(np.searchsorted(x, x[i_start] + min_x_range, side="left"))
+
+            if i_min_end >= n:
+                break
+
+            # Check if minimum range meets R² threshold
+            result = compute_regression_fast(i_start, i_min_end)
+            if result is None or result[2] < r2_threshold:
+                i_start += 1
+                continue
+
+            # Expand end index as far as R² allows
+            i_end = i_min_end
+            while i_end + 1 < n:
+                result = compute_regression_fast(i_start, i_end + 1)
+                if result is None or result[2] < r2_threshold:
+                    break
+                i_end += 1
+
+            slope, intercept, r2 = compute_regression_fast(i_start, i_end)
+            valid_windows.append(
+                {
+                    "i_start": i_start,
+                    "i_end": i_end,
+                    "x_start": x[i_start],
+                    "x_end": x[i_end],
+                    "x_range": x[i_end] - x[i_start],
+                    "slope": slope,
+                    "intercept": intercept,
+                    "r2": r2,
+                }
+            )
+
+            i_start += 1
+
+        # --- Check: Linearity Metric ---
+        if not valid_windows:
+            raise LinearityError(
+                f"No x-range of at least {min_x_range} nm found with R² >= {r2_threshold}. "
+                "The running KBI does not exhibit linear scaling with 1/R. "
+                "Consider: (1) running longer simulation, (2) reducing r2_threshold, "
+                "(3) checking RDF convergence."
+            )
+
+        # Select best window (largest range)
+        best_window = max(valid_windows, key=lambda w: w["x_range"])
+
+        # --- Extract final results ---
+        i_start = best_window["i_start"]
+        i_end = best_window["i_end"]
+
+        return {
+            "x_start": best_window["x_start"],
+            "x_end": best_window["x_end"],
+            "x_range": best_window["x_range"],
+            "r2": best_window["r2"],
+            "slope": best_window["slope"],
+            "intercept": best_window["intercept"],
+            "x_fit": x[i_start : i_end + 1],
+            "y_fit": y[i_start : i_end + 1],
+        }
+
+    def fit_running_kbi(
+        self, min_r_range: float = 0.5, r2_threshold: float = 0.999, raise_on_convergence_error: bool = True
+    ) -> dict:
         r"""
-        Fit a linear regression to the product of R and the running KBI values for extrapolation to thermodynamic limit.
-
-        Parameters
-        ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
-
-        Returns
-        -------
-        tuple
-            Tuple containing the slope and intercept of the linear fit, which represents the KBI and surface term in the thermodynamic limit, respectfully.
-
-        Notes
-        -----
-        The KBI in thermodynamic limit, :math:`G_{ij}^\infty`, is calculated according to:
+        Fit linear regression to running KBI for extrapolation to thermodynamic limit.
 
         .. math::
             R G_{ij}^R = R G_{ij}^\infty + F_{ij}^\infty
 
-        where :math:`F_{ij}^\infty` is a finite-size surface offset.
+        where:
+            * :math:`G_{ij}^\infty` is KBI in the thermodynamic limit.
+            * :math:`F_{ij}^\infty` is a finite-size surface offset.
 
-        .. note::
-            The KBI at infinite distance is estimated by fitting a linear model to the product of r and the KBI values, using only the radial distances that are within the specified range [:math:`r_{min}, r_{max}`].
-        """
-        # fit linear regression to masked values
-        return np.polyfit(self.rdf.r_tail, self.scaled_rkbi_fit(mol_j), 1)
-
-    def compute_kbi(self, mol_j: str | None = None) -> float:
-        r"""Compute KBI according the specified corrections.
-
-        If ``extrapolate_thermodynamic_limit`` is set to `True`, extrapolate the KBI to the thermodynamic limit with linear regression.
-        Otherwise, get the average of the tail of the running KBI.
-
+        Implements convergence checks from `Dawass et al. (2020) <https://doi.org/10.3390/nano10040771>`_.
 
         Parameters
         ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+        min_r_range : float
+            Minimum r-range to consider for KBI convergence (must be > 0).
+        r2_threshold : float, optional
+            Desired minimum R² value (default: 0.999).
+        raise_on_convergence_error : bool, optional
+            If True, raises KBIConvergenceError when convergence checks fail.
+            If False, returns NaN and prints warning. Default: True.
+
+        Returns
+        -------
+        dict
+            Fit results including convergence metrics.
+        """
+        r = self.r
+        y = r * self.running_kbi()  # G_R * R vs R
+
+        # Perform linear fit with all convergence checks
+        try:
+            result = self._find_max_linear_range(
+                x=r,
+                y=y,
+                min_x_range=min_r_range,
+                r2_threshold=r2_threshold,
+            )
+            return result
+
+        except KBIConvergenceError as e:
+            if raise_on_convergence_error:
+                raise
+            else:
+                warnings.warn(f"KBI convergence failed: {e}", RuntimeWarning, stacklevel=2)
+                return {}
+
+    def kbi(
+        self, min_r_range: float = 0.5, r2_threshold: float = 0.999, raise_on_convergence_error: bool = True
+    ) -> float:
+        """
+        Compute KBI with comprehensive convergence checking.
+
+        Parameters
+        ----------
+        min_r_range : float
+            Minimum r-range to consider for KBI convergence (must be > 0).
+        r2_threshold : float, optional
+            Desired minimum R² value (default: 0.999).
+        raise_on_convergence_error : bool, optional
+            If True, raises KBIConvergenceError when convergence checks fail.
+            If False, returns NaN and prints warning. Default: True.
 
         Returns
         -------
         float
-            KBI
+            Converged KBI value.
         """
-        if self.extrapolate_thermodynamic_limit:
-            return float(self.fit_limit_params(mol_j)[0])
-        else:
-            return self.rkbi(mol_j=mol_j)[self.rdf.mask].mean()
-
-    def plot_rkbis(self, mol_j: str | None = None, save_dir: str | None = None) -> None:
-        """Plot various types of running KBIs. Includes raw (no corrections), only Ganguly correction, and Ganguly + Kruger correction.
-
-        Parameters
-        ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
-        save_dir: str, optional
-            Directory to save the plot. If not provided, the plot will be displayed but not saved
-        """
-        raw_rkbi = self._compute_rkbi(mol_j=mol_j, correct_rdf_convergence=False, apply_damping=False)
-        g_rkbi = self._compute_rkbi(mol_j=mol_j, correct_rdf_convergence=True, apply_damping=False)
-        gk_rkbi = self._compute_rkbi(mol_j=mol_j, correct_rdf_convergence=True, apply_damping=True)
-
-        fig, ax = plt.subplots(figsize=(5, 4.5))
-        ax.plot(self.rdf.r, raw_rkbi, c="limegreen", alpha=0.6, lw=3, ls="-", label="no corrections")
-        ax.plot(self.rdf.r, g_rkbi, c="tomato", lw=3, ls="-", label="convergence correction")
-        ax.plot(self.rdf.r, gk_rkbi, c="skyblue", lw=3, ls="-", label="convergence + damping correction")
-        ax.set_xlabel(r"$r$ [$nm$]")
-        ax.set_ylabel(r"$\int_0^R 4 \pi r^2 \ \omega (r) \ [g(r) - 1]$")
-        ax.legend(
-            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
-            loc="lower left",
-            mode="expand",
-            borderaxespad=0.0,
+        result = self.fit_running_kbi(
+            min_r_range=min_r_range, r2_threshold=r2_threshold, raise_on_convergence_error=raise_on_convergence_error
         )
+        return float(result.get("slope", np.nan))
 
-        if save_dir is not None:
-            mols = "_".join(self.rdf_molecules)
-            fig.savefig(os.path.join(save_dir, f"rkbis_{mols}.pdf"), dpi=100)
-        plt.show()
-
-    def plot_integrand(self, mol_j: str | None = None, save_dir: str | None = None) -> None:
+    def plot_integrand(self, save_dir: str | None = None) -> None:
         """
-        Plot RDF and integrand for running KBI calculation. Includes demonstrating the effect of damping on the integrand.
+        Plot integrand for running KBI calculation. Includes demonstrating the effect of KBI corrections on the integrand.
 
         Parameters
         ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
         save_dir: str, optional
             Directory to save the plot. If not provided, the plot will be displayed but not saved
         """
-        A = 4 * np.pi * self.rdf.r**2
-        integrand_gv = A * (self.ganguly_correction_factor(mol_j) * self.rdf.g - 1)
-        integrand_damp = self.kruger_damping_factor() * integrand_gv
+        A = 4 * np.pi * self.r**2
+        integrand_uncorr = A * self.h_vdv()
+        integrand_k_anal = A * self.h_vdv() * self.hypersphere_weight()
 
-        fig, ax = plt.subplots(1, 2, figsize=(9, 4), sharex=True)
-        ax[0].plot(self.rdf.r, self.rdf.g, c="skyblue", label="-".join(self.rdf_molecules))
-        ax[0].set_xlabel(r"$r$ [$nm$]")
-        ax[0].set_ylabel(r"$g(r)$")
-        ax[0].legend(fontsize=10)
-
-        ax[1].plot(self.rdf.r, integrand_gv, c="skyblue", label=r"vdV, $\omega(r)=1$")
-        ax[1].plot(self.rdf.r, integrand_damp, c="k", ls="-.", lw=1.2, label=r"vdV + Kr$\ddot{u}$ger, $\omega(r)=1 - \left(\frac{r}{max(r)}\right)^3$")
-        ax[1].set_xlabel(r"$R$ [$nm$]")
-        ax[1].set_ylabel(r"$4 \pi r^2 \ \omega (r) \ [g(r) - 1]$")
-        ax[1].legend(fontsize=10)
-
-        ax[0].set_title("A", fontweight="bold", fontsize=18, family="Arial")
-        ax[1].set_title("B", fontweight="bold", fontsize=18, family="Arial")
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(self.r, integrand_uncorr, c="skyblue", label=r"vdV")
+        ax.plot(self.r, integrand_k_anal, c="crimson", lw=1.2, zorder=3, label=r"vdV + Kr$\ddot{u}$ger")
+        ax.set_xlabel(r"$R$ [$nm$]")
+        ax.set_ylabel(r"$4 \pi r^2 \ w(r) \ [g(r) - 1]$")
+        ax.legend(fontsize=12)
 
         if save_dir is not None:
             mols = "_".join(self.rdf_molecules)
             fig.savefig(os.path.join(save_dir, f"kbi_integrand_{mols}.pdf"), dpi=100)
         plt.show()
 
-    def plot_extrapolation(self, mol_j: str | None = None, save_dir: str | None = None):
+    def plot_extrapolation(
+        self, min_r_range: float = 0.5, r2_threshold: float = 0.999, save_dir: str | None = None
+    ) -> None:
         """Plot RDF and the running KBI fit to thermodynamic limit.
 
         Parameters
         ----------
-        mol_j: str, optional
-            Molecule :math:`j` used for g(r) correction (Ganguly). Defaults to second molecule in RDF filename.
+        min_r_range : float
+            Minimum r-range to consider for KBI convergence (must be > 0).
+        r2_threshold : float, optional
+            Desired minimum R² value (default: 0.999).
         save_dir : str, optional
             Directory to save the plot. If not provided, the plot will be displayed but not saved.
         """
         label = "-".join(self.rdf_molecules)
 
         fig, ax = plt.subplots(1, 3, figsize=(12, 3.6), sharex=True)
-        ax[0].plot(self.rdf.r, self.rdf.g, c="skyblue", label=label)
+        ax[0].plot(self.r, self.g, c="skyblue", label=label)
         ax[0].set_xlabel(r"$r$ [$nm$]")
         ax[0].set_ylabel(r"$g(r)$")
         ax[0].legend()
 
-        ax[1].plot(self.rdf.r, self.rkbi(mol_j), c="skyblue")
+        ax[1].plot(self.r, self.running_kbi(), c="skyblue")
         ax[1].set_xlabel(r"$R$ [$nm$]")
         ax[1].set_ylabel(r"$G_{{ij}}^R$ [$nm^3$]")
 
-        ax[2].plot(self.rdf.r, self.scaled_rkbi(mol_j), c="skyblue")
-        kbi_inf = self.fit_limit_params(mol_j)[0]
+        ax[2].plot(self.r, self.r * self.running_kbi(), c="skyblue")
+        result = self.fit_running_kbi(min_r_range=min_r_range, r2_threshold=r2_threshold)
         ax[2].plot(
-            self.rdf.r_tail, self.scaled_rkbi_fit(mol_j), c="k", ls="--", lw=3, label=rf"G_{{ij}}^\infty={kbi_inf:.3f}"
+            result["x_fit"],
+            result["slope"] * result["x_fit"] + result["intercept"],
+            "k--",
+            lw=3,
+            label=rf"Linear fit (R$^2$={result['r2']:.6f})",
         )
+        ax[2].legend(fontsize=11)
         ax[2].set_xlabel(r"$R$ [$nm$]")
         ax[2].set_ylabel(r"$R \ G_{{ij}}^R$ [$nm^4$]")
 

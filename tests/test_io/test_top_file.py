@@ -1,8 +1,9 @@
 """Unit tests for TopParser class."""
+
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 from pathlib import Path
 
@@ -198,7 +199,7 @@ class TestParseMethod:
         parser = TopParser(sample_top_file)
         parser.parse()
 
-        assert hasattr(parser, '_molecule_count')
+        assert hasattr(parser, "_molecule_count")
         assert isinstance(parser._molecule_count, dict)
         assert len(parser._molecule_count) == 3
 
@@ -351,11 +352,10 @@ class TestReportSkipped:
 
         captured = capsys.readouterr()
         # Should show reasons for skipping
-        assert any(reason in captured.out for reason in [
-            "Missing molecule name or count",
-            "Invalid molecule name format",
-            "Invalid molecule count"
-        ])
+        assert any(
+            reason in captured.out
+            for reason in ["Missing molecule name or count", "Invalid molecule name format", "Invalid molecule count"]
+        )
 
 
 class TestMoleculeCountProperty:

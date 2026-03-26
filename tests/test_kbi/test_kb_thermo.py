@@ -5,10 +5,11 @@ This test suite provides comprehensive coverage of the KBThermo class,
 including thermodynamic property calculations, activity coefficients,
 structure factors, and integration methods.
 """
+
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 from unittest.mock import Mock, patch
 
@@ -29,11 +30,7 @@ def mock_system_collection():
     mock_sc.molecules = ["MOL1", "MOL2"]
     mock_sc.n_i = 2
     # Use only mixtures to avoid singular matrices at pure component limits
-    mock_sc.x = np.array([
-        [0.2, 0.8],
-        [0.5, 0.5],
-        [0.8, 0.2]
-    ])
+    mock_sc.x = np.array([[0.2, 0.8], [0.5, 0.5], [0.8, 0.2]])
     mock_sc.get_mol_index = Mock(side_effect=lambda mol: ["MOL1", "MOL2"].index(mol))
     mock_sc.charges = dict.fromkeys(mock_sc.molecules, 0)
 
@@ -49,19 +46,16 @@ def mock_kbi_result():
     """Create a mock KBI PropertyResult with physically realistic values."""
     # Realistic KBI values for binary liquid mixtures (in nm^3)
     # These values are typical for organic liquid mixtures
-    kbi_values = np.array([
-        # Composition 1: x1=0.2, x2=0.8
-        [[2.5, 1.9],
-         [1.9, 2.2]],
-
-        # Composition 2: x1=0.5, x2=0.5
-        [[2.3, 1.8],
-         [1.8, 2.1]],
-
-        # Composition 3: x1=0.8, x2=0.2
-        [[2.2, 1.7],
-         [1.7, 2.0]]
-    ])
+    kbi_values = np.array(
+        [
+            # Composition 1: x1=0.2, x2=0.8
+            [[2.5, 1.9], [1.9, 2.2]],
+            # Composition 2: x1=0.5, x2=0.5
+            [[2.3, 1.8], [1.8, 2.1]],
+            # Composition 3: x1=0.8, x2=0.2
+            [[2.2, 1.7], [1.7, 2.0]],
+        ]
+    )
 
     mock_result = Mock(spec=PropertyResult)
     mock_result.value = kbi_values
@@ -73,6 +67,7 @@ def mock_kbi_result():
 @pytest.fixture
 def kb_thermo(mock_system_collection, mock_kbi_result):
     """Create a KBThermo instance with mocked dependencies."""
+
     # Setup property mocks
     def create_property_result(value):
         result = Mock(spec=PropertyResult)
@@ -82,26 +77,22 @@ def kb_thermo(mock_system_collection, mock_kbi_result):
 
     # Fix: Make sure all lambda functions accept both name and units
     mock_system_collection.simulated_property = Mock(
-        side_effect=lambda name, units=None: create_property_result(
-            np.array([298.15, 298.15, 298.15]) if "temp" in name.lower()
-            else np.array([0.033, 0.033, 0.033])  # number density
-        )
+        side_effect=lambda name, units=None: np.array([298.15, 298.15, 298.15])
+        if "temp" in name.lower()
+        else np.array([0.033, 0.033, 0.033])  # number density
     )
 
     mock_system_collection.ideal_property = Mock(
-        side_effect=lambda name, units=None: create_property_result(
-            np.array([18.0, 18.0, 18.0]) if "volume" in name.lower()
-            else np.array([9.2, 9.0, 8.8])  # electron count (weighted by composition)
-        )
+        side_effect=lambda name, units=None: np.array([18.0, 18.0, 18.0])
+        if "volume" in name.lower()
+        else np.array([9.2, 9.0, 8.8])  # electron count (weighted by composition)
     )
 
-    mock_system_collection.pure_property = Mock(
-        side_effect=lambda name=None: create_property_result(np.array([10, 8]))
-    )
+    mock_system_collection.pure_property = Mock(side_effect=lambda name=None: np.array([10, 8]))
 
-    mock_system_collection.excess_property = Mock(
-        side_effect=lambda name, units=None: create_property_result(np.array([-1.5, -2.0, -1.5]))
-    )
+    mock_system_collection.has_all_required_pures = Mock(return_value=True)
+
+    mock_system_collection.excess_property = Mock(side_effect=lambda name, units=None: np.array([-1.5, -2.0, -1.5]))
 
     return KBThermo(mock_system_collection, mock_kbi_result)
 
@@ -126,7 +117,7 @@ class TestKBThermoInitialization:
             mock_system_collection,
             mock_kbi_result,
             activity_integration_type="polynomial",
-            activity_polynomial_degree=7
+            activity_polynomial_degree=7,
         )
 
         assert kb.activity_integration_type == "polynomial"
@@ -134,11 +125,7 @@ class TestKBThermoInitialization:
 
     def test_init_converts_integration_type_to_lowercase(self, mock_system_collection, mock_kbi_result):
         """Test that integration type is converted to lowercase."""
-        kb = KBThermo(
-            mock_system_collection,
-            mock_kbi_result,
-            activity_integration_type="POLYNOMIAL"
-        )
+        kb = KBThermo(mock_system_collection, mock_kbi_result, activity_integration_type="POLYNOMIAL")
 
         assert kb.activity_integration_type == "polynomial"
 
@@ -276,16 +263,19 @@ class TestKBThermoAInvAndA:
     def test_A_raises_on_singular_matrix(self, kb_thermo):
         """Test that A raises error for singular B."""
         # Create a singular B matrix (rows/columns are linearly dependent)
-        B_singular = np.array([
-            [[1.0, 1.0], [1.0, 1.0]],  # Singular: rows are identical
-            [[2.0, 2.0], [2.0, 2.0]],
-            [[3.0, 3.0], [3.0, 3.0]]
-        ])
+        B_singular = np.array(
+            [
+                [[1.0, 1.0], [1.0, 1.0]],  # Singular: rows are identical
+                [[2.0, 2.0], [2.0, 2.0]],
+                [[3.0, 3.0], [3.0, 3.0]],
+            ]
+        )
 
         # Patch the B method to return singular matrix
-        with patch.object(kb_thermo, 'B', return_value=B_singular):
+        with patch.object(kb_thermo, "B", return_value=B_singular):
             with pytest.raises(ValueError, match="singular and cannot be inverted"):
                 _ = kb_thermo.A()
+
 
 class TestKBThermoStabilityMetrics:
     """Test stability-related calculations."""
@@ -370,7 +360,7 @@ class TestKBThermoActivityCoefficients:
         ref_state = kb_thermo._get_ref_state("MOL1")
 
         # Could be either pure or infinite dilution depending on max composition
-        assert ref_state in (0., 1.)
+        assert ref_state in (0.0, 1.0)
 
     def test_get_weights_returns_array(self, kb_thermo):
         """Test _get_weights returns array."""
@@ -409,14 +399,14 @@ class TestKBThermoActivityIntegration:
         xi = np.array([0.2, 0.5, 0.8])
         dlng = np.array([0.1, 0.5, 0.2])
 
-    # Request degree 10 with only 3 points - expect warning
+        # Request degree 10 with only 3 points - expect warning
         import warnings
+
         with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', message="Polyfit may be poorly conditioned")
+            warnings.filterwarnings("ignore", message="Polyfit may be poorly conditioned")
             result = kb_thermo._integrate_polynomial(xi, dlng, 0.5, "MOL1", degree=10)
 
         assert isinstance(result, np.ndarray)
-
 
     def test_integrate_numerical_returns_array(self, kb_thermo):
         """Test _integrate_numerical returns array."""
@@ -715,7 +705,7 @@ class TestKBThermoResults:
 class TestKBThermoPlotter:
     """Test plotter method."""
 
-    @patch('kbkit.kbi.thermodynamics.ThermoPlotter')
+    @patch("kbkit.kbi.thermodynamics.ThermoPlotter")
     def test_plotter_creates_thermo_plotter(self, mock_plotter_class, kb_thermo):
         """Test that plotter creates ThermoPlotter."""
         mock_plotter = Mock(spec=ThermoPlotter)
@@ -726,7 +716,7 @@ class TestKBThermoPlotter:
         mock_plotter_class.assert_called_once_with(kb_thermo, molecule_map={"MOL1": "Molecule 1"})
         assert result == mock_plotter
 
-    @patch('kbkit.kbi.thermodynamics.ThermoPlotter')
+    @patch("kbkit.kbi.thermodynamics.ThermoPlotter")
     def test_plotter_without_molecule_map(self, mock_plotter_class, kb_thermo):
         """Test plotter without molecule_map."""
         mock_plotter = Mock(spec=ThermoPlotter)
@@ -742,41 +732,25 @@ class TestKBThermoIntegration:
 
     def test_full_workflow_numerical_integration(self, mock_system_collection, mock_kbi_result):
         """Test complete workflow with numerical integration."""
-        # Setup mocks
-        def create_property_result(value):
-            result = Mock(spec=PropertyResult)
-            result.value = value
-            result.to = Mock(return_value=result)
-            return result
-
+        # Setup mocks - return numpy arrays directly, not PropertyResult objects
         mock_system_collection.simulated_property = Mock(
-            side_effect=lambda name, units=None: create_property_result(
-                np.array([298.15, 298.15, 298.15]) if "temp" in name.lower()
-                else np.array([0.033, 0.033, 0.033])
+            side_effect=lambda name, units=None: (
+                np.array([298.15, 298.15, 298.15]) if "temp" in name.lower() else np.array([0.033, 0.033, 0.033])
             )
         )
 
         mock_system_collection.ideal_property = Mock(
-            side_effect=lambda name, units=None: create_property_result(
-                np.array([18.0, 18.0, 18.0]) if "volume" in name.lower()
-                else np.array([9.2, 9.0, 8.8])
+            side_effect=lambda name, units=None: (
+                np.array([18.0, 18.0, 18.0]) if "volume" in name.lower() else np.array([9.2, 9.0, 8.8])
             )
         )
 
-        mock_system_collection.pure_property = Mock(
-            side_effect=lambda name=None: create_property_result(np.array([10, 8]))
-        )
+        mock_system_collection.pure_property = Mock(side_effect=lambda name=None: np.array([10, 8]))
 
-        mock_system_collection.excess_property = Mock(
-            side_effect=lambda name, units=None: create_property_result(np.array([-1.5, -2.0, -1.5]))
-        )
+        mock_system_collection.excess_property = Mock(side_effect=lambda name, units=None: np.array([-1.5, -2.0, -1.5]))
 
         # Create KBThermo
-        kb = KBThermo(
-            mock_system_collection,
-            mock_kbi_result,
-            activity_integration_type="numerical"
-        )
+        kb = KBThermo(mock_system_collection, mock_kbi_result, activity_integration_type="numerical")
 
         # Calculate various properties
         kbi = kb.kbi()
@@ -796,41 +770,29 @@ class TestKBThermoIntegration:
 
     def test_full_workflow_polynomial_integration(self, mock_system_collection, mock_kbi_result):
         """Test complete workflow with polynomial integration."""
-        # Setup mocks (same as numerical)
-        def create_property_result(value):
-            result = Mock(spec=PropertyResult)
-            result.value = value
-            result.to = Mock(return_value=result)
-            return result
-
+        # Setup mocks - return numpy arrays directly, not PropertyResult objects
         mock_system_collection.simulated_property = Mock(
-            side_effect=lambda name, units=None: create_property_result(
-                np.array([298.15, 298.15, 298.15]) if "temp" in name.lower()
-                else np.array([0.033, 0.033, 0.033])
+            side_effect=lambda name, units=None: (
+                np.array([298.15, 298.15, 298.15]) if "temp" in name.lower() else np.array([0.033, 0.033, 0.033])
             )
         )
 
         mock_system_collection.ideal_property = Mock(
-            side_effect=lambda name, units=None: create_property_result(
-                np.array([18.0, 18.0, 18.0]) if "volume" in name.lower()
-                else np.array([9.2, 9.0, 8.8])
+            side_effect=lambda name, units=None: (
+                np.array([18.0, 18.0, 18.0]) if "volume" in name.lower() else np.array([9.2, 9.0, 8.8])
             )
         )
 
-        mock_system_collection.pure_property = Mock(
-            side_effect=lambda name=None: create_property_result(np.array([10, 8]))
-        )
+        mock_system_collection.pure_property = Mock(side_effect=lambda name=None: np.array([10, 8]))
 
-        mock_system_collection.excess_property = Mock(
-            side_effect=lambda name, units=None: create_property_result(np.array([-1.5, -2.0, -1.5]))
-        )
+        mock_system_collection.excess_property = Mock(side_effect=lambda name, units=None: np.array([-1.5, -2.0, -1.5]))
 
         # Create KBThermo with polynomial integration
         kb = KBThermo(
             mock_system_collection,
             mock_kbi_result,
             activity_integration_type="polynomial",
-            activity_polynomial_degree=3
+            activity_polynomial_degree=3,
         )
 
         # Calculate activity coefficients
@@ -856,6 +818,6 @@ class TestKBThermoEdgeCases:
         """Test handling of division by zero in calculations."""
         # Many methods use np.errstate to handle this
         # Should not raise warnings or errors
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             g_id = kb_thermo.g_id()
             assert isinstance(g_id, np.ndarray)

@@ -4,10 +4,11 @@ Unit tests for the SystemCollection module.
 This test suite provides comprehensive coverage of the SystemCollection class,
 including system discovery, metadata creation, property access, and plotting.
 """
+
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 from pathlib import Path
 from unittest.mock import Mock, PropertyMock, patch
@@ -228,7 +229,7 @@ MOL2    50
 class TestSystemCollectionFindPureSystems:
     """Test the _find_pure_systems static method."""
 
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
     def test_find_pure_systems_exact_match(self, mock_extract_temp, tmp_path):
         """Test finding pure systems with exact temperature match."""
         # Create mock directories
@@ -239,16 +240,14 @@ class TestSystemCollectionFindPureSystems:
 
         mock_extract_temp.return_value = 298.0
 
-        result = SystemCollection._find_pure_systems(
-            tmp_path, ["MOL1", "MOL2"], 298.0
-        )
+        result = SystemCollection._find_pure_systems(tmp_path, ["MOL1", "MOL2"], 298.0)
 
         assert "MOL1" in result
         assert "MOL2" in result
         assert result["MOL1"] == pure_mol1
         assert result["MOL2"] == pure_mol2
 
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
     def test_find_pure_systems_temperature_threshold(self, mock_extract_temp, tmp_path):
         """Test finding pure systems within temperature threshold."""
         pure_mol1 = tmp_path / "pure_MOL1_299K"
@@ -256,15 +255,13 @@ class TestSystemCollectionFindPureSystems:
 
         mock_extract_temp.return_value = 299.5
 
-        result = SystemCollection._find_pure_systems(
-            tmp_path, ["MOL1"], 298.0
-        )
+        result = SystemCollection._find_pure_systems(tmp_path, ["MOL1"], 298.0)
 
         # Within 2K threshold
         assert "MOL1" in result
         assert result["MOL1"] == pure_mol1
 
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
     def test_find_pure_systems_outside_threshold(self, mock_extract_temp, tmp_path):
         """Test that systems outside temperature threshold are excluded."""
         pure_mol1 = tmp_path / "pure_MOL1_310K"
@@ -272,14 +269,12 @@ class TestSystemCollectionFindPureSystems:
 
         mock_extract_temp.return_value = 310.0
 
-        result = SystemCollection._find_pure_systems(
-            tmp_path, ["MOL1"], 298.0
-        )
+        result = SystemCollection._find_pure_systems(tmp_path, ["MOL1"], 298.0)
 
         # Outside 2K threshold
         assert result == {}
 
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
     def test_find_pure_systems_no_temperature(self, mock_extract_temp, tmp_path):
         """Test finding pure systems when temperature extraction returns None."""
         pure_mol1 = tmp_path / "pure_MOL1"
@@ -287,13 +282,11 @@ class TestSystemCollectionFindPureSystems:
 
         mock_extract_temp.return_value = None
 
-        result = SystemCollection._find_pure_systems(
-            tmp_path, ["MOL1"], 298.0
-        )
+        result = SystemCollection._find_pure_systems(tmp_path, ["MOL1"], 298.0)
 
         assert result == {}
 
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
     def test_find_pure_systems_scoring(self, mock_extract_temp, tmp_path):
         """Test that scoring prefers directories with more molecule matches."""
         # Create competing directories
@@ -304,14 +297,12 @@ class TestSystemCollectionFindPureSystems:
 
         mock_extract_temp.return_value = 298.0
 
-        result = SystemCollection._find_pure_systems(
-            tmp_path, ["MOL1", "MOL2"], 298.0
-        )
+        result = SystemCollection._find_pure_systems(tmp_path, ["MOL1", "MOL2"], 298.0)
 
         # Should prefer the one with higher score
         assert result["MOL1"] == pure_mol1_b
 
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
     def test_find_pure_systems_case_insensitive(self, mock_extract_temp, tmp_path):
         """Test that molecule matching is case-insensitive."""
         pure_mol1 = tmp_path / "pure_mol1_298K"
@@ -319,9 +310,7 @@ class TestSystemCollectionFindPureSystems:
 
         mock_extract_temp.return_value = 298.0
 
-        result = SystemCollection._find_pure_systems(
-            tmp_path, ["MOL1"], 298.0
-        )
+        result = SystemCollection._find_pure_systems(tmp_path, ["MOL1"], 298.0)
 
         assert "MOL1" in result
 
@@ -350,7 +339,7 @@ class TestSystemCollectionExtractTemp:
 
         assert temp == 298.0
 
-    @patch('kbkit.systems.collection.EdrParser')
+    @patch("kbkit.systems.collection.EdrParser")
     def test_extract_temp_from_edr_file(self, mock_edr_parser, tmp_path):
         """Test extracting temperature from .edr file."""
         edr_file = tmp_path / "system.edr"
@@ -365,8 +354,8 @@ class TestSystemCollectionExtractTemp:
         assert temp == 298.15
         mock_parser_instance.get_gmx_property.assert_called_once_with("temperature", avg=True)
 
-    @patch('kbkit.systems.collection.SystemProperties.find_files')
-    @patch('kbkit.systems.collection.EdrParser')
+    @patch("kbkit.systems.collection.SystemProperties.find_files")
+    @patch("kbkit.systems.collection.EdrParser")
     def test_extract_temp_from_directory(self, mock_edr_parser, mock_find_files, tmp_path):
         """Test extracting temperature from directory containing .edr."""
         edr_file = tmp_path / "system.edr"
@@ -453,7 +442,7 @@ class TestSystemCollectionIsValid:
 class TestSystemCollectionFindReferenceDir:
     """Test the _find_reference_dir static method."""
 
-    @patch('kbkit.systems.collection.SystemCollection._is_valid')
+    @patch("kbkit.systems.collection.SystemCollection._is_valid")
     def test_find_reference_dir_in_parent(self, mock_is_valid, tmp_path):
         """Test finding reference directory in parent."""
         pure_dir = tmp_path / "pure_components"
@@ -468,7 +457,7 @@ class TestSystemCollectionFindReferenceDir:
 
         assert result == pure_dir
 
-    @patch('kbkit.systems.collection.SystemCollection._is_valid')
+    @patch("kbkit.systems.collection.SystemCollection._is_valid")
     def test_find_reference_dir_multiple_keywords(self, mock_is_valid, tmp_path):
         """Test finding reference directory with different keywords."""
         for keyword in ["pure", "single", "ref", "neat"]:
@@ -482,14 +471,13 @@ class TestSystemCollectionFindReferenceDir:
             assert keyword in result.name.lower()
             break
 
-    @patch('kbkit.systems.collection.SystemCollection._is_valid')
+    @patch("kbkit.systems.collection.SystemCollection._is_valid")
     def test_find_reference_dir_not_found(self, mock_is_valid, tmp_path):
         """Test when no reference directory is found."""
         mock_is_valid.return_value = False
 
         with pytest.raises(FileNotFoundError, match="No parent directories for pure-components were found"):
             SystemCollection._find_reference_dir(tmp_path)
-
 
 
 class TestSystemCollectionResolveRDFPath:
@@ -549,8 +537,8 @@ class TestSystemCollectionResolveRDFPath:
 class TestSystemCollectionMakeMeta:
     """Test the _make_meta static method."""
 
-    @patch('kbkit.systems.collection.SystemProperties')
-    @patch('kbkit.systems.collection.SystemMetadata')
+    @patch("kbkit.systems.collection.SystemProperties")
+    @patch("kbkit.systems.collection.SystemMetadata")
     def test_make_meta_creates_metadata(self, mock_metadata_class, mock_props_class, tmp_path):
         """Test that _make_meta creates SystemMetadata correctly."""
         rdf_path = tmp_path / "rdf"
@@ -561,22 +549,14 @@ class TestSystemCollectionMakeMeta:
         mock_meta = Mock()
         mock_metadata_class.return_value = mock_meta
 
-        result = SystemCollection._make_meta(
-            tmp_path, "mixture", rdf_path, start_time=5000, include="npt"
-        )
+        result = SystemCollection._make_meta(tmp_path, "mixture", rdf_path, start_time=5000, include="npt")
 
         mock_metadata_class.assert_called_once_with(
-            name=tmp_path.name,
-            kind="mixture",
-            path=tmp_path,
-            rdf_path=rdf_path,
-            props=mock_props
+            name=tmp_path.name, kind="mixture", path=tmp_path, rdf_path=rdf_path, props=mock_props
         )
 
         # SystemProperties is called with str(path), not path
-        mock_props_class.assert_called_once_with(
-            str(tmp_path), start_time=5000, include="npt"
-        )
+        mock_props_class.assert_called_once_with(str(tmp_path), start_time=5000, include="npt")
 
         assert result == mock_meta
 
@@ -606,6 +586,7 @@ class TestSystemCollectionSortSystems:
 
         # Shuffle to test sorting
         import random
+
         random.shuffle(systems)
 
         sorted_systems = SystemCollection._sort_systems(systems, molecules)
@@ -840,7 +821,7 @@ class TestSystemCollectionGetMethods:
         """Test get_units method."""
         sc = SystemCollection(sample_systems, sample_molecules)
 
-        with patch.object(SystemCollection, 'units', new_callable=PropertyMock) as mock_units:
+        with patch.object(SystemCollection, "units", new_callable=PropertyMock) as mock_units:
             mock_units.return_value = {"temperature": "K", "pressure": "bar"}
             sc._units = {"temperature": "K", "pressure": "bar"}
 
@@ -851,7 +832,7 @@ class TestSystemCollectionGetMethods:
         """Test get_units returns empty string for unknown property."""
         sc = SystemCollection(sample_systems, sample_molecules)
 
-        with patch.object(SystemCollection, 'units', new_callable=PropertyMock) as mock_units:
+        with patch.object(SystemCollection, "units", new_callable=PropertyMock) as mock_units:
             mock_units.return_value = {}
 
             assert sc.get_units("UnknownProperty") == ""
@@ -1012,12 +993,11 @@ class TestSystemCollectionPropertyMethods:
 
         result = sc.ideal_property(name="Density", mixing_rule="linear", units="kg/m^3", avg=True)
 
-        assert isinstance(result, PropertyResult)
-        assert result.property_type == "ideal"
+        assert isinstance(result, np.ndarray)
         # Pure MOL1: 1.0 * 1000 + 0.0 * 800 = 1000
         # Mixture: 0.5 * 1000 + 0.5 * 800 = 900
         # Pure MOL2: 0.0 * 1000 + 1.0 * 800 = 800
-        np.testing.assert_array_almost_equal(result.value, [1000.0, 900.0, 800.0])
+        np.testing.assert_array_almost_equal(result, [1000.0, 900.0, 800.0])
 
     def test_ideal_property_volume_weighted_mixing(self, sample_systems, sample_molecules):
         """Test ideal_property with volume-weighted mixing rule."""
@@ -1067,9 +1047,9 @@ class TestSystemCollectionPropertyMethods:
         # Pure MOL1: 1 / (1.0/1000 + 0.0/800) = 1000
         # Mixture: 1 / (0.5/1000 + 0.5/800) = 888.89
         # Pure MOL2: 1 / (0.0/1000 + 1.0/800) = 800
-        assert result.value[0] == pytest.approx(1000.0)
-        assert result.value[1] == pytest.approx(888.89, rel=1e-2)
-        assert result.value[2] == pytest.approx(800.0)
+        assert result[0] == pytest.approx(1000.0)
+        assert result[1] == pytest.approx(888.89, rel=1e-2)
+        assert result[2] == pytest.approx(800.0)
 
     def test_ideal_property_raises_on_invalid_mixing_rule(self, sample_molecules):
         """Test ideal_property raises error for invalid mixing rule."""
@@ -1145,19 +1125,17 @@ class TestSystemCollectionPropertyMethods:
 
         result = sc.excess_property(name="Density", mixing_rule="linear", units="kg/m^3", avg=True)
 
-        assert isinstance(result, PropertyResult)
-        assert result.property_type == "excess"
+        assert isinstance(result, np.ndarray)
         # Pure MOL1: 1000 - 1000 = 0
         # Mixture: 920 - 900 = 20
         # Pure MOL2: 800 - 800 = 0
-        np.testing.assert_array_almost_equal(result.value, [0.0, 20.0, 0.0])
-
+        np.testing.assert_array_almost_equal(result, [0.0, 20.0, 0.0])
 
 
 class TestSystemCollectionPlotters:
     """Test plotter creation methods."""
 
-    @patch('kbkit.systems.collection.TimeseriesPlotter.from_collection')
+    @patch("kbkit.systems.collection.TimeseriesPlotter.from_collection")
     def test_timeseries_plotter(self, mock_from_collection, sample_systems, sample_molecules):
         """Test timeseries_plotter method."""
         mock_plotter = Mock(spec=TimeseriesPlotter)
@@ -1167,28 +1145,34 @@ class TestSystemCollectionPlotters:
 
         result = sc.timeseries_plotter("test_system", start_time=5000)
 
-        mock_from_collection.assert_called_once_with(
-            sc, system_name="test_system", start_time=5000
-        )
+        mock_from_collection.assert_called_once_with(sc, system_name="test_system", start_time=5000)
         assert result == mock_plotter
 
 
 class TestSystemCollectionLoad:
     """Test the load class method."""
 
-    @patch('kbkit.systems.collection.SystemCollection._sort_systems')
-    @patch('kbkit.systems.collection.SystemCollection._make_meta')
-    @patch('kbkit.systems.collection.SystemCollection._resolve_rdf_path')
-    @patch('kbkit.systems.collection.SystemCollection._find_pure_systems')
-    @patch('kbkit.systems.collection.SystemCollection._find_reference_dir')
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
-    @patch('kbkit.systems.collection.SystemCollection._peek_molecules')
-    @patch('kbkit.systems.collection.SystemCollection._is_valid')
-    @patch('kbkit.systems.collection.validate_path')
+    @patch("kbkit.systems.collection.SystemCollection._sort_systems")
+    @patch("kbkit.systems.collection.SystemCollection._make_meta")
+    @patch("kbkit.systems.collection.SystemCollection._resolve_rdf_path")
+    @patch("kbkit.systems.collection.SystemCollection._find_pure_systems")
+    @patch("kbkit.systems.collection.SystemCollection._find_reference_dir")
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
+    @patch("kbkit.systems.collection.SystemCollection._peek_molecules")
+    @patch("kbkit.systems.collection.SystemCollection._is_valid")
+    @patch("kbkit.systems.collection.validate_path")
     def test_load_with_explicit_base_systems(
-        self, mock_validate_path, mock_is_valid, mock_peek_molecules,
-        mock_extract_temp, mock_find_reference_dir, mock_find_pure_systems,
-        mock_resolve_rdf_path, mock_make_meta, mock_sort_systems, tmp_path
+        self,
+        mock_validate_path,
+        mock_is_valid,
+        mock_peek_molecules,
+        mock_extract_temp,
+        mock_find_reference_dir,
+        mock_find_pure_systems,
+        mock_resolve_rdf_path,
+        mock_make_meta,
+        mock_sort_systems,
+        tmp_path,
     ):
         """Test load with explicitly specified base systems."""
         base_path = tmp_path / "mixtures"
@@ -1216,27 +1200,32 @@ class TestSystemCollectionLoad:
         mock_make_meta.return_value = mock_meta
         mock_sort_systems.return_value = [mock_meta]
 
-        result = SystemCollection.load(
-            base_path=str(base_path),
-            base_systems=["sys1"]
-        )
+        result = SystemCollection.load(base_path=str(base_path), base_systems=["sys1"])
 
         assert isinstance(result, SystemCollection)
         assert len(result._systems) == 1
 
-    @patch('kbkit.systems.collection.SystemCollection._sort_systems')
-    @patch('kbkit.systems.collection.SystemCollection._make_meta')
-    @patch('kbkit.systems.collection.SystemCollection._resolve_rdf_path')
-    @patch('kbkit.systems.collection.SystemCollection._find_pure_systems')
-    @patch('kbkit.systems.collection.SystemCollection._find_reference_dir')
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
-    @patch('kbkit.systems.collection.SystemCollection._peek_molecules')
-    @patch('kbkit.systems.collection.SystemCollection._is_valid')
-    @patch('kbkit.systems.collection.validate_path')
+    @patch("kbkit.systems.collection.SystemCollection._sort_systems")
+    @patch("kbkit.systems.collection.SystemCollection._make_meta")
+    @patch("kbkit.systems.collection.SystemCollection._resolve_rdf_path")
+    @patch("kbkit.systems.collection.SystemCollection._find_pure_systems")
+    @patch("kbkit.systems.collection.SystemCollection._find_reference_dir")
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
+    @patch("kbkit.systems.collection.SystemCollection._peek_molecules")
+    @patch("kbkit.systems.collection.SystemCollection._is_valid")
+    @patch("kbkit.systems.collection.validate_path")
     def test_load_discovers_systems_automatically(
-        self, mock_validate_path, mock_is_valid, mock_peek_molecules,
-        mock_extract_temp, mock_find_reference_dir, mock_find_pure_systems,
-        mock_resolve_rdf_path, mock_make_meta, mock_sort_systems, tmp_path
+        self,
+        mock_validate_path,
+        mock_is_valid,
+        mock_peek_molecules,
+        mock_extract_temp,
+        mock_find_reference_dir,
+        mock_find_pure_systems,
+        mock_resolve_rdf_path,
+        mock_make_meta,
+        mock_sort_systems,
+        tmp_path,
     ):
         """Test load discovers systems automatically."""
         base_path = tmp_path / "mixtures"
@@ -1268,19 +1257,27 @@ class TestSystemCollectionLoad:
 
         assert isinstance(result, SystemCollection)
 
-    @patch('kbkit.systems.collection.SystemCollection._sort_systems')
-    @patch('kbkit.systems.collection.SystemCollection._make_meta')
-    @patch('kbkit.systems.collection.SystemCollection._resolve_rdf_path')
-    @patch('kbkit.systems.collection.SystemCollection._find_pure_systems')
-    @patch('kbkit.systems.collection.SystemCollection._find_reference_dir')
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
-    @patch('kbkit.systems.collection.SystemCollection._peek_molecules')
-    @patch('kbkit.systems.collection.SystemCollection._is_valid')
-    @patch('kbkit.systems.collection.validate_path')
+    @patch("kbkit.systems.collection.SystemCollection._sort_systems")
+    @patch("kbkit.systems.collection.SystemCollection._make_meta")
+    @patch("kbkit.systems.collection.SystemCollection._resolve_rdf_path")
+    @patch("kbkit.systems.collection.SystemCollection._find_pure_systems")
+    @patch("kbkit.systems.collection.SystemCollection._find_reference_dir")
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
+    @patch("kbkit.systems.collection.SystemCollection._peek_molecules")
+    @patch("kbkit.systems.collection.SystemCollection._is_valid")
+    @patch("kbkit.systems.collection.validate_path")
     def test_load_with_explicit_pure_systems(
-        self, mock_validate_path, mock_is_valid, mock_peek_molecules,
-        mock_extract_temp, mock_find_reference_dir, mock_find_pure_systems,
-        mock_resolve_rdf_path, mock_make_meta, mock_sort_systems, tmp_path
+        self,
+        mock_validate_path,
+        mock_is_valid,
+        mock_peek_molecules,
+        mock_extract_temp,
+        mock_find_reference_dir,
+        mock_find_pure_systems,
+        mock_resolve_rdf_path,
+        mock_make_meta,
+        mock_sort_systems,
+        tmp_path,
     ):
         """Test load with explicitly specified pure systems."""
         base_path = tmp_path / "mixtures"
@@ -1304,8 +1301,7 @@ class TestSystemCollectionLoad:
         mock_meta_pure = Mock(spec=SystemMetadata)
         mock_meta_pure.name = "MOL1"
 
-        for mock_meta, counts in [(mock_meta_mixture, {"MOL1": 50, "MOL2": 50}),
-                                   (mock_meta_pure, {"MOL1": 100})]:
+        for mock_meta, counts in [(mock_meta_mixture, {"MOL1": 50, "MOL2": 50}), (mock_meta_pure, {"MOL1": 100})]:
             mock_topology = Mock()
             mock_topology.molecule_count = counts
             mock_topology.total_molecules = sum(counts.values())
@@ -1316,27 +1312,31 @@ class TestSystemCollectionLoad:
         mock_make_meta.side_effect = [mock_meta_pure, mock_meta_mixture]
         mock_sort_systems.return_value = [mock_meta_pure, mock_meta_mixture]
 
-        result = SystemCollection.load(
-            base_path=str(base_path),
-            pure_path=str(pure_path),
-            pure_systems=["MOL1"]
-        )
+        result = SystemCollection.load(base_path=str(base_path), pure_path=str(pure_path), pure_systems=["MOL1"])
 
         assert isinstance(result, SystemCollection)
 
-    @patch('kbkit.systems.collection.SystemCollection._sort_systems')
-    @patch('kbkit.systems.collection.SystemCollection._make_meta')
-    @patch('kbkit.systems.collection.SystemCollection._resolve_rdf_path')
-    @patch('kbkit.systems.collection.SystemCollection._find_pure_systems')
-    @patch('kbkit.systems.collection.SystemCollection._find_reference_dir')
-    @patch('kbkit.systems.collection.SystemCollection._extract_temp')
-    @patch('kbkit.systems.collection.SystemCollection._peek_molecules')
-    @patch('kbkit.systems.collection.SystemCollection._is_valid')
-    @patch('kbkit.systems.collection.validate_path')
+    @patch("kbkit.systems.collection.SystemCollection._sort_systems")
+    @patch("kbkit.systems.collection.SystemCollection._make_meta")
+    @patch("kbkit.systems.collection.SystemCollection._resolve_rdf_path")
+    @patch("kbkit.systems.collection.SystemCollection._find_pure_systems")
+    @patch("kbkit.systems.collection.SystemCollection._find_reference_dir")
+    @patch("kbkit.systems.collection.SystemCollection._extract_temp")
+    @patch("kbkit.systems.collection.SystemCollection._peek_molecules")
+    @patch("kbkit.systems.collection.SystemCollection._is_valid")
+    @patch("kbkit.systems.collection.validate_path")
     def test_load_discovers_pure_systems_automatically(
-        self, mock_validate_path, mock_is_valid, mock_peek_molecules,
-        mock_extract_temp, mock_find_reference_dir, mock_find_pure_systems,
-        mock_resolve_rdf_path, mock_make_meta, mock_sort_systems, tmp_path
+        self,
+        mock_validate_path,
+        mock_is_valid,
+        mock_peek_molecules,
+        mock_extract_temp,
+        mock_find_reference_dir,
+        mock_find_pure_systems,
+        mock_resolve_rdf_path,
+        mock_make_meta,
+        mock_sort_systems,
+        tmp_path,
     ):
         """Test load discovers pure systems automatically."""
         base_path = tmp_path / "mixtures"
@@ -1362,8 +1362,7 @@ class TestSystemCollectionLoad:
         mock_meta_pure = Mock(spec=SystemMetadata)
         mock_meta_pure.name = "MOL1"
 
-        for mock_meta, counts in [(mock_meta_mixture, {"MOL1": 50, "MOL2": 50}),
-                                   (mock_meta_pure, {"MOL1": 100})]:
+        for mock_meta, counts in [(mock_meta_mixture, {"MOL1": 50, "MOL2": 50}), (mock_meta_pure, {"MOL1": 100})]:
             mock_topology = Mock()
             mock_topology.molecule_count = counts
             mock_topology.total_molecules = sum(counts.values())
@@ -1379,16 +1378,22 @@ class TestSystemCollectionLoad:
         assert isinstance(result, SystemCollection)
         mock_find_pure_systems.assert_called_once()
 
-    @patch('kbkit.systems.collection.SystemCollection._sort_systems')
-    @patch('kbkit.systems.collection.SystemCollection._make_meta')
-    @patch('kbkit.systems.collection.SystemCollection._resolve_rdf_path')
-    @patch('kbkit.systems.collection.SystemCollection._find_reference_dir')
-    @patch('kbkit.systems.collection.SystemCollection._peek_molecules')
-    @patch('kbkit.systems.collection.SystemCollection._is_valid')
-    @patch('kbkit.systems.collection.validate_path')
+    @patch("kbkit.systems.collection.SystemCollection._sort_systems")
+    @patch("kbkit.systems.collection.SystemCollection._make_meta")
+    @patch("kbkit.systems.collection.SystemCollection._resolve_rdf_path")
+    @patch("kbkit.systems.collection.SystemCollection._find_reference_dir")
+    @patch("kbkit.systems.collection.SystemCollection._peek_molecules")
+    @patch("kbkit.systems.collection.SystemCollection._is_valid")
+    @patch("kbkit.systems.collection.validate_path")
     def test_load_uses_current_directory_by_default(
-        self, mock_validate_path, mock_is_valid, mock_peek_molecules,
-        mock_resolve_rdf_path, mock_make_meta, mock_sort_systems, tmp_path
+        self,
+        mock_validate_path,
+        mock_is_valid,
+        mock_peek_molecules,
+        mock_resolve_rdf_path,
+        mock_make_meta,
+        mock_sort_systems,
+        tmp_path,
     ):
         """Test load uses current directory when base_path is None."""
         mock_validate_path.return_value = tmp_path
@@ -1396,7 +1401,7 @@ class TestSystemCollectionLoad:
         mock_peek_molecules.return_value = set()
         mock_sort_systems.return_value = []
 
-        with patch('os.getcwd', return_value=str(tmp_path)):
+        with patch("os.getcwd", return_value=str(tmp_path)):
             result = SystemCollection.load()
 
             assert isinstance(result, SystemCollection)
@@ -1421,7 +1426,7 @@ class TestSystemCollectionIntegration:
             mock_props.get.return_value = {"Temperature": "K"}
 
             mock_meta.props = mock_props
-            mock_meta.is_pure.return_value = (i == 0)
+            mock_meta.is_pure.return_value = i == 0
 
             systems.append(mock_meta)
 

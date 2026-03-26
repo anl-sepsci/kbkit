@@ -1,8 +1,9 @@
 """Unit tests for EdrParser class."""
+
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 import subprocess
 from pathlib import Path
@@ -25,7 +26,7 @@ def mock_edr_file(tmp_path):
 @pytest.fixture
 def mock_ureg():
     """Create a mock unit registry."""
-    with patch('kbkit.io.edr.load_unit_registry') as mock_load:
+    with patch("kbkit.io.edr.load_unit_registry") as mock_load:
         mock_registry = Mock()
 
         # Setup Quantity mock to handle unit conversions
@@ -114,7 +115,7 @@ def mock_data():
         "pressure": np.array([100, 101, 102, 103, 104]),
         "volume": np.array([10, 10.1, 10.2, 10.3, 10.4]),
         "kinetic-en": np.array([500, 510, 520, 530, 540]),
-        "total-energy": np.array([-500, -500, -500, -500, -500])
+        "total-energy": np.array([-500, -500, -500, -500, -500]),
     }
 
 
@@ -178,13 +179,10 @@ class TestClassVariables:
 class TestGetPropertyNames:
     """Test _get_property_names method."""
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_parse_property_names(self, mock_run, mock_edr_file, mock_ureg, sample_gmx_menu_output):
         """Test parsing property names from GMX output."""
-        mock_run.return_value = Mock(
-            stderr=sample_gmx_menu_output,
-            returncode=0
-        )
+        mock_run.return_value = Mock(stderr=sample_gmx_menu_output, returncode=0)
 
         parser = EdrParser(mock_edr_file)
         names = parser._get_property_names()
@@ -195,13 +193,10 @@ class TestGetPropertyNames:
         assert "temperature" in names
         assert "pressure" in names
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_property_names_lowercase(self, mock_run, mock_edr_file, mock_ureg, sample_gmx_menu_output):
         """Test that property names are converted to lowercase."""
-        mock_run.return_value = Mock(
-            stderr=sample_gmx_menu_output,
-            returncode=0
-        )
+        mock_run.return_value = Mock(stderr=sample_gmx_menu_output, returncode=0)
 
         parser = EdrParser(mock_edr_file)
         names = parser._get_property_names()
@@ -209,13 +204,10 @@ class TestGetPropertyNames:
         for name in names:
             assert name == name.lower()
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_property_names_no_periods(self, mock_run, mock_edr_file, mock_ureg, sample_gmx_menu_output):
         """Test that periods are removed from property names."""
-        mock_run.return_value = Mock(
-            stderr=sample_gmx_menu_output,
-            returncode=0
-        )
+        mock_run.return_value = Mock(stderr=sample_gmx_menu_output, returncode=0)
 
         parser = EdrParser(mock_edr_file)
         names = parser._get_property_names()
@@ -223,13 +215,10 @@ class TestGetPropertyNames:
         for name in names:
             assert "." not in name
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_empty_gmx_output(self, mock_run, mock_edr_file, mock_ureg):
         """Test handling of empty GMX output."""
-        mock_run.return_value = Mock(
-            stderr="",
-            returncode=0
-        )
+        mock_run.return_value = Mock(stderr="", returncode=0)
 
         parser = EdrParser(mock_edr_file)
         names = parser._get_property_names()
@@ -241,9 +230,9 @@ class TestGetPropertyNames:
 class TestGetGmxProperty:
     """Test get_gmx_property method."""
 
-    @patch('subprocess.run')
-    @patch('numpy.loadtxt')
-    @patch('pathlib.Path.unlink')
+    @patch("subprocess.run")
+    @patch("numpy.loadtxt")
+    @patch("pathlib.Path.unlink")
     def test_get_property_returns_tuple(self, mock_unlink, mock_loadtxt, mock_run, mock_edr_file, mock_ureg):
         """Test that get_gmx_property returns tuple of time and values."""
         mock_run.return_value = Mock(returncode=0)
@@ -259,9 +248,9 @@ class TestGetGmxProperty:
         np.testing.assert_array_equal(result[0], time)
         np.testing.assert_array_equal(result[1], values)
 
-    @patch('subprocess.run')
-    @patch('numpy.loadtxt')
-    @patch('pathlib.Path.unlink')
+    @patch("subprocess.run")
+    @patch("numpy.loadtxt")
+    @patch("pathlib.Path.unlink")
     def test_get_property_with_avg(self, mock_unlink, mock_loadtxt, mock_run, mock_edr_file, mock_ureg):
         """Test get_gmx_property with avg=True returns float."""
         mock_run.return_value = Mock(returncode=0)
@@ -274,9 +263,9 @@ class TestGetGmxProperty:
         assert isinstance(result, (float, np.floating))
         assert result == values.mean()
 
-    @patch('subprocess.run')
-    @patch('numpy.loadtxt')
-    @patch('pathlib.Path.unlink')
+    @patch("subprocess.run")
+    @patch("numpy.loadtxt")
+    @patch("pathlib.Path.unlink")
     def test_get_property_with_kwargs(self, mock_unlink, mock_loadtxt, mock_run, mock_edr_file, mock_ureg):
         """Test get_gmx_property with additional kwargs."""
         mock_run.return_value = Mock(returncode=0)
@@ -289,13 +278,13 @@ class TestGetGmxProperty:
         call_args = mock_run.call_args[0][0]
         assert "-b" in call_args or "b" in str(call_args)
 
-    @patch('subprocess.run')
-    @patch('pathlib.Path.unlink')
+    @patch("subprocess.run")
+    @patch("pathlib.Path.unlink")
     def test_get_property_cleanup(self, mock_unlink, mock_run, mock_edr_file, mock_ureg):
         """Test that temporary files are cleaned up."""
         mock_run.return_value = Mock(returncode=0)
 
-        with patch('numpy.loadtxt', return_value=(np.array([0]), np.array([100]))):
+        with patch("numpy.loadtxt", return_value=(np.array([0]), np.array([100]))):
             parser = EdrParser(mock_edr_file)
             parser.get_gmx_property("temperature")
 
@@ -306,16 +295,18 @@ class TestGetGmxProperty:
 class TestDataProperty:
     """Test data property."""
 
-    @patch('subprocess.run')
-    @patch('builtins.open', new_callable=mock_open)
-    @patch('numpy.loadtxt')
-    @patch('pathlib.Path.unlink')
-    def test_data_property_cached(self, mock_unlink, mock_loadtxt, mock_file, mock_run, mock_edr_file, mock_ureg, sample_gmx_menu_output):
+    @patch("subprocess.run")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("numpy.loadtxt")
+    @patch("pathlib.Path.unlink")
+    def test_data_property_cached(
+        self, mock_unlink, mock_loadtxt, mock_file, mock_run, mock_edr_file, mock_ureg, sample_gmx_menu_output
+    ):
         """Test that data property is cached."""
         # Setup mocks
         mock_run.side_effect = [
             Mock(stderr=sample_gmx_menu_output, returncode=0),  # _get_property_names
-            Mock(returncode=0)  # data extraction
+            Mock(returncode=0),  # data extraction
         ]
 
         mock_file.return_value.__iter__.return_value = ['@ s0 legend "Potential"\n']
@@ -333,16 +324,15 @@ class TestDataProperty:
         # Should be the same object (cached)
         assert data1 is data2
 
-    @patch('subprocess.run')
-    @patch('builtins.open', new_callable=mock_open)
-    @patch('numpy.loadtxt')
-    @patch('pathlib.Path.unlink')
-    def test_data_contains_time(self, mock_unlink, mock_loadtxt, mock_file, mock_run, mock_edr_file, mock_ureg, sample_gmx_menu_output):
+    @patch("subprocess.run")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("numpy.loadtxt")
+    @patch("pathlib.Path.unlink")
+    def test_data_contains_time(
+        self, mock_unlink, mock_loadtxt, mock_file, mock_run, mock_edr_file, mock_ureg, sample_gmx_menu_output
+    ):
         """Test that data contains time array."""
-        mock_run.side_effect = [
-            Mock(stderr=sample_gmx_menu_output, returncode=0),
-            Mock(returncode=0)
-        ]
+        mock_run.side_effect = [Mock(stderr=sample_gmx_menu_output, returncode=0), Mock(returncode=0)]
 
         mock_file.return_value.__iter__.return_value = ['@ s0 legend "Potential"\n']
 
@@ -365,7 +355,7 @@ class TestAvailableProperties:
         parser = EdrParser(mock_edr_file)
 
         # Mock the data property
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             props = parser.available_properties()
 
@@ -381,7 +371,7 @@ class TestUnitsProperty:
         """Test that units property returns correct mapping."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             units = parser.units
 
@@ -398,7 +388,7 @@ class TestGetMethod:
         """Test that get returns numpy array."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.get("potential")
 
@@ -408,7 +398,7 @@ class TestGetMethod:
         """Test get method with start_time filter."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.get("potential", start_time=2)
 
@@ -420,19 +410,19 @@ class TestGetMethod:
         """Test get method with invalid property name."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
 
             with pytest.raises(KeyError, match="not available"):
                 parser.get("nonexistent_property")
 
-    @patch('kbkit.io.edr.resolve_attr_key')
+    @patch("kbkit.io.edr.resolve_attr_key")
     def test_get_with_alias(self, mock_resolve, mock_edr_file, mock_ureg, mock_data):
         """Test get method with property alias."""
         mock_resolve.return_value = "potential"
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.get("U")  # Alias for potential
 
@@ -447,7 +437,7 @@ class TestMolarVolume:
         """Test molar_volume when volume is in edr file."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.molar_volume(nmol=100)
 
@@ -464,10 +454,10 @@ class TestMolarVolume:
         data_no_volume = {
             "time": np.array([0, 1, 2, 3, 4]),
             "potential": np.array([-1000, -1010, -1020, -1030, -1040]),
-            "temperature": np.array([298, 298.1, 298.2, 298.3, 298.4])
+            "temperature": np.array([298, 298.1, 298.2, 298.3, 298.4]),
         }
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = data_no_volume
             result = parser.molar_volume(nmol=100, volume=10.0)
 
@@ -486,7 +476,7 @@ class TestConfigurationalEnthalpy:
         """Test configurational enthalpy calculation."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.configurational_enthalpy()
 
@@ -502,15 +492,16 @@ class TestConfigurationalEnthalpy:
             "time": np.array([0, 1, 2, 3, 4]),
             "potential": np.array([-1000, -1010, -1020, -1030, -1040]),
             "pressure": np.array([100, 101, 102, 103, 104]),
-            "temperature": np.array([298, 298.1, 298.2, 298.3, 298.4])
+            "temperature": np.array([298, 298.1, 298.2, 298.3, 298.4]),
         }
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = data_no_volume
             result = parser.configurational_enthalpy(volume=10.0)
 
             captured = capsys.readouterr()
             assert "Warning" in captured.out or "Falling back" in captured.out
+
 
 class TestMolarEnthalpy:
     """Test molar_enthalpy method."""
@@ -519,7 +510,7 @@ class TestMolarEnthalpy:
         """Test molar enthalpy calculation."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.molar_enthalpy(nmol=100)
 
@@ -533,7 +524,7 @@ class TestHeatCapacity:
         """Test constant pressure heat capacity calculation."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.cp(nmol=100)
 
@@ -544,7 +535,7 @@ class TestHeatCapacity:
         """Test constant volume heat capacity calculation."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.cv(nmol=100)
 
@@ -555,7 +546,7 @@ class TestHeatCapacity:
         """Test cp with start_time parameter."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.cp(nmol=100, start_time=2)
 
@@ -569,7 +560,7 @@ class TestIsothermalCompressibility:
         """Test isothermal compressibility calculation."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.isothermal_compressibility()
 
@@ -583,10 +574,10 @@ class TestIsothermalCompressibility:
         data_no_volume = {
             "time": np.array([0, 1, 2]),
             "potential": np.array([-1000, -1010, -1020]),
-            "temperature": np.array([298, 298.1, 298.2])
+            "temperature": np.array([298, 298.1, 298.2]),
         }
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = data_no_volume
 
             with pytest.raises(KeyError, match="constant volume"):
@@ -596,7 +587,7 @@ class TestIsothermalCompressibility:
 class TestEdgeCases:
     """Test edge cases and error conditions."""
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_subprocess_error_handling(self, mock_run, mock_edr_file, mock_ureg):
         """Test handling of subprocess errors."""
         mock_run.side_effect = subprocess.CalledProcessError(1, "gmx")
@@ -606,16 +597,13 @@ class TestEdgeCases:
         with pytest.raises(subprocess.CalledProcessError):
             parser.get_gmx_property("temperature")
 
-    @patch('subprocess.run')
-    @patch('builtins.open', new_callable=mock_open)
-    @patch('numpy.loadtxt')
-    @patch('pathlib.Path.unlink')
+    @patch("subprocess.run")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("numpy.loadtxt")
+    @patch("pathlib.Path.unlink")
     def test_empty_data(self, mock_unlink, mock_loadtxt, mock_file, mock_run, mock_edr_file, mock_ureg):
         """Test handling of empty data."""
-        mock_run.side_effect = [
-            Mock(stderr="", returncode=0),
-            Mock(returncode=0)
-        ]
+        mock_run.side_effect = [Mock(stderr="", returncode=0), Mock(returncode=0)]
 
         mock_file.return_value.__iter__.return_value = []
         mock_loadtxt.return_value = np.array([[], []])
@@ -629,7 +617,7 @@ class TestEdgeCases:
         """Test get method with custom units."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
             result = parser.get("temperature", units="K")
 
@@ -643,7 +631,7 @@ class TestIntegration:
         """Test complete workflow with multiple property accesses."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
 
             # Test multiple operations
@@ -663,7 +651,7 @@ class TestIntegration:
         """Test that properties are consistent."""
         parser = EdrParser(mock_edr_file)
 
-        with patch.object(type(parser), 'data', new_callable=PropertyMock) as mock_data_prop:
+        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
             mock_data_prop.return_value = mock_data
 
             # Available properties should match data keys

@@ -3,7 +3,7 @@
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 
 from pathlib import Path
@@ -25,6 +25,7 @@ def sample_rdf_data():
     g[-20:] = 1.0 + np.random.normal(0, 0.001, 20)
     return r, g
 
+
 @pytest.fixture
 def sample_rdf_file(tmp_path, sample_rdf_data):
     """Create a sample RDF .xvg file."""
@@ -32,9 +33,9 @@ def sample_rdf_file(tmp_path, sample_rdf_data):
     rdf_file = tmp_path / "rdf_test.xvg"
 
     content = "# RDF data\n"
-    content += "@ title \"Radial Distribution Function\"\n"
-    content += "@ xaxis label \"r (nm)\"\n"
-    content += "@ yaxis label \"g(r)\"\n"
+    content += '@ title "Radial Distribution Function"\n'
+    content += '@ xaxis label "r (nm)"\n'
+    content += '@ yaxis label "g(r)"\n'
 
     for r_val, g_val in zip(r, g, strict=False):
         content += f"{r_val:.6f}    {g_val:.6f}\n"
@@ -60,10 +61,11 @@ def divergent_rdf_file(tmp_path):
     rdf_file.write_text(content)
     return str(rdf_file)
 
+
 @pytest.fixture
 def mock_mplstyle():
     """Mock the mplstyle loading."""
-    with patch('kbkit.io.rdf.load_mplstyle'):
+    with patch("kbkit.io.rdf.load_mplstyle"):
         yield
 
 
@@ -78,29 +80,12 @@ class TestRdfParserInitialization:
         assert parser.fname == "rdf_test.xvg"
         assert isinstance(parser.r, np.ndarray)
         assert isinstance(parser.g, np.ndarray)
-        assert isinstance(parser.mask, np.ndarray)
 
     def test_file_validation(self, tmp_path, mock_mplstyle):
         """Test file path validation."""
         # Test with non-existent file
         with pytest.raises((FileNotFoundError, ValueError)):
             RdfParser(str(tmp_path / "nonexistent.xvg"))
-
-    def test_custom_convergence_thresholds(self, sample_rdf_file, mock_mplstyle):
-        """Test initialization with custom convergence thresholds."""
-        parser = RdfParser(sample_rdf_file, convergence_thresholds=(1e-4, 1e-3))
-
-        assert isinstance(parser.mask, np.ndarray)
-
-    def test_fixed_tail_length(self, sample_rdf_file, mock_mplstyle):
-        """Test initialization with fixed tail length."""
-        parser = RdfParser(sample_rdf_file, tail_length=1.0)
-
-        assert isinstance(parser.mask, np.ndarray)
-        # Tail should be approximately 1.0 nm
-        tail_range = parser.r_tail.max() - parser.r_tail.min()
-        assert pytest.approx(tail_range, abs=0.2) == 1.0
-
 
 
 class TestReadMethod:
@@ -118,7 +103,7 @@ class TestReadMethod:
         """Test that _read filters last 3 points."""
         # Count lines in file
         with open(sample_rdf_file) as f:
-            data_lines = [line for line in f if not line.startswith(('#', '@'))]
+            data_lines = [line for line in f if not line.startswith(("#", "@"))]
 
         parser = RdfParser(sample_rdf_file)
 
@@ -132,7 +117,6 @@ class TestReadMethod:
 
         with pytest.raises((ValueError, IOError, RuntimeError, FileNotFoundError)):
             RdfParser(str(empty_file))
-
 
     def test_read_malformed_file(self, tmp_path, mock_mplstyle):
         """Test reading malformed file raises error."""
@@ -229,6 +213,7 @@ class TestExtractMolecules:
 
     def test_extract_unconvertible_input(self, mock_mplstyle):
         """Test extraction with unconvertible input."""
+
         # Object that can't be converted to string properly
         class BadObject:
             def __str__(self):
@@ -270,16 +255,6 @@ class TestIntegration:
         assert parser.fname is not None
         assert len(parser.r) > 0
         assert len(parser.g) > 0
-        assert len(parser.r_tail) > 0
-        assert len(parser.g_tail) > 0
-
-        # Check convergence
-        assert isinstance(parser.is_converged, bool)
-
-        # Check report
-        report = parser.convergence_report
-        assert isinstance(report, str)
-        assert len(report) > 0
 
     def test_complete_workflow_divergent(self, divergent_rdf_file, mock_mplstyle):
         """Test complete workflow with divergent RDF."""
@@ -288,10 +263,7 @@ class TestIntegration:
         # Should still create parser
         assert parser.fname is not None
 
-        # May or may not be converged depending on thresholds
-        assert isinstance(parser.is_converged, bool)
-
-    @patch('matplotlib.pyplot.subplots')
+    @patch("matplotlib.pyplot.subplots")
     def test_workflow_with_plotting(self, mock_subplots, sample_rdf_file, tmp_path, mock_mplstyle):
         """Test workflow including plotting."""
         mock_fig = Mock()
@@ -301,10 +273,6 @@ class TestIntegration:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         parser = RdfParser(sample_rdf_file)
-
-        # Generate report
-        report = parser.convergence_report
-        assert len(report) > 0
 
         # Create plot
         parser.plot(save_dir=str(tmp_path))

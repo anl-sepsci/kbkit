@@ -27,7 +27,7 @@ repos:
     pass_filenames: false
 
   - id: Mypy
-    args: [src/kbkit, --ignore-missing-imports, --disable-error-code=assignment]
+    args: [--config-file, mypy.ini, src/kbkit]
     name: mypy
     stages: [pre-commit, pre-push]
     language: system

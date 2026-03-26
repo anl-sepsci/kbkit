@@ -58,7 +58,7 @@ class SystemProperties:
         edr_path: str | None = None,
         top_path: str | None = None,
         gro_path: str | None = None,
-        start_time: float = 0.,
+        start_time: float = 0.0,
     ) -> None:
         self.start_time = float(start_time)
 
@@ -121,9 +121,6 @@ class SystemProperties:
         # get files
         files = [filepath] if filepath else sorted(system_path.glob(f"*.{suffix.strip('.')}"))
 
-        if not files:
-            raise ValueError(f"No files with '{suffix}' found in '{system_path}'")
-
         if len(files) == 1:
             return files
 
@@ -165,9 +162,7 @@ class SystemProperties:
         """list[str]: Get list of accessible topology properties."""
         return [name for name, _ in inspect.getmembers(self.topology) if not name.startswith("_")]
 
-    def get(
-        self, name: str, units: str | None = None, avg: bool = True, time_series: bool = False
-    ) -> Any:
+    def get(self, name: str, units: str | None = None, avg: bool = True, time_series: bool = False) -> Any:
         """
         Master function for getting any property from ``energy`` or ``topology`` files.
 

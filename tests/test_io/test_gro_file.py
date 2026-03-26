@@ -3,7 +3,7 @@
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -93,11 +93,15 @@ class TestGroParserInitialization:
     def test_valid_gro_file(self, sample_gro_file):
         """Test initialization with a valid .gro file."""
         parser = GroParser(sample_gro_file)
-        assert parser.filepath == Path(sample_gro_file)
         assert parser._universe is not None
+        assert parser.molecules == ["WAT"]
 
-    def test_invalid_file_extension(self, tmp_path):
-        """Test that non-.gro files raise an error."""
+    def test_path_validation(self, tmp_path):
+        """Test that path is validated."""
+        gro_file = tmp_path / "test.gro"
+        gro_file.write_text("Test\n    1\n    1RES     A    1   0.0   0.0   0.0\n   1.0   1.0   1.0\n")
+        parser = GroParser(str(gro_file))
+        assert parser is not None
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("not a gro file")
 
@@ -109,16 +113,11 @@ class TestGroParserInitialization:
         with pytest.raises((FileNotFoundError, ValueError)):
             GroParser("/nonexistent/path/file.gro")
 
-    def test_path_validation(self, sample_gro_file):
-        """Test that path is properly validated and converted."""
-        parser = GroParser(sample_gro_file)
-        assert isinstance(parser.filepath, Path)
-
 
 class TestResiduesProperty:
     """Test the residues property."""
 
-    @patch('MDAnalysis.Universe')
+    @patch("MDAnalysis.Universe")
     def test_residues_property(self, mock_mda, sample_gro_file):
         """Test that residues property returns ResidueGroup."""
         mock_universe = Mock()
@@ -255,9 +254,10 @@ class TestAtomCounts:
 class TestElectronCount:
     """Test the electron_count property."""
 
-    @patch('kbkit.io.gro.GroParser.get_atomic_number')
+    @patch("kbkit.io.gro.GroParser.get_atomic_number")
     def test_electron_count_calculation(self, mock_get_atomic, sample_gro_file):
         """Test electron count calculation."""
+
         # Mock atomic numbers: O=8, H=1
         def atomic_number_side_effect(atom_type):
             atom_map = {"OW": 8, "O": 8, "HW1": 1, "HW2": 1, "H": 1}
@@ -295,15 +295,12 @@ class TestElectronCount:
         for count in electron_count.values():
             assert isinstance(count, int)
 
-    @patch('kbkit.io.gro.GroParser.get_atomic_number')
+    @patch("kbkit.io.gro.GroParser.get_atomic_number")
     def test_electron_count_mixed_system(self, mock_get_atomic, mixed_system_gro_file):
         """Test electron count with mixed molecule types."""
+
         def atomic_number_side_effect(atom_type):
-            atom_map = {
-                "OW": 8, "O": 8, "O1": 8,
-                "HW1": 1, "HW2": 1, "H": 1, "H1": 1,
-                "C": 6, "C1": 6
-            }
+            atom_map = {"OW": 8, "O": 8, "O1": 8, "HW1": 1, "HW2": 1, "H": 1, "H1": 1, "C": 6, "C1": 6}
             for key, value in atom_map.items():
                 if key in atom_type or atom_type in key:
                     return value
@@ -350,7 +347,7 @@ class TestBoxVolume:
         # Volume should be reasonable for a small system (nm^3)
         assert 0.1 < volume < 1000
 
-    @patch('MDAnalysis.Universe')
+    @patch("MDAnalysis.Universe")
     def test_box_volume_conversion(self, mock_mda, sample_gro_file):
         """Test conversion from Angstroms to nm."""
         mock_universe = Mock()
@@ -441,55 +438,54 @@ class TestGroParserIntegration:
         assert set(parser.electron_count.keys()) == set(parser.molecules)
 
 
-
 class TestIsValidElement:
     """Test is_valid_element function."""
 
     def test_valid_single_letter_elements(self):
         """Test valid single-letter element symbols."""
-        valid_elements = ['H', 'C', 'N', 'O', 'P', 'S', 'F', 'I', 'B', 'K']
+        valid_elements = ["H", "C", "N", "O", "P", "S", "F", "I", "B", "K"]
 
         for symbol in valid_elements:
             assert GroParser.is_valid_element(symbol) is True
 
     def test_valid_two_letter_elements(self):
         """Test valid two-letter element symbols."""
-        valid_elements = ['He', 'Li', 'Be', 'Na', 'Mg', 'Al', 'Si', 'Cl', 'Ca', 'Fe']
+        valid_elements = ["He", "Li", "Be", "Na", "Mg", "Al", "Si", "Cl", "Ca", "Fe"]
 
         for symbol in valid_elements:
             assert GroParser.is_valid_element(symbol) is True
 
     def test_lowercase_symbols(self):
         """Test that lowercase symbols are accepted."""
-        assert GroParser.is_valid_element('h') is True
-        assert GroParser.is_valid_element('c') is True
-        assert GroParser.is_valid_element('na') is True
-        assert GroParser.is_valid_element('cl') is True
+        assert GroParser.is_valid_element("h") is True
+        assert GroParser.is_valid_element("c") is True
+        assert GroParser.is_valid_element("na") is True
+        assert GroParser.is_valid_element("cl") is True
 
     def test_uppercase_symbols(self):
         """Test that uppercase symbols are accepted."""
-        assert GroParser.is_valid_element('H') is True
-        assert GroParser.is_valid_element('C') is True
-        assert GroParser.is_valid_element('NA') is True
-        assert GroParser.is_valid_element('CL') is True
+        assert GroParser.is_valid_element("H") is True
+        assert GroParser.is_valid_element("C") is True
+        assert GroParser.is_valid_element("NA") is True
+        assert GroParser.is_valid_element("CL") is True
 
     def test_mixed_case_symbols(self):
         """Test that mixed case symbols are accepted."""
-        assert GroParser.is_valid_element('Na') is True
-        assert GroParser.is_valid_element('Cl') is True
-        assert GroParser.is_valid_element('nA') is True
-        assert GroParser.is_valid_element('cL') is True
+        assert GroParser.is_valid_element("Na") is True
+        assert GroParser.is_valid_element("Cl") is True
+        assert GroParser.is_valid_element("nA") is True
+        assert GroParser.is_valid_element("cL") is True
 
     def test_symbols_with_whitespace(self):
         """Test symbols with leading/trailing whitespace."""
-        assert GroParser.is_valid_element(' H ') is True
-        assert GroParser.is_valid_element('  C  ') is True
-        assert GroParser.is_valid_element(' Na ') is True
-        assert GroParser.is_valid_element('\tCl\n') is True
+        assert GroParser.is_valid_element(" H ") is True
+        assert GroParser.is_valid_element("  C  ") is True
+        assert GroParser.is_valid_element(" Na ") is True
+        assert GroParser.is_valid_element("\tCl\n") is True
 
     def test_empty_string(self):
         """Test empty string returns False."""
-        assert GroParser.is_valid_element('') is False
+        assert GroParser.is_valid_element("") is False
 
     def test_none_input(self):
         """Test None input returns False."""
@@ -505,19 +501,46 @@ class TestIsValidElement:
     def test_long_symbols_truncated(self):
         """Test that symbols longer than MAX_SYMBOL_LENGTH are truncated."""
         # 'Carbon' should be truncated to 'Ca' (Calcium) which is valid
-        result = GroParser.is_valid_element('Carbon')
+        result = GroParser.is_valid_element("Carbon")
         assert result is True  # 'Ca' is Calcium
 
         # 'Helium' should be truncated to 'He' which is valid
-        result = GroParser.is_valid_element('Helium')
+        result = GroParser.is_valid_element("Helium")
         assert result is True
 
     def test_all_common_elements(self):
         """Test all common elements used in chemistry."""
         common_elements = [
-            'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
-            'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
-            'Fe', 'Cu', 'Zn', 'Br', 'Ag', 'I', 'Au', 'Hg', 'Pb', 'U'
+            "H",
+            "He",
+            "Li",
+            "Be",
+            "B",
+            "C",
+            "N",
+            "O",
+            "F",
+            "Ne",
+            "Na",
+            "Mg",
+            "Al",
+            "Si",
+            "P",
+            "S",
+            "Cl",
+            "Ar",
+            "K",
+            "Ca",
+            "Fe",
+            "Cu",
+            "Zn",
+            "Br",
+            "Ag",
+            "I",
+            "Au",
+            "Hg",
+            "Pb",
+            "U",
         ]
 
         for symbol in common_elements:
@@ -529,65 +552,65 @@ class TestGetAtomicNumber:
 
     def test_hydrogen(self):
         """Test atomic number of hydrogen."""
-        assert GroParser.get_atomic_number('H') == 1
+        assert GroParser.get_atomic_number("H") == 1
 
     def test_carbon(self):
         """Test atomic number of carbon."""
-        assert GroParser.get_atomic_number('C') == 6
+        assert GroParser.get_atomic_number("C") == 6
 
     def test_nitrogen(self):
         """Test atomic number of nitrogen."""
-        assert GroParser.get_atomic_number('N') == 7
+        assert GroParser.get_atomic_number("N") == 7
 
     def test_oxygen(self):
         """Test atomic number of oxygen."""
-        assert GroParser.get_atomic_number('O') == 8
+        assert GroParser.get_atomic_number("O") == 8
 
     def test_sodium(self):
         """Test atomic number of sodium."""
-        assert GroParser.get_atomic_number('Na') == 11
+        assert GroParser.get_atomic_number("Na") == 11
 
     def test_chlorine(self):
         """Test atomic number of chlorine."""
-        assert GroParser.get_atomic_number('Cl') == 17
+        assert GroParser.get_atomic_number("Cl") == 17
 
     def test_iron(self):
         """Test atomic number of iron."""
-        assert GroParser.get_atomic_number('Fe') == 26
+        assert GroParser.get_atomic_number("Fe") == 26
 
     def test_gold(self):
         """Test atomic number of gold."""
-        assert GroParser.get_atomic_number('Au') == 79
+        assert GroParser.get_atomic_number("Au") == 79
 
     def test_lowercase_input(self):
         """Test that lowercase input works."""
-        assert GroParser.get_atomic_number('h') == 1
-        assert GroParser.get_atomic_number('c') == 6
-        assert GroParser.get_atomic_number('na') == 11
+        assert GroParser.get_atomic_number("h") == 1
+        assert GroParser.get_atomic_number("c") == 6
+        assert GroParser.get_atomic_number("na") == 11
 
     def test_uppercase_input(self):
         """Test that uppercase input works."""
-        assert GroParser.get_atomic_number('H') == 1
-        assert GroParser.get_atomic_number('C') == 6
-        assert GroParser.get_atomic_number('NA') == 11
+        assert GroParser.get_atomic_number("H") == 1
+        assert GroParser.get_atomic_number("C") == 6
+        assert GroParser.get_atomic_number("NA") == 11
 
     def test_mixed_case_input(self):
         """Test that mixed case input works."""
-        assert GroParser.get_atomic_number('Na') == 11
-        assert GroParser.get_atomic_number('nA') == 11
-        assert GroParser.get_atomic_number('Cl') == 17
-        assert GroParser.get_atomic_number('cL') == 17
+        assert GroParser.get_atomic_number("Na") == 11
+        assert GroParser.get_atomic_number("nA") == 11
+        assert GroParser.get_atomic_number("Cl") == 17
+        assert GroParser.get_atomic_number("cL") == 17
 
     def test_whitespace_handling(self):
         """Test that whitespace is handled correctly."""
-        assert GroParser.get_atomic_number(' H ') == 1
-        assert GroParser.get_atomic_number('  C  ') == 6
-        assert GroParser.get_atomic_number(' Na ') == 11
+        assert GroParser.get_atomic_number(" H ") == 1
+        assert GroParser.get_atomic_number("  C  ") == 6
+        assert GroParser.get_atomic_number(" Na ") == 11
 
     def test_empty_string_raises_error(self):
         """Test that empty string raises ValueError."""
         with pytest.raises(ValueError, match="not a valid element"):
-            GroParser.get_atomic_number('')
+            GroParser.get_atomic_number("")
 
     def test_none_raises_error(self):
         """Test that None raises AttributeError (from .strip() call)."""
@@ -597,10 +620,26 @@ class TestGetAtomicNumber:
     def test_all_elements_1_to_20(self):
         """Test atomic numbers for first 20 elements."""
         elements = [
-            ('H', 1), ('He', 2), ('Li', 3), ('Be', 4), ('B', 5),
-            ('C', 6), ('N', 7), ('O', 8), ('F', 9), ('Ne', 10),
-            ('Na', 11), ('Mg', 12), ('Al', 13), ('Si', 14), ('P', 15),
-            ('S', 16), ('Cl', 17), ('Ar', 18), ('K', 19), ('Ca', 20)
+            ("H", 1),
+            ("He", 2),
+            ("Li", 3),
+            ("Be", 4),
+            ("B", 5),
+            ("C", 6),
+            ("N", 7),
+            ("O", 8),
+            ("F", 9),
+            ("Ne", 10),
+            ("Na", 11),
+            ("Mg", 12),
+            ("Al", 13),
+            ("Si", 14),
+            ("P", 15),
+            ("S", 16),
+            ("Cl", 17),
+            ("Ar", 18),
+            ("K", 19),
+            ("Ca", 20),
         ]
 
         for symbol, expected_number in elements:
@@ -608,28 +647,21 @@ class TestGetAtomicNumber:
 
     def test_transition_metals(self):
         """Test atomic numbers for common transition metals."""
-        metals = [
-            ('Fe', 26), ('Cu', 29), ('Zn', 30),
-            ('Ag', 47), ('Au', 79), ('Pt', 78)
-        ]
+        metals = [("Fe", 26), ("Cu", 29), ("Zn", 30), ("Ag", 47), ("Au", 79), ("Pt", 78)]
 
         for symbol, expected_number in metals:
             assert GroParser.get_atomic_number(symbol) == expected_number
 
     def test_halogens(self):
         """Test atomic numbers for halogens."""
-        halogens = [
-            ('F', 9), ('Cl', 17), ('Br', 35), ('I', 53)
-        ]
+        halogens = [("F", 9), ("Cl", 17), ("Br", 35), ("I", 53)]
 
         for symbol, expected_number in halogens:
             assert GroParser.get_atomic_number(symbol) == expected_number
 
     def test_noble_gases(self):
         """Test atomic numbers for noble gases."""
-        noble_gases = [
-            ('He', 2), ('Ne', 10), ('Ar', 18), ('Kr', 36), ('Xe', 54)
-        ]
+        noble_gases = [("He", 2), ("Ne", 10), ("Ar", 18), ("Kr", 36), ("Xe", 54)]
 
         for symbol, expected_number in noble_gases:
             assert GroParser.get_atomic_number(symbol) == expected_number
@@ -652,7 +684,7 @@ class TestEdgeCases:
 
     def test_single_character_valid(self):
         """Test single character valid elements."""
-        single_char_elements = ['H', 'B', 'C', 'N', 'O', 'F', 'P', 'S', 'K', 'V', 'Y', 'I', 'W', 'U']
+        single_char_elements = ["H", "B", "C", "N", "O", "F", "P", "S", "K", "V", "Y", "I", "W", "U"]
 
         for symbol in single_char_elements:
             assert GroParser.is_valid_element(symbol) is True
@@ -660,7 +692,7 @@ class TestEdgeCases:
 
     def test_two_character_valid(self):
         """Test two character valid elements."""
-        two_char_elements = ['He', 'Li', 'Be', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'Cl', 'Ar']
+        two_char_elements = ["He", "Li", "Be", "Ne", "Na", "Mg", "Al", "Si", "Cl", "Ar"]
 
         for symbol in two_char_elements:
             assert GroParser.is_valid_element(symbol) is True
@@ -668,12 +700,7 @@ class TestEdgeCases:
 
     def test_case_insensitivity(self):
         """Test that functions are case-insensitive."""
-        test_cases = [
-            ('h', 'H', 'hydrogen'),
-            ('na', 'Na', 'sodium'),
-            ('cl', 'Cl', 'chlorine'),
-            ('fe', 'Fe', 'iron')
-        ]
+        test_cases = [("h", "H", "hydrogen"), ("na", "Na", "sodium"), ("cl", "Cl", "chlorine"), ("fe", "Fe", "iron")]
 
         for lower, proper, _name in test_cases:
             # All variations should be valid
@@ -688,22 +715,22 @@ class TestEdgeCases:
     def test_very_long_string(self):
         """Test very long string is handled."""
         # String starting with valid element
-        long_string = 'Calcium_very_long_name'
+        long_string = "Calcium_very_long_name"
         # Should be truncated to 'Ca' and be valid
         result = GroParser.is_valid_element(long_string)
         assert result is True  # 'Ca' is valid
 
     def test_atomic_number_return_type(self):
         """Test that get_atomic_number returns int."""
-        result = GroParser.get_atomic_number('H')
+        result = GroParser.get_atomic_number("H")
         assert isinstance(result, int)
 
-        result = GroParser.get_atomic_number('C')
+        result = GroParser.get_atomic_number("C")
         assert isinstance(result, int)
 
     def test_is_valid_element_return_type(self):
         """Test that is_valid_element returns bool."""
-        result = GroParser.is_valid_element('H')
+        result = GroParser.is_valid_element("H")
         assert isinstance(result, bool)
         assert result is True
 
@@ -713,7 +740,7 @@ class TestIntegration:
 
     def test_valid_element_has_atomic_number(self):
         """Test that all valid elements have atomic numbers."""
-        test_elements = ['H', 'C', 'N', 'O', 'Na', 'Cl', 'Fe', 'Au']
+        test_elements = ["H", "C", "N", "O", "Na", "Cl", "Fe", "Au"]
 
         for symbol in test_elements:
             if GroParser.is_valid_element(symbol):
@@ -723,7 +750,7 @@ class TestIntegration:
 
     def test_workflow_validation_then_lookup(self):
         """Test typical workflow: validate then lookup."""
-        symbol = 'Na'
+        symbol = "Na"
 
         # First validate
         if GroParser.is_valid_element(symbol):
@@ -735,10 +762,42 @@ class TestIntegration:
         """Test coverage of periodic table elements."""
         # Test first 36 elements (up to Krypton)
         expected_symbols = [
-            'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
-            'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca',
-            'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
-            'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr'
+            "H",
+            "He",
+            "Li",
+            "Be",
+            "B",
+            "C",
+            "N",
+            "O",
+            "F",
+            "Ne",
+            "Na",
+            "Mg",
+            "Al",
+            "Si",
+            "P",
+            "S",
+            "Cl",
+            "Ar",
+            "K",
+            "Ca",
+            "Sc",
+            "Ti",
+            "V",
+            "Cr",
+            "Mn",
+            "Fe",
+            "Co",
+            "Ni",
+            "Cu",
+            "Zn",
+            "Ga",
+            "Ge",
+            "As",
+            "Se",
+            "Br",
+            "Kr",
         ]
 
         for i, symbol in enumerate(expected_symbols, start=1):
@@ -748,7 +807,7 @@ class TestIntegration:
     def test_safe_validation_pattern(self):
         """Test safe pattern: check validity before getting atomic number."""
         # Only test with valid symbols since is_valid_element doesn't catch exceptions
-        test_symbols = ['H', 'C', 'Na', 'Fe', 'Au', 'Pt']
+        test_symbols = ["H", "C", "Na", "Fe", "Au", "Pt"]
 
         for symbol in test_symbols:
             assert GroParser.is_valid_element(symbol) is True
@@ -759,10 +818,10 @@ class TestIntegration:
         """Test that long strings are truncated correctly."""
         # These should be truncated to valid 2-letter symbols
         test_cases = [
-            ('Helium', True),   # -> 'He'
-            ('Carbon', True),   # -> 'Ca' (Calcium)
-            ('Beryllium', True),   # -> 'Be'
-            ('Lithium', True),  # -> 'Li'
+            ("Helium", True),  # -> 'He'
+            ("Carbon", True),  # -> 'Ca' (Calcium)
+            ("Beryllium", True),  # -> 'Be'
+            ("Lithium", True),  # -> 'Li'
         ]
 
         for long_name, _expected_valid in test_cases:

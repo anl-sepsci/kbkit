@@ -4,10 +4,11 @@ Unit tests for the KBIAnalysisPlotter module.
 This test suite provides comprehensive coverage of the KBIAnalysisPlotter class,
 including initialization, plotting methods, and unit conversions.
 """
+
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
@@ -46,39 +47,20 @@ def mock_kbi_metadata():
     meta2.scaled_rkbi_est = np.linspace(2.4, 3.6, 50)
     meta2.kbi_limit = 1.2
 
-    return {
-        "system_1": {
-            "MOL1.MOL2": meta1,
-            "MOL1.MOL1": meta2
-        },
-        "system_2": {
-            "MOL1.MOL2": meta1
-        }
-    }
+    return {"system_1": {"MOL1.MOL2": meta1, "MOL1.MOL1": meta2}, "system_2": {"MOL1.MOL2": meta1}}
 
 
 @pytest.fixture
 def mock_kbi_result(mock_kbi_metadata):
     """Create a mock KBI PropertyResult."""
-    kbi_values = np.array([
-        [[1.2, 1.5], [1.5, 1.2]],
-        [[1.0, 1.3], [1.3, 1.0]]
-    ])
+    kbi_values = np.array([[[1.2, 1.5], [1.5, 1.2]], [[1.0, 1.3], [1.3, 1.0]]])
 
-    result = PropertyResult(
-        name="kbi",
-        value=kbi_values,
-        units="nm^3/molecule",
-        metadata=mock_kbi_metadata
-    )
+    result = PropertyResult(name="kbi", value=kbi_values, units="nm^3/molecule", metadata=mock_kbi_metadata)
 
     # Mock the to() method to return a PropertyResult with metadata preserved
     def mock_to(units=None):
         new_result = PropertyResult(
-            name="kbi",
-            value=kbi_values,
-            units=units or "nm^3/molecule",
-            metadata=mock_kbi_metadata
+            name="kbi", value=kbi_values, units=units or "nm^3/molecule", metadata=mock_kbi_metadata
         )
         return new_result
 
@@ -117,9 +99,9 @@ class TestKBIAnalysisPlotterInitialization:
 class TestKBIAnalysisPlotterPlot:
     """Test the plot method."""
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
     def test_plot_creates_figure(self, mock_close, mock_show, mock_savefig, mock_kbi_result):
         """Test that plot creates a figure."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -133,8 +115,8 @@ class TestKBIAnalysisPlotterPlot:
         mock_close.assert_called_once()
         mock_show.assert_not_called()
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
     def test_plot_shows_figure_when_requested(self, mock_show, mock_savefig, mock_kbi_result):
         """Test that plot shows figure when show=True."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -143,11 +125,12 @@ class TestKBIAnalysisPlotterPlot:
 
         mock_show.assert_called_once()
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
-    def test_plot_saves_figure_when_savepath_provided(self, mock_close, mock_show, mock_savefig,
-                                                       mock_kbi_result, tmp_path):
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
+    def test_plot_saves_figure_when_savepath_provided(
+        self, mock_close, mock_show, mock_savefig, mock_kbi_result, tmp_path
+    ):
         """Test that plot saves figure when savepath is provided."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
 
@@ -158,9 +141,9 @@ class TestKBIAnalysisPlotterPlot:
         call_args = mock_savefig.call_args
         assert str(savepath) in str(call_args[0][0])
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
     def test_plot_with_custom_units(self, mock_close, mock_show, mock_savefig, mock_kbi_result):
         """Test plot with custom units."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -170,9 +153,9 @@ class TestKBIAnalysisPlotterPlot:
         # Should call PropertyResult.to() for unit conversion
         assert mock_close.called
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
     def test_plot_with_molecule_map(self, mock_close, mock_show, mock_savefig, mock_kbi_result):
         """Test plot with molecule_map."""
         molecule_map = {"MOL1": "Molecule 1", "MOL2": "Molecule 2"}
@@ -186,11 +169,10 @@ class TestKBIAnalysisPlotterPlot:
         legend = ax.get_legend()
         assert legend is not None
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
-    def test_plot_without_molecule_map_uses_original_names(self, mock_close, mock_show,
-                                                            mock_savefig, mock_kbi_result):
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
+    def test_plot_without_molecule_map_uses_original_names(self, mock_close, mock_show, mock_savefig, mock_kbi_result):
         """Test plot without molecule_map uses original molecule names."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
 
@@ -202,9 +184,9 @@ class TestKBIAnalysisPlotterPlot:
         legend = ax.get_legend()
         assert legend is not None
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
     def test_plot_sets_axis_labels(self, mock_close, mock_show, mock_savefig, mock_kbi_result):
         """Test that plot sets correct axis labels."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -222,9 +204,9 @@ class TestKBIAnalysisPlotterPlot:
         # Check y-labels
         assert "g(r)" in axes[0].get_ylabel().lower()
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
     def test_plot_plots_all_pairs(self, mock_close, mock_show, mock_savefig, mock_kbi_result):
         """Test that plot plots all molecular pairs."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -237,9 +219,9 @@ class TestKBIAnalysisPlotterPlot:
         for ax in fig.axes:
             assert len(ax.lines) >= 2
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
     def test_plot_includes_extrapolation_line(self, mock_close, mock_show, mock_savefig, mock_kbi_result):
         """Test that plot includes extrapolation line in third subplot."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -250,14 +232,14 @@ class TestKBIAnalysisPlotterPlot:
         ax2 = fig.axes[2]  # Third subplot
 
         # Should have dashed black line for extrapolation
-        dashed_lines = [line for line in ax2.lines if line.get_linestyle() == '--']
+        dashed_lines = [line for line in ax2.lines if line.get_linestyle() == "--"]
         assert len(dashed_lines) > 0
 
 
 class TestKBIAnalysisPlotterPlotAll:
     """Test the plot_all method."""
 
-    @patch.object(KBIAnalysisPlotter, 'plot')
+    @patch.object(KBIAnalysisPlotter, "plot")
     def test_plot_all_calls_plot_for_each_system(self, mock_plot, mock_kbi_result, tmp_path):
         """Test that plot_all calls plot for each system."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -268,11 +250,11 @@ class TestKBIAnalysisPlotterPlotAll:
         assert mock_plot.call_count == 2  # system_1 and system_2
 
         # Check that it was called with correct system names
-        call_args_list = [call[1]['system_name'] for call in mock_plot.call_args_list]
+        call_args_list = [call[1]["system_name"] for call in mock_plot.call_args_list]
         assert "system_1" in call_args_list
         assert "system_2" in call_args_list
 
-    @patch.object(KBIAnalysisPlotter, 'plot')
+    @patch.object(KBIAnalysisPlotter, "plot")
     def test_plot_all_passes_units(self, mock_plot, mock_kbi_result, tmp_path):
         """Test that plot_all passes units to plot."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -281,9 +263,9 @@ class TestKBIAnalysisPlotterPlotAll:
 
         # Check that units were passed
         for call_obj in mock_plot.call_args_list:
-            assert call_obj[1]['units'] == "cm^3/mol"
+            assert call_obj[1]["units"] == "cm^3/mol"
 
-    @patch.object(KBIAnalysisPlotter, 'plot')
+    @patch.object(KBIAnalysisPlotter, "plot")
     def test_plot_all_passes_show(self, mock_plot, mock_kbi_result, tmp_path):
         """Test that plot_all passes show parameter to plot."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -292,9 +274,9 @@ class TestKBIAnalysisPlotterPlotAll:
 
         # Check that show was passed
         for call_obj in mock_plot.call_args_list:
-            assert call_obj[1]['show'] is True
+            assert call_obj[1]["show"] is True
 
-    @patch.object(KBIAnalysisPlotter, 'plot')
+    @patch.object(KBIAnalysisPlotter, "plot")
     def test_plot_all_creates_savepaths(self, mock_plot, mock_kbi_result, tmp_path):
         """Test that plot_all creates correct savepaths."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -303,11 +285,11 @@ class TestKBIAnalysisPlotterPlotAll:
 
         # Check that savepaths were created for each system
         for call_obj in mock_plot.call_args_list:
-            savepath = call_obj[1]['savepath']
+            savepath = call_obj[1]["savepath"]
             assert savepath is not None
             assert ".pdf" in str(savepath)
 
-    @patch.object(KBIAnalysisPlotter, 'plot')
+    @patch.object(KBIAnalysisPlotter, "plot")
     def test_plot_all_handles_directory_savepath(self, mock_plot, mock_kbi_result, tmp_path):
         """Test that plot_all handles directory as savepath."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -316,10 +298,10 @@ class TestKBIAnalysisPlotterPlotAll:
 
         # Should use directory and create filenames
         for call_obj in mock_plot.call_args_list:
-            savepath = Path(call_obj[1]['savepath'])
+            savepath = Path(call_obj[1]["savepath"])
             assert savepath.parent == tmp_path
 
-    @patch.object(KBIAnalysisPlotter, 'plot')
+    @patch.object(KBIAnalysisPlotter, "plot")
     def test_plot_all_handles_file_savepath(self, mock_plot, mock_kbi_result, tmp_path):
         """Test that plot_all handles file path as savepath."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -329,55 +311,44 @@ class TestKBIAnalysisPlotterPlotAll:
 
         # Should use parent directory
         for call_obj in mock_plot.call_args_list:
-            savepath = Path(call_obj[1]['savepath'])
+            savepath = Path(call_obj[1]["savepath"])
             assert savepath.parent == tmp_path
 
 
 class TestKBIAnalysisPlotterIntegration:
     """Integration tests for KBIAnalysisPlotter."""
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
-    def test_full_workflow_single_plot(self, mock_close, mock_show, mock_savefig,
-                                       mock_kbi_result, tmp_path):
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
+    def test_full_workflow_single_plot(self, mock_close, mock_show, mock_savefig, mock_kbi_result, tmp_path):
         """Test complete workflow for single plot."""
         molecule_map = {"MOL1": "Molecule 1", "MOL2": "Molecule 2"}
         plotter = KBIAnalysisPlotter(mock_kbi_result, molecule_map=molecule_map)
 
         savepath = tmp_path / "test_plot.pdf"
-        plotter.plot(
-            "system_1",
-            units="cm^3/mol",
-            savepath=str(savepath),
-            show=False
-        )
+        plotter.plot("system_1", units="cm^3/mol", savepath=str(savepath), show=False)
 
         # Verify all components
         assert mock_savefig.called
         assert mock_close.called
         assert not mock_show.called
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
-    def test_full_workflow_plot_all(self, mock_close, mock_show, mock_savefig,
-                                    mock_kbi_result, tmp_path):
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
+    def test_full_workflow_plot_all(self, mock_close, mock_show, mock_savefig, mock_kbi_result, tmp_path):
         """Test complete workflow for plot_all."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
 
-        plotter.plot_all(
-            units="cm^3/mol",
-            savepath=str(tmp_path),
-            show=False
-        )
+        plotter.plot_all(units="cm^3/mol", savepath=str(tmp_path), show=False)
 
         # Should create plots for all systems
         assert mock_savefig.call_count == 2  # system_1 and system_2
         assert mock_close.call_count == 2
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
     def test_plot_with_show_true(self, mock_show, mock_savefig, mock_kbi_result):
         """Test plot with show=True displays figure."""
         plotter = KBIAnalysisPlotter(mock_kbi_result)
@@ -402,7 +373,7 @@ class TestKBIAnalysisPlotterIntegration:
 
         mock_kbi_result.to = tracked_to
 
-        with patch('matplotlib.pyplot.show'), patch('matplotlib.pyplot.close'):
+        with patch("matplotlib.pyplot.show"), patch("matplotlib.pyplot.close"):
             plotter.plot("system_1", units="cm^3/mol", show=False)
 
         # Should have called to() with cm^3/mol
@@ -412,17 +383,14 @@ class TestKBIAnalysisPlotterIntegration:
 class TestKBIAnalysisPlotterEdgeCases:
     """Test edge cases and error conditions."""
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
     def test_plot_with_empty_metadata(self, mock_close, mock_show, mock_savefig):
         """Test plot with system that has no metadata."""
         # Create result with empty metadata for a system
         result = PropertyResult(
-            name="kbi",
-            value=np.array([[[1.0, 1.0], [1.0, 1.0]]]),
-            units="nm^3/molecule",
-            metadata={"system_1": {}}
+            name="kbi", value=np.array([[[1.0, 1.0], [1.0, 1.0]]]), units="nm^3/molecule", metadata={"system_1": {}}
         )
 
         # Mock the to() method to preserve metadata
@@ -431,8 +399,9 @@ class TestKBIAnalysisPlotterEdgeCases:
                 name="kbi",
                 value=np.array([[[1.0, 1.0], [1.0, 1.0]]]),
                 units=units or "nm^3/molecule",
-                metadata={"system_1": {}}
+                metadata={"system_1": {}},
             )
+
         result.to = mock_to
 
         plotter = KBIAnalysisPlotter(result)
@@ -442,9 +411,9 @@ class TestKBIAnalysisPlotterEdgeCases:
 
         assert mock_close.called
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.show')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.close")
     def test_plot_with_single_pair(self, mock_close, mock_show, mock_savefig):
         """Test plot with system that has only one molecular pair."""
         meta = Mock(spec=KBIMetadata)
@@ -461,10 +430,7 @@ class TestKBIAnalysisPlotterEdgeCases:
         metadata = {"system_1": {"MOL1.MOL2": meta}}
 
         result = PropertyResult(
-            name="kbi",
-            value=np.array([[[1.5, 1.5], [1.5, 1.5]]]),
-            units="nm^3/molecule",
-            metadata=metadata
+            name="kbi", value=np.array([[[1.5, 1.5], [1.5, 1.5]]]), units="nm^3/molecule", metadata=metadata
         )
 
         # Mock the to() method to preserve metadata
@@ -473,8 +439,9 @@ class TestKBIAnalysisPlotterEdgeCases:
                 name="kbi",
                 value=np.array([[[1.5, 1.5], [1.5, 1.5]]]),
                 units=units or "nm^3/molecule",
-                metadata=metadata
+                metadata=metadata,
             )
+
         result.to = mock_to
 
         plotter = KBIAnalysisPlotter(result)
@@ -482,24 +449,15 @@ class TestKBIAnalysisPlotterEdgeCases:
 
         assert mock_close.called
 
-    @patch.object(KBIAnalysisPlotter, 'plot')
+    @patch.object(KBIAnalysisPlotter, "plot")
     def test_plot_all_with_no_systems(self, mock_plot, tmp_path):
         """Test plot_all with no systems in metadata."""
-        result = PropertyResult(
-            name="kbi",
-            value=np.array([]),
-            units="nm^3/molecule",
-            metadata={}
-        )
+        result = PropertyResult(name="kbi", value=np.array([]), units="nm^3/molecule", metadata={})
 
         # Mock the to() method
         def mock_to(units=None):
-            return PropertyResult(
-                name="kbi",
-                value=np.array([]),
-                units=units or "nm^3/molecule",
-                metadata={}
-            )
+            return PropertyResult(name="kbi", value=np.array([]), units=units or "nm^3/molecule", metadata={})
+
         result.to = mock_to
 
         plotter = KBIAnalysisPlotter(result)

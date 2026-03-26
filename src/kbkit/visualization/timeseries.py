@@ -37,7 +37,9 @@ class TimeseriesPlotter:
         self.props.start_time = start_time
 
     @classmethod
-    def from_collection(cls, systems: "SystemCollection", system_name: str | int, start_time: int = 0) -> "TimeseriesPlotter":
+    def from_collection(
+        cls, systems: "SystemCollection", system_name: str | int, start_time: int = 0
+    ) -> "TimeseriesPlotter":
         """Initialized `TimeseriesPlotter` from a :class:`~kbkit.systems.collection.SystemCollection` object.
 
         Parameters

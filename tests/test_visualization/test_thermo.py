@@ -27,17 +27,17 @@ import pytest
 # Patch targets - must match the *import* location inside the module under test
 # ---------------------------------------------------------------------------
 MOD = "kbkit.visualization.thermo"
-_PATCH_PLT            = f"{MOD}.plt"
-_PATCH_FORMAT_UNIT    = f"{MOD}.format_unit_str"
-_PATCH_LOAD_STYLE     = f"{MOD}.load_mplstyle"
+_PATCH_PLT = f"{MOD}.plt"
+_PATCH_FORMAT_UNIT = f"{MOD}.format_unit_str"
+_PATCH_LOAD_STYLE = f"{MOD}.load_mplstyle"
 
 
 # ===========================================================================
 # Helpers
 # ===========================================================================
 
-N_SYS = 5       # number of simulated compositions
-N_MOL = 3       # number of molecules (ternary)
+N_SYS = 5  # number of simulated compositions
+N_MOL = 3  # number of molecules (ternary)
 
 
 def _make_thermo(
@@ -95,8 +95,10 @@ def _attach_property(thermo, name, array):
     Make ``thermo.<name>`` a callable that accepts an optional *units* arg
     and returns *array*.  Mimics the ``PropertyResult`` call signature.
     """
+
     def _prop(units=None):
         return array
+
     setattr(thermo, name, _prop)
 
 
@@ -106,6 +108,7 @@ def _make_plotter(thermo=None, molecule_map=None):
         thermo = _make_thermo()
     # import here so module-level load_mplstyle has already fired
     from kbkit.visualization.thermo import ThermoPlotter
+
     return ThermoPlotter(thermo=thermo, molecule_map=molecule_map)
 
 
@@ -113,16 +116,18 @@ def _make_plotter(thermo=None, molecule_map=None):
 # Shared fixture: suppress all matplotlib rendering
 # ===========================================================================
 
+
 @pytest.fixture(autouse=True)
 def _patch_matplotlib():
     """
     Patch plt globally for every test.  Returns the mock so individual tests
     can inspect calls if needed.
     """
-    with patch(_PATCH_PLT) as mock_plt, \
-         patch(_PATCH_FORMAT_UNIT, side_effect=lambda s: s or ""), \
-         patch(_PATCH_LOAD_STYLE):
-
+    with (
+        patch(_PATCH_PLT) as mock_plt,
+        patch(_PATCH_FORMAT_UNIT, side_effect=lambda s: s or ""),
+        patch(_PATCH_LOAD_STYLE),
+    ):
         # plt.subplots → (fig, ax)  where ax supports all chained calls
         fig = MagicMock()
         ax = MagicMock()
@@ -142,6 +147,7 @@ def _patch_matplotlib():
 # 1. __init__
 # ===========================================================================
 
+
 class TestInit:
     def test_molecule_map_provided(self):
         thermo = _make_thermo(molecules=["Water", "Ethanol"])
@@ -160,6 +166,7 @@ class TestInit:
 # ===========================================================================
 # 2. plot()  -  every y.ndim branch + x flattening + save/show paths
 # ===========================================================================
+
 
 class TestPlot:
     # --- 1-D y, 1-D x -------------------------------------------------------
@@ -291,13 +298,16 @@ class TestPlot:
 # 3. plot_property()
 # ===========================================================================
 
+
 class TestPlotProperty:
     # --- units callable succeeds (normal path) --------------------------------
     def test_units_callable_succeeds(self):
         thermo = _make_thermo()
+
         # Override kbi so calling with units works
         def kbi_with_units(units=None):
             return np.ones((N_SYS, 3, 3))
+
         thermo.kbi = kbi_with_units
 
         p = _make_plotter(thermo)
@@ -311,11 +321,13 @@ class TestPlotProperty:
         thermo = _make_thermo()
 
         call_log = []
+
         def bad_kbi(units=None):
             call_log.append(units)
             if units is not None:
                 raise TypeError("no units supported")
             return np.ones((N_SYS, 3, 3))
+
         thermo.kbi = bad_kbi
 
         p = _make_plotter(thermo)
@@ -389,19 +401,22 @@ class TestPlotProperty:
 # 4. plot_ternary()
 # ===========================================================================
 
+
 class TestPlotTernary:
     def _ternary_x(self):
         """Valid 3-column mole-fraction array (rows sum to 1)."""
-        return np.column_stack([
-            np.linspace(0.1, 0.8, N_SYS),
-            np.linspace(0.1, 0.5, N_SYS),
-            np.linspace(0.1, 0.3, N_SYS),
-        ])
+        return np.column_stack(
+            [
+                np.linspace(0.1, 0.8, N_SYS),
+                np.linspace(0.1, 0.5, N_SYS),
+                np.linspace(0.1, 0.3, N_SYS),
+            ]
+        )
 
     # --- x.shape[1] != 3 → ValueError -----------------------------------------
     def test_raises_when_not_ternary(self):
         p = _make_plotter()
-        x = np.ones((N_SYS, 2))   # binary, not ternary
+        x = np.ones((N_SYS, 2))  # binary, not ternary
         y = np.ones(N_SYS)
         with pytest.raises(ValueError, match="not a ternary system"):
             p.plot_ternary(x, y)
@@ -410,7 +425,7 @@ class TestPlotTernary:
     def test_raises_when_y_not_1d(self):
         p = _make_plotter()
         x = self._ternary_x()
-        y = np.ones((N_SYS, 2))   # 2-D
+        y = np.ones((N_SYS, 2))  # 2-D
         with pytest.raises(ValueError, match="only available for 1D"):
             p.plot_ternary(x, y)
 
@@ -423,15 +438,15 @@ class TestPlotTernary:
         # Inject a NaN and an Inf so the mask actually removes rows
         y[0] = np.nan
         y[1] = np.inf
-        x[2, 0] = -0.1   # negative → filtered
+        x[2, 0] = -0.1  # negative → filtered
 
         fig, ax = p.plot_ternary(x, y, show=False)
         # tricontourf should have been called (on the ternary ax)
         ax.tricontourf.assert_called_once()
         # The arrays passed in should be shorter than N_SYS
         call_args = ax.tricontourf.call_args[0]
-        assert len(call_args[0]) < N_SYS   # a (filtered)
-        assert len(call_args[3]) < N_SYS   # values (filtered)
+        assert len(call_args[0]) < N_SYS  # a (filtered)
+        assert len(call_args[3]) < N_SYS  # values (filtered)
 
     # --- savepath with suffix -------------------------------------------------
     def test_savepath_with_suffix(self, tmp_path):
@@ -477,14 +492,17 @@ class TestPlotTernary:
 # 5. plot_property_ternary()
 # ===========================================================================
 
+
 class TestPlotPropertyTernary:
     def _ternary_thermo(self):
         molecules = ["A", "B", "C"]
-        x = np.column_stack([
-            np.linspace(0.1, 0.8, N_SYS),
-            np.linspace(0.1, 0.5, N_SYS),
-            np.linspace(0.1, 0.3, N_SYS),
-        ])
+        x = np.column_stack(
+            [
+                np.linspace(0.1, 0.8, N_SYS),
+                np.linspace(0.1, 0.5, N_SYS),
+                np.linspace(0.1, 0.3, N_SYS),
+            ]
+        )
         return _make_thermo(molecules=molecules, x=x)
 
     # --- units provided → cbar_label includes formatted units -------------------
@@ -527,6 +545,7 @@ class TestPlotPropertyTernary:
 # 6. plot_activity_coef_deriv_fits()
 # ===========================================================================
 
+
 class TestPlotActivityCoefDerivFits:
     def _thermo_with_fits(self, has_fn: bool):
         thermo = _make_thermo(molecules=["A", "B"])
@@ -562,9 +581,7 @@ class TestPlotActivityCoefDerivFits:
     def test_xlim_ylim(self):
         thermo = self._thermo_with_fits(has_fn=False)
         p = _make_plotter(thermo)
-        fig, ax = p.plot_activity_coef_deriv_fits(
-            xlim=(0, 1), ylim=(-2, 2), show=False
-        )
+        fig, ax = p.plot_activity_coef_deriv_fits(xlim=(0, 1), ylim=(-2, 2), show=False)
         ax.set_xlim.assert_called_with((0, 1))
         ax.set_ylim.assert_called_with((-2, 2))
 
@@ -591,13 +608,16 @@ class TestPlotActivityCoefDerivFits:
 # 7. plot_binary_mixing()
 # ===========================================================================
 
+
 class TestPlotBinaryMixing:
     def _binary_thermo(self):
         molecules = ["A", "B"]
-        x = np.column_stack([
-            np.linspace(0, 1, N_SYS),
-            np.linspace(1, 0, N_SYS),
-        ])
+        x = np.column_stack(
+            [
+                np.linspace(0, 1, N_SYS),
+                np.linspace(1, 0, N_SYS),
+            ]
+        )
         return _make_thermo(molecules=molecules, n_i=2, x=x)
 
     # --- xmol provided ---------------------------------------------------------
@@ -647,6 +667,7 @@ class TestPlotBinaryMixing:
 # 8. make_figures()
 # ===========================================================================
 
+
 class TestMakeFigures:
     """
     make_figures dispatches to the other plot methods.  We patch them so we
@@ -667,8 +688,7 @@ class TestMakeFigures:
 
     # --- polynomial integration_type → plot_activity_coef_deriv_fits called -----
     def test_polynomial_activity(self, tmp_path):
-        thermo = _make_thermo(molecules=["A", "B"], n_i=2,
-                              activity_integration_type="polynomial")
+        thermo = _make_thermo(molecules=["A", "B"], n_i=2, activity_integration_type="polynomial")
         p = self._patch_plot_methods(_make_plotter(thermo))
         p.make_figures(savepath=str(tmp_path), xmol="A")
 
@@ -679,8 +699,7 @@ class TestMakeFigures:
 
     # --- non-polynomial → plot_property("dlngamma_dxi") called -----------------
     def test_non_polynomial_activity(self, tmp_path):
-        thermo = _make_thermo(molecules=["A", "B"], n_i=2,
-                              activity_integration_type="trapezoid")
+        thermo = _make_thermo(molecules=["A", "B"], n_i=2, activity_integration_type="trapezoid")
         p = self._patch_plot_methods(_make_plotter(thermo))
         p.make_figures(savepath=str(tmp_path), xmol="A")
 
@@ -691,33 +710,26 @@ class TestMakeFigures:
 
     # --- n_i == BINARY → binary-specific plots called -------------------------
     def test_binary_system(self, tmp_path):
-        thermo = _make_thermo(molecules=["A", "B"], n_i=2,
-                              activity_integration_type="trapezoid")
+        thermo = _make_thermo(molecules=["A", "B"], n_i=2, activity_integration_type="trapezoid")
         p = self._patch_plot_methods(_make_plotter(thermo))
         p.make_figures(savepath=str(tmp_path), xmol="A")
 
         # binary branch calls plot_binary_mixing
         p.plot_binary_mixing.assert_called_once()
         # det_H plotted via plot_property with units
-        det_h_calls = [
-            c for c in p.plot_property.call_args_list
-            if (c[1]["name"] == "det_H")
-        ]
+        det_h_calls = [c for c in p.plot_property.call_args_list if (c[1]["name"] == "det_H")]
         assert len(det_h_calls) == 1
         assert det_h_calls[0][1].get("units") == "kJ/mol"
 
     # --- n_i == TERNARY → ternary plots called --------------------------------
     def test_ternary_system(self, tmp_path):
-        thermo = _make_thermo(molecules=["A", "B", "C"], n_i=3,
-                              activity_integration_type="trapezoid")
+        thermo = _make_thermo(molecules=["A", "B", "C"], n_i=3, activity_integration_type="trapezoid")
         p = self._patch_plot_methods(_make_plotter(thermo))
         p.make_figures(savepath=str(tmp_path))
 
         # ternary branch calls plot_property_ternary for 5 properties
         assert p.plot_property_ternary.call_count == 5
-        ternary_names = [
-            c[1]["name"] for c in p.plot_property_ternary.call_args_list
-        ]
+        ternary_names = [c[1]["name"] for c in p.plot_property_ternary.call_args_list]
         for expected in ("h_mix", "s_ex", "g_ex", "g_id", "g_mix"):
             assert expected in ternary_names
 
@@ -726,8 +738,7 @@ class TestMakeFigures:
 
     # --- n_i not in {2,3} → early return, no binary/ternary plots -------------
     def test_unsupported_system_size(self, tmp_path):
-        thermo = _make_thermo(molecules=["A", "B", "C", "D"], n_i=4,
-                              activity_integration_type="trapezoid")
+        thermo = _make_thermo(molecules=["A", "B", "C", "D"], n_i=4, activity_integration_type="trapezoid")
         p = self._patch_plot_methods(_make_plotter(thermo))
         p.make_figures(savepath=str(tmp_path))
 
@@ -735,8 +746,6 @@ class TestMakeFigures:
         p.plot_binary_mixing.assert_not_called()
         p.plot_property_ternary.assert_not_called()
         # But the common properties (kbi, lngamma, s0_ij, dlngamma_dxi) ARE plotted
-        common_names = [
-            c[1]["name"] for c in p.plot_property.call_args_list
-        ]
+        common_names = [c[1]["name"] for c in p.plot_property.call_args_list]
         for expected in ("kbi", "lngamma", "s0_ij"):
             assert expected in common_names

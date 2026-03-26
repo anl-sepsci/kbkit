@@ -9,7 +9,9 @@ import numpy as np
 from kbkit.schema.property_result import PropertyResult
 
 
-def cached_property_result(default_units: str | None = None) -> Callable[[Callable[..., Any]], Callable[..., PropertyResult]]:
+def cached_property_result(
+    default_units: str | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., PropertyResult]]:
     """Decorator factory for caching PropertyResult calculations.
 
     Parameters
@@ -84,11 +86,7 @@ def cached_property_result(default_units: str | None = None) -> Callable[[Callab
 
             func_meta = {k: v for k, v in all_kwargs.items() if k not in ("name", "avg")}
 
-            cache_key = (
-                property_name,
-                property_type,
-                *(f"{k}={v}" for k, v in sorted(all_kwargs.items()))
-            )
+            cache_key = (property_name, property_type, *(f"{k}={v}" for k, v in sorted(all_kwargs.items())))
 
             if cache_key in self._cache:
                 cached_result = self._cache[cache_key]
@@ -117,7 +115,9 @@ def cached_property_result(default_units: str | None = None) -> Callable[[Callab
     return decorator
 
 
-def cached_property_value(default_units: str | None = None)  -> Callable[[Callable[..., Any]], Callable[..., np.ndarray]]:
+def cached_property_value(
+    default_units: str | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., np.ndarray]]:
     """
     Decorator factory for caching PropertyResult calculations and returning values.
 
@@ -131,6 +131,7 @@ def cached_property_value(default_units: str | None = None)  -> Callable[[Callab
     Callable
         A decorator that wraps methods to return the value attribute of PropertyResult
     """
+
     def decorator(func) -> Callable[..., Any]:
         # Get function signature to access default values
         sig = inspect.signature(func)

@@ -2,10 +2,11 @@
 Complete test coverage for kbkit.utils.decorators module.
 Target: >95% coverage
 """
+
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 
 import numpy as np
@@ -21,6 +22,7 @@ class TestCachedPropertyResult:
     @pytest.fixture
     def mock_class(self):
         """Create a mock class with decorated methods."""
+
         class TestClass:
             def __init__(self):
                 self._cache = {}
@@ -122,23 +124,14 @@ class TestCachedPropertyResult:
 
     def test_decorator_with_additional_kwargs(self, mock_class):
         """Test decorator with additional keyword arguments."""
-        result = mock_class.density_property(
-            name="water",
-            temperature=298.15,
-            pressure=101325,
-            custom_param="test"
-        )
+        result = mock_class.density_property(name="water", temperature=298.15, pressure=101325, custom_param="test")
 
         assert isinstance(result, PropertyResult)
         assert "temperature" in result.metadata or "custom_param" in result.metadata
 
     def test_decorator_metadata_excludes_name_and_avg(self, mock_class):
         """Test that metadata excludes 'name' and 'avg' parameters."""
-        result = mock_class.density_property(
-            name="water",
-            temperature=298.15,
-            avg=True
-        )
+        result = mock_class.density_property(name="water", temperature=298.15, avg=True)
 
         # 'name' and 'avg' should not be in metadata
         assert "name" not in result.metadata
@@ -193,6 +186,7 @@ class TestCachedPropertyValue:
     @pytest.fixture
     def mock_class(self):
         """Create a mock class with decorated methods."""
+
         class TestClass:
             def __init__(self):
                 self._cache = {}
@@ -300,6 +294,7 @@ class TestDecoratorEdgeCases:
     @pytest.fixture
     def mock_class(self):
         """Create a mock class for edge case testing."""
+
         class TestClass:
             def __init__(self):
                 self._cache = {}
@@ -362,6 +357,7 @@ class TestDecoratorIntegration:
 
     def test_both_decorators_in_same_class(self):
         """Test using both decorators in the same class."""
+
         class TestClass:
             def __init__(self):
                 self._cache = {}
@@ -385,6 +381,7 @@ class TestDecoratorIntegration:
 
     def test_decorator_with_complex_return_types(self):
         """Test decorator with various return types."""
+
         class TestClass:
             def __init__(self):
                 self._cache = {}
@@ -411,19 +408,14 @@ class TestDecoratorIntegration:
 
     def test_decorator_signature_inspection(self):
         """Test that decorator properly uses signature inspection."""
+
         class TestClass:
             def __init__(self):
                 self._cache = {}
 
             @cached_property_result()
             def method_with_many_params(
-                self,
-                name: str,
-                a: int = 1,
-                b: float = 2.0,
-                c: str = "three",
-                d: bool = True,
-                **kwargs
+                self, name: str, a: int = 1, b: float = 2.0, c: str = "three", d: bool = True, **kwargs
             ):
                 return np.array([a, b])
 
@@ -440,12 +432,12 @@ class TestDecoratorIntegration:
         assert result2.metadata["b"] == 20.0
 
 
-
 class TestCacheKeyConsistency:
     """Test cache key generation consistency."""
 
     def test_cache_key_order_independence(self):
         """Test that kwargs order doesn't affect cache key."""
+
         class TestClass:
             def __init__(self):
                 self._cache = {}
@@ -468,6 +460,7 @@ class TestCacheKeyConsistency:
 
     def test_cache_key_with_none_values(self):
         """Test cache key generation with None values."""
+
         class TestClass:
             def __init__(self):
                 self._cache = {}
@@ -483,18 +476,21 @@ class TestCacheKeyConsistency:
 
         assert len(obj._cache) == 1
 
+
 import sys
 
 import pytest
 
 if __name__ == "__main__":
     # Run the decorator tests
-    exit_code = pytest.main([
-        "tests/test_utils/test_decorators.py",
-        "-v",
-        "--tb=short",
-        "--cov=kbkit.utils.decorators",
-        "--cov-report=term-missing"
-    ])
+    exit_code = pytest.main(
+        [
+            "tests/test_utils/test_decorators.py",
+            "-v",
+            "--tb=short",
+            "--cov=kbkit.utils.decorators",
+            "--cov-report=term-missing",
+        ]
+    )
 
     sys.exit(exit_code)

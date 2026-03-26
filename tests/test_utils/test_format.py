@@ -2,10 +2,11 @@
 Complete test coverage for kbkit.utils.format module.
 Target: >95% coverage
 """
+
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 import pytest
 
@@ -126,8 +127,6 @@ class TestResolveAttrKey:
         assert "Property" in result
 
 
-
-
 class TestResolveUnits:
     """Test resolve_units function."""
 
@@ -170,8 +169,6 @@ class TestResolveUnits:
         """Test with LaTeX formatted units."""
         result = resolve_units("$kg/m^3$", "g/cm3")
         assert result == "$kg/m^3$"
-
-
 
 
 class TestFormatUnitStr:
@@ -253,6 +250,7 @@ class TestFormatUnitStr:
 
     def test_type_error_on_unconvertible(self):
         """Test TypeError on unconvertible type."""
+
         # Create an object that can't be converted to string
         class UnconvertibleType:
             def __str__(self):
@@ -301,8 +299,6 @@ class TestFormatUnitStr:
         assert "a+b" in result or "(a+b)" in result
 
 
-
-
 class TestEnergyAliases:
     """Test ENERGY_ALIASES constant."""
 
@@ -338,8 +334,14 @@ class TestEnergyAliases:
     def test_common_properties_present(self):
         """Test that common properties are present."""
         expected_keys = [
-            "temperature", "pressure", "volume", "density",
-            "enthalpy", "potential", "kinetic-en", "total-energy"
+            "temperature",
+            "pressure",
+            "volume",
+            "density",
+            "enthalpy",
+            "potential",
+            "kinetic-en",
+            "total-energy",
         ]
 
         for key in expected_keys:
@@ -349,8 +351,6 @@ class TestEnergyAliases:
         """Test that no alias set is empty."""
         for aliases in ENERGY_ALIASES.values():
             assert len(aliases) >= 0
-
-
 
 
 class TestIntegration:
@@ -405,8 +405,6 @@ class TestIntegration:
                 assert formatted.endswith("$")
 
 
-
-
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
 
@@ -443,5 +441,3 @@ class TestEdgeCases:
         result = format_unit_str("1/s")
         assert result.startswith("$")
         assert result.endswith("$")
-
-

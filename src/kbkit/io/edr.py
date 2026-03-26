@@ -56,7 +56,7 @@ class EdrParser:
         "cv": "kJ/mol/K",
         "isothermal-compressibility": "1/kPa",
         "number-density": "molecule/nm^3",
-        "molar-volume": "cm^3/mol"
+        "molar-volume": "cm^3/mol",
     }
 
     FLUCT_PROPS: ClassVar = ("cp", "cv", "isothermal-compressibility")
@@ -90,7 +90,7 @@ class EdrParser:
         """
         prop_input = name.lower() + "\n\n"
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.xvg', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".xvg", delete=False) as tmp:
             tmpfile = tmp.name
 
         try:
@@ -127,7 +127,7 @@ class EdrParser:
 
         prop_input = "\n".join(subset) + "\n\n"
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.xvg', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".xvg", delete=False) as tmp:
             tmpfile = tmp.name
 
         try:
@@ -142,9 +142,9 @@ class EdrParser:
 
             # Parse XVG header to get column order (excluding time)
             column_names = []
-            with open(tmpfile, 'r') as f:
+            with open(tmpfile, "r") as f:
                 for line in f:
-                    if line.startswith('@ s') and 'legend' in line:
+                    if line.startswith("@ s") and "legend" in line:
                         name = line.split('"')[1]
                         column_names.append(name)
 
@@ -170,14 +170,10 @@ class EdrParser:
 
         return data
 
-
     def _get_property_names(self) -> list[str]:
         """Captures the full list of property names from the GMX menu, handling names with internal spaces or special characters."""
         process = subprocess.run(
-            ["gmx", "energy", "-f", str(self.edr_path)],
-            check=False, input="\n",
-            capture_output=True,
-            text=True
+            ["gmx", "energy", "-f", str(self.edr_path)], check=False, input="\n", capture_output=True, text=True
         )
 
         names = []
@@ -199,7 +195,7 @@ class EdrParser:
             for i in range(2, len(parts), 2):
                 prop_name = parts[i].strip()
                 if prop_name and not prop_name.isdigit():
-                    names.append(prop_name.lower().replace('.', ''))
+                    names.append(prop_name.lower().replace(".", ""))
 
         return names
 
@@ -256,7 +252,9 @@ class EdrParser:
         # convert to desired units
         return self.Q_(values, gmx_units).to(units).magnitude
 
-    def molar_volume(self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None) -> np.ndarray | float:
+    def molar_volume(
+        self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None
+    ) -> np.ndarray | float:
         r"""
         Calculate molar volume of a simulation.
 
@@ -289,7 +287,9 @@ class EdrParser:
         molar_vol = V / nmol
         return self.Q_(molar_vol, "nm^3/molecule").to(units).magnitude
 
-    def configurational_enthalpy(self, volume: float = 0, start_time: float = 0, units: str | None = None) -> np.ndarray:
+    def configurational_enthalpy(
+        self, volume: float = 0, start_time: float = 0, units: str | None = None
+    ) -> np.ndarray:
         r"""
         Calculate enthalpy from potential energy.
 
@@ -331,10 +331,12 @@ class EdrParser:
             V = np.asarray(volume)
         V = self.Q_(V, "nm^3").to("m^3").magnitude
 
-        H = (U + P*V)
+        H = U + P * V
         return self.Q_(H, "kJ/mol").to(units).magnitude
 
-    def molar_enthalpy(self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None) -> np.ndarray:
+    def molar_enthalpy(
+        self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None
+    ) -> np.ndarray:
         r"""
         Calculate molar enthalpy.
 
@@ -409,7 +411,7 @@ class EdrParser:
         R = self.ureg("R").to("kJ/mol/K").magnitude
 
         # ddof=1 is for sample variance calculations
-        cp = H.var(ddof=1)/nmol/(R*T_avg**2)
+        cp = H.var(ddof=1) / nmol / (R * T_avg**2)
         return self.Q_(cp, "kJ/mol/K").to(units).magnitude
 
     def cv(self, nmol: int, start_time: float = 0, units: str | None = None) -> float:
@@ -455,7 +457,7 @@ class EdrParser:
         R = self.ureg("R").to("kJ/mol/K").magnitude
 
         # ddof=1 is for sample variance calculations
-        cv = U.var(ddof=1)/nmol/(R*T_avg**2)
+        cv = U.var(ddof=1) / nmol / (R * T_avg**2)
         return self.Q_(cv, "kJ/mol/K").to(units).magnitude
 
     def isothermal_compressibility(self, start_time: float = 0, units: str | None = None) -> float:
@@ -486,4 +488,3 @@ class EdrParser:
         T = self.get("Temperature", start_time=start_time)
         kT = N_A * V.var(ddof=1) / (V.mean() * R * T.mean())
         return self.Q_(kT, "1/kPa").to(units).magnitude
-

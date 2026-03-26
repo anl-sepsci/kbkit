@@ -59,8 +59,7 @@ class PropertyResult:
         """
         if self.units is None:
             raise ValueError(
-                f"Cannot convert PropertyResult '{self.name}' without units. "
-                "Original units were not specified."
+                f"Cannot convert PropertyResult '{self.name}' without units. Original units were not specified."
             )
 
         if units == self.units:
@@ -74,9 +73,7 @@ class PropertyResult:
             quantity = ureg.Quantity(self.value, self.units)
             new_value = quantity.to(units).magnitude
         except Exception as e:
-            raise ValueError(
-                f"Cannot convert '{self.name}' from '{self.units}' to '{units}': {e}"
-            ) from e
+            raise ValueError(f"Cannot convert '{self.name}' from '{self.units}' to '{units}': {e}") from e
 
         # Handle metadata conversion
         new_metadata: dict[str, Any] = {}
@@ -90,14 +87,12 @@ class PropertyResult:
 
         # Return a new PropertyResult with converted values
         return PropertyResult(
-            name=self.name,
-            value=new_value,
-            property_type=self.property_type,
-            units=units,
-            metadata=new_metadata
+            name=self.name, value=new_value, property_type=self.property_type, units=units, metadata=new_metadata
         )
 
-    def _convert_kbi_metadata(self, property_meta: dict[str, Any], target_units: str, ureg) ->  dict[str, dict[str, KBIMetadata]]:
+    def _convert_kbi_metadata(
+        self, property_meta: dict[str, Any], target_units: str, ureg
+    ) -> dict[str, dict[str, KBIMetadata]]:
         """
         Convert KBI metadata to target units.
 
@@ -134,9 +129,7 @@ class PropertyResult:
 
         return new_metadata
 
-    def _convert_single_kbi_metadata(
-        self, kbi_meta: KBIMetadata, target_units: str, ureg
-    ) -> KBIMetadata:
+    def _convert_single_kbi_metadata(self, kbi_meta: KBIMetadata, target_units: str, ureg) -> KBIMetadata:
         """
         Convert a single KBIMetadata object to target units.
 

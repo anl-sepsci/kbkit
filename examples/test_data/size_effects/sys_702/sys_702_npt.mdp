@@ -1,0 +1,46 @@
+; Run parameters
+integrator	= md
+nsteps		= 105000000
+dt		= 0.002
+; Output control
+nstxout-compressed = 5000
+nstenergy	= 5000
+nstlog		= 5000
+; Bond parameters
+continuation	= no		; Restarting after NVT 
+constraint_algorithm = lincs	; holonomic constraints 
+constraints	= h-bonds	; all bonds (even heavy atom-H bonds) constrained
+lincs_iter	= 1		; accuracy of LINCS
+lincs_order	= 4		; also related to accuracy
+; Neighborsearching
+ns_type		= grid
+nstlist		= 10
+rlist		= 1.5
+rcoulomb	= 1.5
+rvdw		= 1.5
+vdwtype		= Cut-off
+; Electrostatics
+coulombtype	= PME		; Particle Mesh Ewald for long-range electrostatics
+pme_order	= 4		; cubic interpolation
+fourierspacing	= 0.16		; grid spacing for FFT
+; Temperature coupling is on
+tcoupl		= V-rescale
+tc-grps		= system
+tau_t		= 0.2
+ref_t		= 299.15
+; Pressure coupling is on
+pcoupl		= c-rescale
+pcoupltype	= isotropic
+tau_p		= 2.0
+ref_p		= 1.0
+compressibility = 4.5e-5
+refcoord_scaling = com
+; Periodic boundary conditions
+pbc		= xyz
+; Dispersion correction
+DispCorr	= EnerPres
+; Velocity generation
+gen_vel		= yes
+gen_temp	= 299.15
+gen_seed	= -1 
+energygrps	= ETHOL SPCEW

@@ -23,6 +23,7 @@ ARR_DIM_3 = 3
 BINARY = 2
 TERNARY = 3
 
+
 class ThermoPlotter:
     """
     Plot properties from :class:`~kbkit.analysis.kb_thermo.KBThermo`.
@@ -446,11 +447,18 @@ class ThermoPlotter:
         ax.plot(xi, self.thermo.h_mix(), lw=lw, ls=ls, marker=marker, label=r"$\Delta H_{mix}$")
         ax.plot(xi, -self.thermo.temperature() * self.thermo.s_ex(), lw=lw, ls=ls, marker=marker, label=r"$-TS^{EX}$")
         ax.plot(xi, self.thermo.g_ex(), lw=lw, ls=ls, marker=marker, label=r"$G^{EX}$")
-        ax.plot(xi, -self.thermo.temperature() * self.thermo.g_id() / self.thermo.temperature(), lw=lw, ls=ls, marker=marker, label=r"$-TS^{id}$")
+        ax.plot(
+            xi,
+            -self.thermo.temperature() * self.thermo.g_id() / self.thermo.temperature(),
+            lw=lw,
+            ls=ls,
+            marker=marker,
+            label=r"$-TS^{id}$",
+        )
         ax.plot(xi, self.thermo.g_mix(), lw=lw, ls=ls, marker=marker, label=r"$\Delta G_{mix}$")
         ax.set_xlabel(rf"$x_{{{xmol_mix}}}$")
         unit_str = format_unit_str("kJ/mol")
-        ax.set_ylabel(fr"Thermodynamic Properties ({unit_str})")
+        ax.set_ylabel(rf"Thermodynamic Properties ({unit_str})")
         ax.legend()
 
         if xlim:

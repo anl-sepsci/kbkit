@@ -6,7 +6,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import linregress
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.utils.validation import validate_path
@@ -18,16 +17,12 @@ class RdfParser:
     """
     Class to handle RDF (Radial Distribution Function) data.
 
-    Reads RDF data from a file, checks for convergence, and provides methods to plot the RDF and extract molecular information.
+    Reads RDF data from a file provides methods to plot the RDF and extract molecular information.
 
     Parameters
     ----------
     filepath : str
         Path to the RDF text file.
-    convergence_thresholds: tuple, optional
-        Thresholds for convergence requirements.
-    tail_length: float, optional
-        Optional tail length to enforce if ``use_fixed_tail`` is `True`.
 
     Attributes
     ----------
@@ -37,15 +32,11 @@ class RdfParser:
         Array of radial distances (nm).
     g: np.ndarray
         Array of radial distribution function values.
-    mask: np.ndarray
-        Boolean mask for RDF tail.
     """
 
     def __init__(
         self,
         path: str | Path,
-        convergence_thresholds: tuple = (1e-3, 1e-2),
-        tail_length: float | None = None,
     ) -> None:
         # first validate file
         fpath = Path(path)
@@ -54,18 +45,6 @@ class RdfParser:
 
         # read file
         self.r, self.g = self._read()
-
-        # get convergence
-        if not tail_length:
-            max_length = 2  # nm
-            tail_lengths = np.arange(0.5, max_length, 0.1)[::-1]
-            self.mask, self._tail_slope, self._total_change, self._grade = self.find_converged_tail(
-                list(tail_lengths), thresholds=convergence_thresholds
-            )
-        else:
-            self.mask, self._tail_slope, self._total_change, self._grade = self.find_converged_tail(
-                [tail_length], thresholds=convergence_thresholds
-            )
 
     def _read(self) -> tuple[np.ndarray, np.ndarray]:
         """Read RDF file and extracts radial distances (r) and g(r) values.
@@ -84,81 +63,6 @@ class RdfParser:
             raise ValueError(f"Failed to parse RDF data from '{self.filepath}': {ve}.") from ve
         except Exception as e:
             raise RuntimeError(f"Unexpected error reading '{self.filepath}': {e}") from e
-
-    @property
-    def r_tail(self) -> np.ndarray:
-        """np.ndarray: filtered r values of RDF tail."""
-        return self.r[self.mask]
-
-    @property
-    def g_tail(self) -> np.ndarray:
-        """np.ndarray: filtered g(r) values of RDF tail."""
-        return self.g[self.mask]
-
-    def find_converged_tail(self, tail_lengths: list[float], thresholds: tuple = (1e-3, 1e-2)) -> tuple:
-        """Iteratively searches for the largest tail window that meets convergence criteria.
-
-        Parameters
-        ----------
-        tail_length: float, optional
-            Optionally takes in a tail length to evaluate convergence at.
-        """
-        for tail_length in tail_lengths:
-            mask, slope, total_change, grade = self._get_tail_drift(tail_length, thresholds)
-            if grade == "PASS":
-                return mask, slope, total_change, grade
-            elif grade == "MARGINAL" and tail_length == tail_lengths[-1]:
-                return mask, slope, total_change, grade
-        return mask, slope, total_change, "FAIL"
-
-    def _get_tail_drift(self, tail_length: float, thresholds: tuple = (1e-3, 1e-2)) -> tuple:
-        """
-        Get the tail mask, tail slope, and total drift of the tail for a given RDF ``tail_length``, and check if convergence threshold is passed.
-
-        Parameters
-        ----------
-        tail_length: float
-            Length of RDF tail to evaluate.
-
-        Returns
-        -------
-        tuple
-            Result for convergence evaluation.
-
-        .. note::
-            Convergence criteria is set to a slope < 1e-3 of the tail section with < 1e-2 acceptable for last step (grade: `PASS`). If convergence threshold is not passed, a grade of `FAIL` is assigned while still recording the values at the last step.
-        """
-        # get mask
-        mask = self.r > (self.r.max() - tail_length)
-
-        # perform linear regression on tail to get slope
-        slope, _intercept, _r_value, _p_value, _std_err = linregress(self.r[mask], self.g[mask])
-
-        # Calculate the total "rise" or "fall" over the tail
-        total_change = slope * tail_length
-
-        min_thresh, max_thresh = min(thresholds), max(thresholds)
-        if abs(total_change) < min_thresh:
-            return mask, slope, total_change, "PASS"
-        elif abs(total_change) < max_thresh:
-            return mask, slope, total_change, "MARGINAL"
-        else:
-            return mask, slope, total_change, "FAIL"
-
-    @property
-    def is_converged(self) -> bool:
-        """bool: Checks if RDF tail convergenced passes check."""
-        return True if self._grade in ("PASS", "MARGINAL") else False
-
-    @property
-    def convergence_report(self) -> str:
-        """str: Convergence report of the RDF tail."""
-        line1 = f"--- RDF Plateau Analysis: {self.fname} ---"
-        line2 = f"Tail Range: {self.r_tail.min():.2f} to {self.r_tail.max():.2f} nm"
-        line3 = f"Slope:      {self._tail_slope:.4f} g(r)/nm"
-        line4 = f"Avg Drift:  {self._total_change:.4f} over the tail"
-        line5 = f"Result:     {self._grade}"
-        return f"""{line1}\n{line2}\n{line3}\n{line4}\n{line5}"""
 
     def plot(
         self,

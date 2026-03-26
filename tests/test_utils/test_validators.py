@@ -2,10 +2,11 @@
 Complete test coverage for kbkit.utils.validation module.
 Target: >95% coverage
 """
+
 import warnings
 
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
-warnings.filterwarnings('ignore', message='numpy.ndarray size changed', category=RuntimeWarning)
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
 import os
 from pathlib import Path
@@ -60,8 +61,6 @@ class TestValidatePath:
     1.86206   1.86206   1.86206
     """
         gro_file.write_text(content)
-
-
 
         result = validate_path(gro_file, suffix=".gro")
         assert isinstance(result, Path)
@@ -162,6 +161,7 @@ class TestValidatePath:
 
     def test_permission_error(self, test_data_dir, monkeypatch):
         """Test that unreadable path raises PermissionError."""
+
         # Mock os.access to return False
         def mock_access(path, mode):
             return False
@@ -206,8 +206,6 @@ class TestValidatePath:
         assert result.is_dir()
 
 
-
-
 class TestGroMinLength:
     """Test GRO_MIN_LENGTH constant."""
 
@@ -222,8 +220,6 @@ class TestGroMinLength:
     def test_gro_min_length_positive(self):
         """Test that GRO_MIN_LENGTH is positive."""
         assert GRO_MIN_LENGTH > 0
-
-
 
 
 class TestEdgeCases:
@@ -302,8 +298,6 @@ class TestEdgeCases:
     """
         gro_file.write_text(content)
 
-
-
         # Should still count all lines including empty ones
         result = validate_path(gro_file, suffix=".gro")
         assert isinstance(result, Path)
@@ -321,13 +315,8 @@ class TestEdgeCases:
         result = validate_path(test_file, suffix=".TXT")
         assert result.suffix == ".TXT"
 
-
-
-
     class TestIntegration:
         """Integration tests for validate_path."""
-
-
 
     def test_validate_multiple_files_in_directory(self, test_data_dir):
         """Test validating multiple files in a directory."""
@@ -360,16 +349,18 @@ class TestEdgeCases:
         """Test typical workflow with .gro files."""
         # Create valid .gro file
         gro_file = test_data_dir / "system.gro"
-        content = """System
+        content = (
+            """System
 
 
 
 
     10
-    """ + "\n".join([f"    1SOL    OW    {i}   0.1   0.1   0.1" for i in range(1, 11)]) + "\n   1.0   1.0   1.0\n"
+    """
+            + "\n".join([f"    1SOL    OW    {i}   0.1   0.1   0.1" for i in range(1, 11)])
+            + "\n   1.0   1.0   1.0\n"
+        )
         gro_file.write_text(content)
-
-
 
         # Validate
         result = validate_path(gro_file, suffix=".gro")
@@ -395,5 +386,3 @@ class TestEdgeCases:
         except ValueError as e:
             assert "not a directory" in str(e)
             assert str(test_file) in str(e)
-
-

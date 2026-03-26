@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from kbkit.io.rdf import RdfParser
-from kbkit.kbi.integrator import KBIntegrator
+from kbkit.kbi.integrator import KBIConvergenceError, KBIntegrator
 from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.schema.property_result import PropertyResult
 from kbkit.visualization.kbi import KBIAnalysisPlotter
@@ -27,37 +27,26 @@ class KBICalculator:
     ----------
     systems: SystemCollection
         SystemCollection object for set of systems.
-    ignore_convergence_errors : bool, optional
-        If True, ingnores convergence errors and forces KBI calculations to skip entire systems with non-converged RDFs.
-    convergence_thresholds: tuple[float, float], optional
-        Thresholds for convergence requirements of RDF tail.
-    tail_length: float, optional
-        Length of RDF tail (nm) to use for convergence evaluation & KBI corrections. If this is set, no iteration to find maximum length for RDF convergence will be performed.
-    correct_rdf_convergence: bool, optional
-        Whether to correct RDF for excess/depletion, i.e., Ganguly correction.
-    apply_damping: bool, optional
-        Whether to apply damping function to correlation function, i.e., Kruger correction.
-    extrapolate_thermodynamic_limit: bool, optional
-        Whether to extrapolate KBI value to the thermodynamic limit.
+    min_r_range : float
+        Minimum r-range to consider for KBI convergence (must be > 0).
+    r2_threshold : float, optional
+        Desired minimum R² value (default: 0.999).
+    raise_on_convergence_error : bool, optional
+        If True, raises KBIConvergenceError when convergence checks fail.
+        If False, returns NaN and prints warning. Default: True.
     """
 
     def __init__(
-            self,
-            systems: "SystemCollection",
-            ignore_convergence_errors: bool = False,
-            convergence_thresholds: tuple = (1e-3, 1e-2),
-            tail_length: float | None = None,
-            correct_rdf_convergence: bool = True,
-            apply_damping: bool = True,
-            extrapolate_thermodynamic_limit: bool = True,
+        self,
+        systems: "SystemCollection",
+        min_r_range: float = 0.5,
+        r2_threshold: float = 0.999,
+        raise_on_convergence_error: bool = True,
     ) -> None:
         self.systems = systems
-        self.ignore_convergence_errors=ignore_convergence_errors
-        self.convergence_thresholds=convergence_thresholds
-        self.tail_length=tail_length
-        self.correct_rdf_convergence=correct_rdf_convergence
-        self.apply_damping=apply_damping
-        self.extrapolate_thermodynamic_limit=extrapolate_thermodynamic_limit
+        self.min_r_range = min_r_range
+        self.r2_threshold = r2_threshold
+        self.raise_on_convergence_error = raise_on_convergence_error
 
         self._cache: dict[tuple, PropertyResult] = {}
 
@@ -76,7 +65,6 @@ class KBICalculator:
             KBI Matrix with shape (composition x components x components).
         """
         return self.electrolyte_kbi(units) if self.systems.charges else self.residue_kbi(units)
-
 
     def residue_kbi(self, units: str = "nm^3/molecule") -> PropertyResult:
         r"""
@@ -117,7 +105,10 @@ class KBICalculator:
             return self._cache[cache_key].to(units)
 
         # kbis are calculated in nm^3/molecule
-        kbis = np.full((len(self.systems), len(self.systems.residue_molecules), len(self.systems.residue_molecules)), fill_value=np.nan)
+        kbis = np.full(
+            (len(self.systems), len(self.systems.residue_molecules), len(self.systems.residue_molecules)),
+            fill_value=np.nan,
+        )
         kbi_metadata: dict[str, dict[str, KBIMetadata]] = {}
 
         for s, meta in enumerate(self.systems):
@@ -128,51 +119,43 @@ class KBICalculator:
             rdf_files = [f for f in all_files if f.suffix in (".xvg", ".txt")]
 
             for fpath in rdf_files:
-                rdf = RdfParser(path=fpath, convergence_thresholds=self.convergence_thresholds, tail_length=self.tail_length)
+                rdf = RdfParser(path=fpath)
 
-                integrator = KBIntegrator.from_system_properties(
-                    rdf=rdf,
-                    system_properties=meta.props,
-                    correct_rdf_convergence=self.correct_rdf_convergence,
-                    apply_damping=self.apply_damping,
-                    extrapolate_thermodynamic_limit=self.extrapolate_thermodynamic_limit,
-                )
+                integrator = KBIntegrator.from_system_properties(rdf=rdf, system_properties=meta.props)
 
-                mol_i, mol_j = integrator.rdf_molecules
                 i, j = [list(self.systems.residue_molecules).index(mol) for mol in integrator.rdf_molecules]
 
-                if rdf.is_converged:
-                    kbis[s, i, j] = integrator.compute_kbi(mol_j)
-                    kbis[s, j, i] = integrator.compute_kbi(mol_i)
-
-                # override convergence check to skip system if not converged
-                else:  # for not converged rdf
-                    msg = f"RDF for system '{meta.name}' and pair {integrator.rdf_molecules} did not converge."
-                    if self.ignore_convergence_errors:
-                        print(f"WARNING: {msg} Skipping this system.")
-                        continue
+                try:
+                    kbi_result_dict = integrator.fit_running_kbi(
+                        min_r_range=self.min_r_range,
+                        r2_threshold=self.r2_threshold,
+                        raise_on_convergence_error=self.raise_on_convergence_error,
+                    )
+                    kbis[s, i, j] = kbi_result_dict.get("slope", np.nan)
+                    kbis[s, j, i] = kbi_result_dict.get("slope", np.nan)
+                except KBIConvergenceError as e:
+                    if self.raise_on_convergence_error:
+                        raise
                     else:
-                        raise RuntimeError(msg)
+                        print(
+                            f"WARNING! KBI convergence failed for system '{meta.name}' and pair {integrator.rdf_molecules}: {e}."
+                        )
 
                 # add values to metadata
                 kbi_metadata.setdefault(meta.name, {})[".".join(integrator.rdf_molecules)] = KBIMetadata(
                     mols=tuple(integrator.rdf_molecules),
                     r=rdf.r,
                     g=rdf.g,
-                    rkbi=(integrator.rkbi()),
-                    scaled_rkbi=(integrator.scaled_rkbi()),
-                    r_fit=(rfit := rdf.r_tail),
-                    scaled_rkbi_fit=integrator.scaled_rkbi_fit(),
-                    scaled_rkbi_est=np.polyval(integrator.fit_limit_params(), rfit),
-                    kbi_limit=integrator.compute_kbi(),
+                    rkbi=(integrator.running_kbi()),
+                    scaled_rkbi=(integrator.r * integrator.running_kbi()),
+                    r_fit=kbi_result_dict.get("x_fit", np.nan),
+                    scaled_rkbi_fit=kbi_result_dict.get("y_fit", np.nan),
+                    scaled_rkbi_est=kbi_result_dict.get("x_fit", np.nan) * kbi_result_dict.get("slope", np.nan)
+                    + kbi_result_dict.get("intercept", np.nan),
+                    kbi_limit=kbi_result_dict.get("slope", np.nan),
                 )
 
-        result = PropertyResult(
-            name="kbi",
-            value=kbis,
-            units="nm^3/molecule",
-            metadata=kbi_metadata
-        )
+        result = PropertyResult(name="kbi", value=kbis, units="nm^3/molecule", metadata=kbi_metadata)
 
         self._cache[cache_key] = result
         return result.to(units)
@@ -258,10 +241,10 @@ class KBICalculator:
                 xc2, xa2 = self._ion_fraction(c2_i, a2_i)
 
                 value = (
-                    xc1 * xc2 * kbis[:, c1_i, c2_i] +
-                    xc1 * xa2 * kbis[:, c1_i, a2_i] +
-                    xa1 * xc2 * kbis[:, a1_i, c2_i] +
-                    xa1 * xa2 * kbis[:, a1_i, a2_i]
+                    xc1 * xc2 * kbis[:, c1_i, c2_i]
+                    + xc1 * xa2 * kbis[:, c1_i, a2_i]
+                    + xa1 * xc2 * kbis[:, a1_i, c2_i]
+                    + xa1 * xa2 * kbis[:, a1_i, a2_i]
                 )
 
             # Case 2: one salt, one molecule/ion
@@ -303,7 +286,6 @@ class KBICalculator:
         self._cache[cache_key] = result
         return result
 
-
     # --- electrolyte kbi helpers ---
 
     def _parse_species(self, name: str) -> tuple[str, ...]:
@@ -313,12 +295,11 @@ class KBICalculator:
         - If it's a salt, it looks like 'Na.Cl' -> returns ('Na','Cl')
         - If it's a molecule/ion, returns ('Na',)
         """
-        parts = name.split('.')
+        parts = name.split(".")
         MAX_SALT = 2
         if len(parts) > MAX_SALT:
             raise ValueError(f"Invalid species name '{name}'. Expected 'Cation.Anion' or single molecule.")
         return tuple(parts)
-
 
     def _ion_fraction(self, c_i, a_i):
         """Compute xc, xa for a salt c.a given ion counts N (nsys x nmolecules)."""
@@ -333,7 +314,7 @@ class KBICalculator:
         xa = Na / denom_safe
 
         # Where denom was zero, force xc=xa=0 explicitly
-        mask_zero = (denom == 0)
+        mask_zero = denom == 0
         xc[mask_zero] = 0.0
         xa[mask_zero] = 0.0
 

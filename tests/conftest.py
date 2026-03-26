@@ -23,12 +23,14 @@ def test_data_dir() -> Generator:
 @pytest.fixture
 def sample_dataframe() -> pd.DataFrame:
     """Create a sample DataFrame for testing."""
-    return pd.DataFrame({
-        'name': ['compound_A', 'compound_B', 'compound_C'],
-        'value': [1.5, 2.3, 3.7],
-        'category': ['type1', 'type2', 'type1'],
-        'timestamp': pd.date_range('2024-01-01', periods=3)
-    })
+    return pd.DataFrame(
+        {
+            "name": ["compound_A", "compound_B", "compound_C"],
+            "value": [1.5, 2.3, 3.7],
+            "category": ["type1", "type2", "type1"],
+            "timestamp": pd.date_range("2024-01-01", periods=3),
+        }
+    )
 
 
 @pytest.fixture
@@ -40,18 +42,13 @@ def sample_numpy_array() -> np.ndarray:
 @pytest.fixture
 def sample_config() -> Dict[str, Any]:
     """Create a sample configuration dictionary."""
-    return {
-        'name': 'test_property',
-        'units': 'kg/mol',
-        'avg': True,
-        'precision': 3,
-        'cache_enabled': True
-    }
+    return {"name": "test_property", "units": "kg/mol", "avg": True, "precision": 3, "cache_enabled": True}
 
 
 @pytest.fixture
 def mock_cache():
     """Create a mock cache for testing decorators."""
+
     class MockCache:
         def __init__(self):
             self._cache = {}
@@ -85,16 +82,8 @@ def temp_file(test_data_dir: Path) -> Generator[Path, None, None]:
 def sample_json_data() -> Dict[str, Any]:
     """Create sample JSON data for testing."""
     return {
-        'metadata': {
-            'version': '1.0',
-            'created': '2024-01-01',
-            'author': 'test_user'
-        },
-        'data': [
-            {'id': 1, 'value': 10.5},
-            {'id': 2, 'value': 20.3},
-            {'id': 3, 'value': 15.7}
-        ]
+        "metadata": {"version": "1.0", "created": "2024-01-01", "author": "test_user"},
+        "data": [{"id": 1, "value": 10.5}, {"id": 2, "value": 20.3}, {"id": 3, "value": 15.7}],
     }
 
 
@@ -111,10 +100,12 @@ compound_C,3.7,type1"""
 def reset_environment():
     """Reset environment variables before each test."""
     import os
+
     original_env = os.environ.copy()
     yield
     os.environ.clear()
     os.environ.update(original_env)
+
 
 import warnings
 
@@ -127,15 +118,11 @@ def configure_test_warnings():
     """Configure warning filters for tests."""
     # For NumPy < 2.0
     try:
-        warnings.filterwarnings('ignore', category=np.RankWarning)
+        warnings.filterwarnings("ignore", category=np.RankWarning)
     except AttributeError:
         # NumPy 2.0+ doesn't have RankWarning, use generic approach
-        warnings.filterwarnings('ignore', message="Polyfit may be poorly conditioned")
+        warnings.filterwarnings("ignore", message="Polyfit may be poorly conditioned")
 
     # Other warnings
-    warnings.filterwarnings('ignore', category=UserWarning,
-                        message=".*input contained no data.*")
-    warnings.filterwarnings('ignore', category=RuntimeWarning,
-                        message="Mean of empty slice")
-
-
+    warnings.filterwarnings("ignore", category=UserWarning, message=".*input contained no data.*")
+    warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")

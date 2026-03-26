@@ -12,6 +12,7 @@ __pycache__/
 
 # notes
 _electrolytes.py
+notebooks/
 
 # Distribution / packaging
 .Python
