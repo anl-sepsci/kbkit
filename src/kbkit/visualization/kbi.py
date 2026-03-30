@@ -1,8 +1,10 @@
 """Plotting support for KBI convergence and extrapolation."""
 
+import itertools
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.config.unit_registry import load_unit_registry
@@ -62,8 +64,8 @@ class KBIAnalysisPlotter:
             molmap = self.molecule_map or {m: m for m in meta.mols}
             line = ax[0].plot(meta.r, meta.g, lw=2.5, label="-".join(molmap[mol] for mol in meta.mols))
             ax[1].plot(meta.r, meta.rkbi, lw=2.5)
-            ax[2].plot(meta.r, meta.scaled_rkbi, lw=2.5)
-            ax[2].plot(meta.r_fit, meta.scaled_rkbi_est, lw=3, ls="--", c="k")
+            ax[2].plot(meta.r, meta.r_rkbi, lw=2.5)
+            ax[2].plot(meta.r_fit, meta.r_rkbi_est, lw=3, ls="--", c="k")
             lines.append(line)
 
         # if no lines are found just be done
@@ -107,3 +109,61 @@ class KBIAnalysisPlotter:
         for sys in self.metadata:
             fpath = parent_path / f"{sys}.pdf" if savepath else None
             self.plot(system_name=sys, units=units, savepath=fpath, show=show)
+
+    def plot_composition(
+        self,
+        x: np.ndarray,
+        xlab: str,
+        show_err: bool = True,
+        units: str = "cm^3/mol",
+        savepath: str | Path | None = None,
+        show: bool = True,
+    ):
+        """
+        Plot KBIs as a function of composition for all systems present in :class:`~kbkit.schema.kbi_metadata.KBIMetadata` and show error from linear extrapolation.
+
+        Parameters
+        ----------
+        x: np.ndarray
+            Composition to plot (1D array).
+        xlab: x-label for plot.
+        show_err: bool, optional
+            Add errorbars to plot.
+        units: str, optional
+            Units for KBI in figures.
+        savepath: str | Path, optional
+            Path to save figures to.
+        show: bool, optional
+            Show all figures.
+        """
+        kbi_shape = self.result.value.shape
+        combos = list(itertools.product(range(kbi_shape[1]), range(kbi_shape[2])))
+        unique_combos = [c for c, (i, j) in enumerate(combos) if i <= j]
+        colors = plt.cm.jet(np.linspace(0, 1, len(unique_combos)))
+
+        _, ax = plt.subplots(1, 1, figsize=(5, 4))
+        # Track which molecule pairs have already been added to legend
+        legend_added = set()
+
+        for s, (_, meta1) in enumerate(self.metadata.items()):
+            for m, (_, meta2) in enumerate(meta1.items()):
+                # Only add label if this molecule pair hasn't been added to legend yet
+                label = "-".join(meta2.mols) if meta2.mols not in legend_added else None
+                if label is not None:
+                    legend_added.add(meta2.mols)
+
+                if show_err:
+                    ax.errorbar(x[s], meta2.G_inf, yerr=meta2.G_inf_err, fmt="o", color=colors[m], label=label)
+                else:
+                    ax.scatter(x[s], meta2.G_inf, color=colors[m], marker="o", label=label)
+        ax.set_xlabel(xlab)
+        ax.set_ylabel(rf"$G_{{ij}}^\infty$ ({format_unit_str(units)})")
+        ax.legend()
+
+        if savepath:
+            fpath = Path(savepath) if not Path(savepath).is_dir() else Path(savepath) / "kbis_composition.pdf"
+            plt.savefig(fpath, dpi=100)
+        if show:
+            plt.show()
+        else:
+            plt.close()
