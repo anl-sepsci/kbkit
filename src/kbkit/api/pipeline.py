@@ -174,6 +174,14 @@ class Pipeline:
             activity_polynomial_degree=self.activity_polynomial_degree,
         )
 
+    @cached_property
+    def results(self) -> dict[str, PropertyResult]:
+        """dict[str, PropertyResults]: Property result objects for KBI-derived and properties measured directly from MD simultions."""
+        res_dict = {}
+        res_dict.update(self.systems.results)
+        res_dict.update(self.thermo.results)
+        return res_dict
+
     def timeseries_plotter(self, system: str, start_time: int = 0) -> "TimeseriesPlotter":
         """TimeseriesPlotter: Plotter for visualizing property timeseries."""
         return self.systems.timeseries_plotter(system, start_time)
