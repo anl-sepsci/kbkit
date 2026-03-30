@@ -1,0 +1,18 @@
+----- Summary of mixture system sys_704: -----
+
+----- Input Parameters: -----
+ETHOL			40.0 vol frac.%
+SPCEW			60.0 vol frac.%
+Target box length:	32 Angstroms
+
+----- Total molecules of each species: -----
+ETHOL			135 molecules
+SPCEW			655 molecules
+
+----- Final, "True" volume fractions: -----
+ETHOL			39.96 vol.frac%
+SPCEW			60.04 vol.frac%
+
+-----Final, "True" concentrations:-----
+ETHOL			6.8436 M
+SPCEW			33.2042 M
