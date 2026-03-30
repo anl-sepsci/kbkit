@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 class KBICalculator:
-    """KBI calculator for system collections.
+    r"""KBI calculator for system collections.
 
     Parameters
     ----------
@@ -30,7 +30,7 @@ class KBICalculator:
     min_r_range : float
         Minimum r-range to consider for KBI convergence (must be > 0).
     r2_threshold : float, optional
-        Desired minimum R² value (default: 0.999).
+        Desired minimum R:math:`^2` value (default: 0.9999).
     raise_on_convergence_error : bool, optional
         If True, raises KBIConvergenceError when convergence checks fail.
         If False, returns NaN and prints warning. Default: True.
@@ -39,8 +39,8 @@ class KBICalculator:
     def __init__(
         self,
         systems: "SystemCollection",
-        min_r_range: float = 0.5,
-        r2_threshold: float = 0.999,
+        min_r_range: float = 1.0,
+        r2_threshold: float = 0.9999,
         raise_on_convergence_error: bool = True,
     ) -> None:
         self.systems = systems
@@ -144,15 +144,18 @@ class KBICalculator:
                 # add values to metadata
                 kbi_metadata.setdefault(meta.name, {})[".".join(integrator.rdf_molecules)] = KBIMetadata(
                     mols=tuple(integrator.rdf_molecules),
-                    r=rdf.r,
-                    g=rdf.g,
+                    r=integrator.r,
+                    g=integrator.g_vdv(),
                     rkbi=(integrator.running_kbi()),
-                    scaled_rkbi=(integrator.r * integrator.running_kbi()),
+                    r_rkbi=(integrator.r * integrator.running_kbi()),
                     r_fit=kbi_result_dict.get("x_fit", np.nan),
-                    scaled_rkbi_fit=kbi_result_dict.get("y_fit", np.nan),
-                    scaled_rkbi_est=kbi_result_dict.get("x_fit", np.nan) * kbi_result_dict.get("slope", np.nan)
+                    r_rkbi_fit=kbi_result_dict.get("y_fit", np.nan),
+                    r_rkbi_est=kbi_result_dict.get("x_fit", np.nan) * kbi_result_dict.get("slope", np.nan)
                     + kbi_result_dict.get("intercept", np.nan),
-                    kbi_limit=kbi_result_dict.get("slope", np.nan),
+                    G_inf=kbi_result_dict.get("slope", np.nan),
+                    G_inf_err=kbi_result_dict.get("slope_err", np.nan),
+                    F_inf=kbi_result_dict.get("intercept", np.nan),
+                    F_inf_err=kbi_result_dict.get("intercept_err", np.nan),
                 )
 
         result = PropertyResult(name="kbi", value=kbis, units="nm^3/molecule", metadata=kbi_metadata)

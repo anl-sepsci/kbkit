@@ -296,16 +296,16 @@ class KBIntegrator:
 
     @staticmethod
     def _find_max_linear_range(
-        x: np.ndarray,
-        y: np.ndarray,
-        min_x_range: float,
-        r2_threshold: float = 0.999,
+        x: np.ndarray, y: np.ndarray, min_x_range: float, r2_threshold: float = 0.9999, force: bool = False
     ) -> dict:
-        """
-        Find the maximum x-range where linear regression R² stays above threshold.
+        r"""
+        Find the maximum x-range where linear regression R:math:`^2` stays above threshold.
+
+        The range is forced to include the last 10% of data points.
 
         Implements convergence metric:
         1. Linearity: R² >= r2_threshold
+        2. Range constraint: Must include last 10% of data points
 
         Parameters
         ----------
@@ -316,19 +316,23 @@ class KBIntegrator:
         min_x_range : float
             Minimum x-range to consider (must be > 0).
         r2_threshold : float, optional
-            Desired minimum R² value (default: 0.999).
+            Desired minimum R² value (default: 0.9999).
+        force: bool, optional
+            Force the regression over the last 1.0 nm, if a suitable fit is not found. (default: False)
 
         Returns
         -------
         dict
-            - 'x_start'   : Start of the optimal x-range.
-            - 'x_end'     : End of the optimal x-range.
-            - 'x_range'   : Total x-range (x_end - x_start).
-            - 'r2'        : R² value for the optimal range.
-            - 'slope'     : Slope of the linear fit (G_∞).
-            - 'intercept' : Intercept of the linear fit.
-            - 'x_fit'     : x values used in the fit.
-            - 'y_fit'     : y values used in the fit.
+            - 'x_start'        : Start of the optimal x-range.
+            - 'x_end'          : End of the optimal x-range.
+            - 'x_range'        : Total x-range (x_end - x_start).
+            - 'r2'             : R² value for the optimal range.
+            - 'slope'          : Slope of the linear fit (G_∞).
+            - 'slope_err'      : Standard error of the slope.
+            - 'intercept'      : Intercept of the linear fit (F_∞).
+            - 'intercept_err'  : Standard error of the intercept.
+            - 'x_fit'          : x values used in the fit.
+            - 'y_fit'          : y values used in the fit.
 
         Raises
         ------
@@ -355,6 +359,9 @@ class KBIntegrator:
 
         n = len(x)
 
+        # Calculate the index for the last 10% of data points
+        last_10_percent_start_idx = max(0, int(n * 0.9))
+
         # --- Precompute cumulative sums for O(1) regression stats ---
         # We need: sum(x), sum(y), sum(x^2), sum(xy), sum(y^2), count
         cum_x = np.concatenate(([0.0], np.cumsum(x)))
@@ -363,14 +370,22 @@ class KBIntegrator:
         cum_xy = np.concatenate(([0.0], np.cumsum(x * y)))
         cum_y2 = np.concatenate(([0.0], np.cumsum(y * y)))
 
-        def compute_regression_fast(i: int, j: int) -> tuple[float, float, float] | None:
-            """
-            Compute slope, intercept, and R² for x[i:j+1] in O(1).
+        def compute_regression_fast(i: int, j: int) -> tuple[float, float, float, float, float] | None:
+            r"""
+            Compute slope, intercept, R², and standard errors for x[i:j+1] in O(1).
+
+            Standard errors are derived from the residual sum of squares (RSS):
+
+                s:math:`^2` = RSS / (n - 2)                      # mean squared error
+
+                SE(slope)     = sqrt( s^2 / SS_{xx} )
+                SE(intercept) = sqrt( s^2 * (1/n + \bar{x}^2 / SS_{xx}) )
+
+            where SS_{xx} = \Sigma(x_i - \bar{x})²
 
             Returns None if fewer than 3 points or degenerate case.
             """
             count = j - i + 1
-            MAGIC_THREE = 3
             if count < MAGIC_THREE:
                 return None
 
@@ -391,18 +406,41 @@ class KBIntegrator:
             intercept = (sy - slope * sx) / count
             r2 = (ss_xy**2) / (ss_xx * ss_yy)
 
-            return slope, intercept, r2
+            # --- Standard errors ---
+            # Residual sum of squares: RSS = SS_yy - slope * SS_xy
+            rss = ss_yy - slope * ss_xy
 
-        # --- Find all valid windows and track slope consistency ---
+            # Degrees of freedom = n - 2 (two fitted parameters: slope, intercept)
+            dof = count - 2
+
+            # Mean squared error (variance of residuals)
+            s2 = rss / dof if dof > 0 else 0.0
+
+            # SE of slope:     sqrt(s² / SS_xx)
+            # SE of intercept: sqrt(s² * (1/n + x̄²/SS_xx))
+            x_mean = sx / count
+            slope_err = np.sqrt(s2 / ss_xx) if s2 >= 0 else 0.0
+            intercept_err = np.sqrt(s2 * (1.0 / count + x_mean**2 / ss_xx)) if s2 >= 0 else 0.0
+
+            return slope, intercept, r2, slope_err, intercept_err
+
+        # --- Find all valid windows that include the last 10% of data points ---
         valid_windows = []
 
+        # Only consider starting points that allow the range to include the last 10%
+        max_start_idx = last_10_percent_start_idx
+
         i_start = 0
-        while i_start < n - 1:
+        while i_start <= max_start_idx:
             # Find minimum end index using searchsorted
             i_min_end = int(np.searchsorted(x, x[i_start] + min_x_range, side="left"))
 
+            # Ensure the end index includes at least the start of the last 10%
+            i_min_end = max(i_min_end, last_10_percent_start_idx)
+
             if i_min_end >= n:
-                break
+                i_start += 1
+                continue
 
             # Check if minimum range meets R² threshold
             result = compute_regression_fast(i_start, i_min_end)
@@ -418,7 +456,7 @@ class KBIntegrator:
                     break
                 i_end += 1
 
-            slope, intercept, r2 = compute_regression_fast(i_start, i_end)
+            slope, intercept, r2, slope_err, intercept_err = compute_regression_fast(i_start, i_end)
             valid_windows.append(
                 {
                     "i_start": i_start,
@@ -427,7 +465,9 @@ class KBIntegrator:
                     "x_end": x[i_end],
                     "x_range": x[i_end] - x[i_start],
                     "slope": slope,
+                    "slope_err": slope_err,
                     "intercept": intercept,
+                    "intercept_err": intercept_err,
                     "r2": r2,
                 }
             )
@@ -436,12 +476,35 @@ class KBIntegrator:
 
         # --- Check: Linearity Metric ---
         if not valid_windows:
-            raise LinearityError(
-                f"No x-range of at least {min_x_range} nm found with R² >= {r2_threshold}. "
-                "The running KBI does not exhibit linear scaling with 1/R. "
-                "Consider: (1) running longer simulation, (2) reducing r2_threshold, "
-                "(3) checking RDF convergence."
-            )
+            # if no windows found, manually perform regression over last nm
+            if force:
+                i_end = int(np.argmin(np.abs(x - x.max())))
+                i_start = int(np.argmin(np.abs(x - (x.max() - 1))))
+                slope, intercept, r2, slope_err, intercept_err = compute_regression_fast(i_start, i_end)
+                valid_windows.append(
+                    {
+                        "i_start": i_start,
+                        "i_end": i_end,
+                        "x_start": x[i_start],
+                        "x_end": x[i_end],
+                        "x_range": x[i_end] - x[i_start],
+                        "slope": slope,
+                        "slope_err": slope_err,
+                        "intercept": intercept,
+                        "intercept_err": intercept_err,
+                        "r2": r2,
+                    }
+                )
+
+            # if not force, raise error
+            else:
+                raise LinearityError(
+                    f"No x-range of at least {min_x_range} nm found with R² >= {r2_threshold} "
+                    f"that includes the last 10% of data points. "
+                    "The running KBI does not exhibit linear scaling with 1/R in the required region. "
+                    "Consider: (1) running longer simulation, (2) reducing r2_threshold, "
+                    "(3) checking RDF convergence."
+                )
 
         # Select best window (largest range)
         best_window = max(valid_windows, key=lambda w: w["x_range"])
@@ -456,13 +519,19 @@ class KBIntegrator:
             "x_range": best_window["x_range"],
             "r2": best_window["r2"],
             "slope": best_window["slope"],
+            "slope_err": best_window["slope_err"],
             "intercept": best_window["intercept"],
+            "intercept_err": best_window["intercept_err"],
             "x_fit": x[i_start : i_end + 1],
             "y_fit": y[i_start : i_end + 1],
         }
 
     def fit_running_kbi(
-        self, min_r_range: float = 0.5, r2_threshold: float = 0.999, raise_on_convergence_error: bool = True
+        self,
+        min_r_range: float = 1.0,
+        r2_threshold: float = 0.9999,
+        raise_on_convergence_error: bool = True,
+        force: bool = False,
     ) -> dict:
         r"""
         Fit linear regression to running KBI for extrapolation to thermodynamic limit.
@@ -485,6 +554,8 @@ class KBIntegrator:
         raise_on_convergence_error : bool, optional
             If True, raises KBIConvergenceError when convergence checks fail.
             If False, returns NaN and prints warning. Default: True.
+        force: bool, optional
+            Force the regression over the last 1.0 nm, if a suitable fit is not found. (default: False)
 
         Returns
         -------
@@ -497,10 +568,7 @@ class KBIntegrator:
         # Perform linear fit with all convergence checks
         try:
             result = self._find_max_linear_range(
-                x=r,
-                y=y,
-                min_x_range=min_r_range,
-                r2_threshold=r2_threshold,
+                x=r, y=y, min_x_range=min_r_range, r2_threshold=r2_threshold, force=force
             )
             return result
 
@@ -512,7 +580,11 @@ class KBIntegrator:
                 return {}
 
     def kbi(
-        self, min_r_range: float = 0.5, r2_threshold: float = 0.999, raise_on_convergence_error: bool = True
+        self,
+        min_r_range: float = 1.0,
+        r2_threshold: float = 0.9999,
+        raise_on_convergence_error: bool = True,
+        force: bool = False,
     ) -> float:
         """
         Compute KBI with comprehensive convergence checking.
@@ -526,6 +598,8 @@ class KBIntegrator:
         raise_on_convergence_error : bool, optional
             If True, raises KBIConvergenceError when convergence checks fail.
             If False, returns NaN and prints warning. Default: True.
+        force: bool, optional
+            Force the regression over the last 1.0 nm, if a suitable fit is not found. (default: False)
 
         Returns
         -------
@@ -533,7 +607,10 @@ class KBIntegrator:
             Converged KBI value.
         """
         result = self.fit_running_kbi(
-            min_r_range=min_r_range, r2_threshold=r2_threshold, raise_on_convergence_error=raise_on_convergence_error
+            min_r_range=min_r_range,
+            r2_threshold=r2_threshold,
+            raise_on_convergence_error=raise_on_convergence_error,
+            force=force,
         )
         return float(result.get("slope", np.nan))
 
