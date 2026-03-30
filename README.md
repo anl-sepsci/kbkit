@@ -113,7 +113,7 @@ from kbkit.systems import SystemProperties
 from kbkit.io import RdfParser
 
 syspath = "./examples/test_data/ethanol_water_26C/sys_405"
-rdf_path = os.path.join(syspath, "kbi_rdf_files_gmx25", "rdf_ETHOL_SPCEW.xvg")
+rdf_path = os.path.join(syspath, "kbi_rdf_files", "rdf_ETHOL_SPCEW.xvg")
 
 # create integrator object from single RDF file
 rdf = RDFParser(path=rdf_path)
@@ -123,7 +123,7 @@ integrator = KBIntegrator.from_system_properties(
 )
 
 # calculate KBI in thermodynamic limit
-kbi = integrator.compute_kbi(mol_j="SPCEW")
+kbi = integrator.kbi(min_r_range=1.0, r2_threshold=0.9999)
 ```
 
 ### Run an automated pipeline for batch analysis
