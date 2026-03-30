@@ -34,7 +34,7 @@ dev = { features = ["dev"], solve-group = "default"}
 fmt = { cmd="ruff format ." }
 lint = { cmd="ruff check . --fix" }
 types = { cmd="timeout 60 mypy --config-file mypy.ini src/kbkit" }
-test = { cmd="python -m pytest tests/ --cov=kbkit" }
+test = { cmd="pytest" }
 all = { depends-on = ["fmt", "lint", "types", "test"] }
 bump-version = { cmd = "python tools/bump_version.py" }
 tree-gen = { cmd = "python tools/tree_gen.py" }
@@ -80,6 +80,7 @@ ignore = [
     "PLR0914", # Too many locals
     "PLR0915", # Too many statements
     "PLR1702", # Too many nested-blocks
+    "PLR2004", # Magic value
     "E501", # Line too long
     "D401", # First line of docstring should be in imperative mood
 ]
