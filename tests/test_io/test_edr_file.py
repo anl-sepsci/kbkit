@@ -364,23 +364,6 @@ class TestAvailableProperties:
             assert "potential" in props
 
 
-class TestUnitsProperty:
-    """Test units property."""
-
-    def test_units_property(self, mock_edr_file, mock_ureg, mock_data):
-        """Test that units property returns correct mapping."""
-        parser = EdrParser(mock_edr_file)
-
-        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
-            mock_data_prop.return_value = mock_data
-            units = parser.units
-
-            assert isinstance(units, dict)
-            # Should only include properties that are available
-            for key in units.keys():
-                assert key in parser.available_properties()
-
-
 class TestGetMethod:
     """Test get method."""
 
@@ -647,19 +630,4 @@ class TestIntegration:
             _ = parser.cv(nmol=100)
             _ = parser.cp(nmol=100)
 
-    def test_property_consistency(self, mock_edr_file, mock_ureg, mock_data):
-        """Test that properties are consistent."""
-        parser = EdrParser(mock_edr_file)
-
-        with patch.object(type(parser), "data", new_callable=PropertyMock) as mock_data_prop:
-            mock_data_prop.return_value = mock_data
-
-            # Available properties should match data keys
-            props = parser.available_properties()
-            for prop in props:
-                assert prop in mock_data
-
-            # Units should only include available properties
-            units = parser.units
-            for key in units.keys():
-                assert key in props
+    

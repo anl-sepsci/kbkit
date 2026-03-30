@@ -194,11 +194,14 @@ class TestPropertyResultKBIConversion:
         mock_kbi_meta.r = np.array([0.1, 0.2, 0.3])
         mock_kbi_meta.g = np.array([1.0, 1.1, 1.2])
         mock_kbi_meta.rkbi = np.array([0.5, 0.6, 0.7])
-        mock_kbi_meta.scaled_rkbi = np.array([0.05, 0.06, 0.07])
+        mock_kbi_meta.r_rkbi = np.array([0.05, 0.06, 0.07])
         mock_kbi_meta.r_fit = np.array([0.2, 0.3])
-        mock_kbi_meta.scaled_rkbi_fit = np.array([0.06, 0.07])
-        mock_kbi_meta.scaled_rkbi_est = np.array([0.06, 0.07])
-        mock_kbi_meta.kbi_limit = 0.8
+        mock_kbi_meta.r_rkbi_fit = np.array([0.06, 0.07])
+        mock_kbi_meta.r_rkbi_est = np.array([0.06, 0.07])
+        mock_kbi_meta.G_inf = 0.8
+        mock_kbi_meta.G_inf_err = 0.05
+        mock_kbi_meta.F_inf = 0.2
+        mock_kbi_meta.F_inf_err = 0.005
 
         metadata = {"system_1": {"Water-Ethanol": mock_kbi_meta}}
 
@@ -273,11 +276,15 @@ class TestPropertyResultConvertSingleKBIMetadata:
             r=np.array([0.1, 0.2, 0.3]),
             g=np.array([1.0, 1.1, 1.2]),
             rkbi=np.array([0.5, 0.6, 0.7]),
-            scaled_rkbi=np.array([0.05, 0.06, 0.07]),
+            r_rkbi=np.array([0.05, 0.06, 0.07]),
             r_fit=np.array([0.2, 0.3]),
-            scaled_rkbi_fit=np.array([0.06, 0.07]),
-            scaled_rkbi_est=np.array([0.06, 0.07]),
-            kbi_limit=0.8,
+            r_rkbi_fit=np.array([0.06, 0.07]),
+            r_rkbi_est=np.array([0.06, 0.07]),
+            G_inf=0.8,
+            G_inf_err = 0.05,
+            F_inf = 0.2,
+            F_inf_err = 0.005
+
         )
 
         # Mock unit registry
