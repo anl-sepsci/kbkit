@@ -149,10 +149,24 @@ class PropertyResult:
         """
         # Convert volume-based quantities (KBI values)
         new_rkbi = ureg.Quantity(kbi_meta.rkbi, self.units).to(target_units).magnitude
-        new_scaled_rkbi = ureg.Quantity(kbi_meta.scaled_rkbi, self.units).to(target_units).magnitude
-        new_scaled_rkbi_fit = ureg.Quantity(kbi_meta.scaled_rkbi_fit, self.units).to(target_units).magnitude
-        new_scaled_rkbi_est = ureg.Quantity(kbi_meta.scaled_rkbi_est, self.units).to(target_units).magnitude
-        new_kbi_limit = ureg.Quantity(kbi_meta.kbi_limit, self.units).to(target_units).magnitude
+        new_r_rkbi = ureg.Quantity(kbi_meta.r_rkbi, self.units).to(target_units).magnitude
+        new_r_rkbi_fit = ureg.Quantity(kbi_meta.r_rkbi_fit, self.units).to(target_units).magnitude
+        new_r_rkbi_est = ureg.Quantity(kbi_meta.r_rkbi_est, self.units).to(target_units).magnitude
+        new_G_inf = ureg.Quantity(kbi_meta.G_inf, self.units).to(target_units).magnitude
+        new_G_inf_err = ureg.Quantity(kbi_meta.G_inf_err, self.units).to(target_units).magnitude
+
+        if len(self.units.split('/')) == 1:
+            self.units += "/molecule"
+        if len(target_units.split('/')) == 1:
+            target_units += "/molecule"
+
+        v_uni, n_uni = self.units.split("/")
+        a_uni = f"{v_uni}/{v_uni[:-2]}"
+        v_tar, n_tar = target_units.split("/")
+        a_tar = f"{v_tar}/{v_tar[:-2]}"
+
+        new_F_inf = ureg.Quantity(kbi_meta.F_inf, f"{a_uni}/{n_uni}").to(f"{a_tar}/{n_tar}").magnitude
+        new_F_inf_err = ureg.Quantity(kbi_meta.F_inf_err, f"{a_uni}/{n_uni}").to(f"{a_tar}/{n_tar}").magnitude
 
         # Create new KBIMetadata with converted values
         return KBIMetadata(
@@ -160,11 +174,14 @@ class PropertyResult:
             r=kbi_meta.r,  # Distance units (nm) - unchanged
             g=kbi_meta.g,  # Dimensionless - unchanged
             rkbi=new_rkbi,
-            scaled_rkbi=new_scaled_rkbi,
+            r_rkbi=new_r_rkbi,
             r_fit=kbi_meta.r_fit,  # Distance units - unchanged
-            scaled_rkbi_fit=new_scaled_rkbi_fit,
-            scaled_rkbi_est=new_scaled_rkbi_est,
-            kbi_limit=new_kbi_limit,
+            r_rkbi_fit=new_r_rkbi_fit,
+            r_rkbi_est=new_r_rkbi_est,
+            G_inf=new_G_inf,
+            G_inf_err=new_G_inf_err,
+            F_inf=new_F_inf,
+            F_inf_err=new_F_inf_err,
         )
 
     def __repr__(self) -> str:

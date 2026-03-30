@@ -21,8 +21,11 @@ class KBIMetadata:
     r: NDArray[np.float64]
     g: NDArray[np.float64]
     rkbi: NDArray[np.float64]
-    scaled_rkbi: NDArray[np.float64]
+    r_rkbi: NDArray[np.float64]
     r_fit: NDArray[np.float64]
-    scaled_rkbi_fit: NDArray[np.floating[Any]]
-    scaled_rkbi_est: NDArray[np.floating[Any]]
-    kbi_limit: float
+    r_rkbi_fit: NDArray[np.floating[Any]]
+    r_rkbi_est: NDArray[np.floating[Any]]
+    G_inf: float
+    G_inf_err: float
+    F_inf: float
+    F_inf_err: float
