@@ -740,26 +740,41 @@ class SystemCollection:
         return sim_res - ideal_res
 
     @cached_property
-    def property_results(self) -> dict[str, PropertyResult]:
-        """Dictionary of :class:`~kbkit.schema.property_result.PropertyResult` with mapped names and values for simulated, excess, and ideal properties.
+    def results(self) -> dict[str, PropertyResult]:
+        """Dictionary of :class:`~kbkit.schema.property_result.PropertyResult` with mapped names and values.
 
         Returns
         -------
         dict[str, PropertyResult]
             Mapped property result objects for properties.
         """
-        results = {}
+
+        def add_property(name: str, units: str | None = None) -> dict[str, PropertyResult]:
+            """Compute simulated, ideal, and excess PropertyResult objects for a given property."""
+            values = {
+                "simulated": self.simulated_property(name=name, units=units, avg=True),
+                "ideal": self.ideal_property(name=name, units=units, avg=True),
+                "excess": self.excess_property(name=name, units=units, avg=True),
+            }
+
+            prop_res = {}
+            for ptype, val in values.items():
+                key = f"{ptype}_{prop.lower().replace('-', '_')}"
+                prop_res[key] = PropertyResult(name=key, value=val, units=units, property_type=ptype)
+
+            return prop_res
+
+        results = {
+            "molecules": PropertyResult(name="molecules", value=np.asarray(self.molecules)),
+            "n_i": PropertyResult(name="n_i", value=np.asarray(self.n_i)),
+            "n_sys": PropertyResult(name="n_sys", value=np.asarray(self.n_sys)),
+            "x": PropertyResult(name="x", value=self.x),
+        }
         for prop, units in self.units.items():
             if "time" in prop.lower():
                 continue
-            values = {
-                "simulated": self.simulated_property(name=prop, units=units, avg=True),
-                "ideal": self.ideal_property(name=prop, units=units, avg=True),
-                "excess": self.excess_property(name=prop, units=units, avg=True),
-            }
-            for ptype, val in values.items():
-                key = f"{ptype}_{prop.lower().replace('-', '_')}"
-                results[key] = PropertyResult(name=key, value=val, units=units, property_type=ptype)
+            results.update(add_property(prop, units))
+
         return results
 
     def _build_pure_lookup(
