@@ -70,8 +70,8 @@ class EdrParser:
 
     @cached_property
     def units(self) -> dict[str, str]:
-        """Returns a dictionary mapping available properties to their units."""
-        return {k: v for k, v in self.DEFAULT_UNITS.items() if k in self.available_properties()}
+        """Returns a dictionary mapping properties to their units."""
+        return self.DEFAULT_UNITS
 
     def get_gmx_property(self, name: str, avg: bool = False, **kwargs) -> tuple | float:
         """Extract gromacs property from energy file.
