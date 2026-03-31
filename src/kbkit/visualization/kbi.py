@@ -113,8 +113,11 @@ class KBIAnalysisPlotter:
     def plot_composition(
         self,
         x: np.ndarray,
+        molecules: list[str],
         xlab: str,
+        show_err: bool = True,
         units: str = "cm^3/mol",
+        cmap: str = "jet",
         savepath: str | Path | None = None,
         show: bool = True,
     ):
@@ -125,10 +128,16 @@ class KBIAnalysisPlotter:
         ----------
         x: np.ndarray
             Composition to plot (1D array).
+        molecules: list[str]
+            List of molecules corresponding to shape of KBI array.
         xlab: str 
             x-label for plot.
+        show_err: bool, optional
+            Show errorbar on plot.
         units: str, optional
             Units for KBI in figures.
+        cmap: str, optional
+            Matplotlib colormap.
         savepath: str | Path, optional
             Path to save figures to.
         show: bool, optional
@@ -136,20 +145,27 @@ class KBIAnalysisPlotter:
         """
         kbi_res = self.result.to(units)
         kbi_shape = kbi_res.value.shape
+        molecules = list(molecules)
 
         combos = list(itertools.product(range(kbi_shape[1]), range(kbi_shape[2])))
-        unique_combos = [c for c, (i, j) in enumerate(combos) if i <= j]
-        colors = plt.cm.jet(np.linspace(0, 1, len(unique_combos)))
+        unique_combos = [(i, j) for (i, j) in combos if i <= j]
+        colors = plt.colormaps.get(cmap, "jet")(np.linspace(0, 1, len(unique_combos)))
 
-        # get mol-list
-        mol_list = set()
-        for meta1 in self.metadata.values():
-            for meta2 in meta1.items():
-                mol_list.add("-".join(meta2.mols))
+        if show_err:
+            kbis_err = np.full_like(kbi_res.value, fill_value=np.nan)
+            for s, sysmeta in enumerate(kbi_res.metadata.values()):
+                for kbimeta in sysmeta.values():
+                    i, j = [molecules.index(mol) for mol in kbimeta.mols]
+                    kbis_err[s, i, j] = kbimeta.G_inf_err
 
         _, ax = plt.subplots(1, 1, figsize=(5, 4))
         for c, (i,j) in enumerate(unique_combos):
-            ax.scatter(x, kbi_res.value[:,i,j], color=colors[c], marker="o", label=mol_list[c])
+            label = f"{molecules[i]}-{molecules[j]}"
+            if show_err:
+                ax.errorbar(x, kbi_res.value[:,i,j], yerr=kbis_err[:,i,j], color=colors[c], fmt="o", label=label)
+            else:
+                ax.scatter(x, kbi_res.value[:,i,j], color=colors[c], marker="o", lw=1.1, label=label)
+
         ax.set_xlabel(xlab)
         ax.set_ylabel(rf"$G_{{ij}}^\infty$ ({format_unit_str(units)})")
         ax.legend()

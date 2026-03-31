@@ -61,7 +61,7 @@ class ThermoPlotter:
         figsize: tuple = (5, 4.5),
         savepath: str | Path | None = None,
         show: bool = True,
-    ):
+    ) -> None:
         """
         Create a plot for a given ``x`` and ``y`` arrays.
 
@@ -140,7 +140,6 @@ class ThermoPlotter:
             plt.show()
         else:
             plt.close()
-        return fig, ax
 
     def plot_property(
         self,
@@ -157,7 +156,7 @@ class ThermoPlotter:
         figsize: tuple = (5, 4.5),
         savepath: str | Path | None = None,
         show: bool = True,
-    ):
+    ) -> None:
         """
         Create a plot for a given property name in KBThermo.
 
@@ -211,7 +210,7 @@ class ThermoPlotter:
             fpath = Path(savepath)
             fpath = fpath if fpath.suffix else fpath / f"{name.lower()}.pdf"
 
-        return self.plot(x, values, xlabel, ylabel, xlim, ylim, lw, ls, marker, cmap, figsize, savepath, show)
+        self.plot(x, values, xlabel, ylabel, xlim, ylim, lw, ls, marker, cmap, figsize, savepath, show)
 
     def plot_ternary(
         self,
@@ -222,7 +221,7 @@ class ThermoPlotter:
         figsize: tuple = (8, 6),
         savepath: str | Path | None = None,
         show: bool = False,
-    ):
+    ) -> None:
         """
         Render a ternary system plot based on the ``x`` and ``y`` input.
 
@@ -283,7 +282,6 @@ class ThermoPlotter:
             plt.show()
         else:
             plt.close()
-        return fig, ax
 
     def plot_property_ternary(
         self,
@@ -293,7 +291,7 @@ class ThermoPlotter:
         figsize: tuple = (8, 6),
         savepath: str | Path | None = None,
         show: bool = False,
-    ):
+    ) -> None:
         """
         Render a ternary system plot based on the property name.
 
@@ -324,7 +322,7 @@ class ThermoPlotter:
         name = name.replace("_", " ")
         cbar_label = f"{name} ({format_unit_str(units)})" if units else name
 
-        return self.plot_ternary(
+        self.plot_ternary(
             x=x, y=y, cbar_label=cbar_label, cmap=cmap, figsize=figsize, savepath=savepath, show=show
         )
 
@@ -339,7 +337,7 @@ class ThermoPlotter:
         figsize: tuple = (5, 4.5),
         savepath: str | Path | None = None,
         show: bool = True,
-    ):
+    ) -> None:
         """Plot the fits to activity coefficient derivatives, for the polynomial ``integration_type``.
 
         Parameters
@@ -396,7 +394,6 @@ class ThermoPlotter:
             plt.show()
         else:
             plt.close()
-        return fig, ax
 
     def plot_binary_mixing(
         self,
@@ -410,7 +407,7 @@ class ThermoPlotter:
         figsize: tuple = (5, 4.5),
         savepath: str | Path | None = None,
         show: bool = True,
-    ):
+    ) -> None:
         """
         Plots the contributions to Gibbs mixing free energy for binary mixtures.
 
@@ -475,7 +472,6 @@ class ThermoPlotter:
             plt.show()
         else:
             plt.close()
-        return fig, ax
 
     def make_figures(
         self,
