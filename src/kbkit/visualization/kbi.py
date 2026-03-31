@@ -114,7 +114,6 @@ class KBIAnalysisPlotter:
         self,
         x: np.ndarray,
         xlab: str,
-        show_err: bool = True,
         units: str = "cm^3/mol",
         savepath: str | Path | None = None,
         show: bool = True,
@@ -126,9 +125,8 @@ class KBIAnalysisPlotter:
         ----------
         x: np.ndarray
             Composition to plot (1D array).
-        xlab: x-label for plot.
-        show_err: bool, optional
-            Add errorbars to plot.
+        xlab: str 
+            x-label for plot.
         units: str, optional
             Units for KBI in figures.
         savepath: str | Path, optional
@@ -136,26 +134,22 @@ class KBIAnalysisPlotter:
         show: bool, optional
             Show all figures.
         """
-        kbi_shape = self.result.value.shape
+        kbi_res = self.result.to(units)
+        kbi_shape = kbi_res.value.shape
+
         combos = list(itertools.product(range(kbi_shape[1]), range(kbi_shape[2])))
         unique_combos = [c for c, (i, j) in enumerate(combos) if i <= j]
         colors = plt.cm.jet(np.linspace(0, 1, len(unique_combos)))
 
+        # get mol-list
+        mol_list = set()
+        for meta1 in self.metadata.values():
+            for meta2 in meta1.items():
+                mol_list.add("-".join(meta2.mols))
+
         _, ax = plt.subplots(1, 1, figsize=(5, 4))
-        # Track which molecule pairs have already been added to legend
-        legend_added = set()
-
-        for s, (_, meta1) in enumerate(self.metadata.items()):
-            for m, (_, meta2) in enumerate(meta1.items()):
-                # Only add label if this molecule pair hasn't been added to legend yet
-                label = "-".join(meta2.mols) if meta2.mols not in legend_added else None
-                if label is not None:
-                    legend_added.add(meta2.mols)
-
-                if show_err:
-                    ax.errorbar(x[s], meta2.G_inf, yerr=meta2.G_inf_err, fmt="o", color=colors[m], label=label)
-                else:
-                    ax.scatter(x[s], meta2.G_inf, color=colors[m], marker="o", label=label)
+        for c, (i,j) in enumerate(unique_combos):
+            ax.scatter(x, kbi_res.value[:,i,j], color=colors[c], marker="o", label=mol_list[c])
         ax.set_xlabel(xlab)
         ax.set_ylabel(rf"$G_{{ij}}^\infty$ ({format_unit_str(units)})")
         ax.legend()
