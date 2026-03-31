@@ -17,20 +17,13 @@ from scipy.integrate import cumulative_trapezoid
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.io.rdf import RdfParser
+from kbkit.kbi.exceptions import KBIConvergenceError, LinearityError
 
 if TYPE_CHECKING:
     from kbkit.systems.properties import SystemProperties
 
 # load plotting style
 load_mplstyle()
-
-
-class KBIConvergenceError(Exception):
-    """Raised when KBI fails to converge according to one or more metrics."""
-
-
-class LinearityError(KBIConvergenceError):
-    """Raised when R² linearity metric is not satisfied."""
 
 
 class KBIntegrator:
