@@ -281,10 +281,9 @@ class TestPropertyResultConvertSingleKBIMetadata:
             r_rkbi_fit=np.array([0.06, 0.07]),
             r_rkbi_est=np.array([0.06, 0.07]),
             G_inf=0.8,
-            G_inf_err = 0.05,
-            F_inf = 0.2,
-            F_inf_err = 0.005
-
+            G_inf_err=0.05,
+            F_inf=0.2,
+            F_inf_err=0.005,
         )
 
         # Mock unit registry

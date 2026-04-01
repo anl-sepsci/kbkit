@@ -629,5 +629,3 @@ class TestIntegration:
             _ = parser.molar_volume(nmol=100)
             _ = parser.cv(nmol=100)
             _ = parser.cp(nmol=100)
-
-    
