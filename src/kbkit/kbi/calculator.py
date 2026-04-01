@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from kbkit.io.rdf import RdfParser
-from kbkit.kbi.integrator import KBIntegrator
 from kbkit.kbi.exceptions import KBIConvergenceError
+from kbkit.kbi.integrator import KBIntegrator
 from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.schema.property_result import PropertyResult
 from kbkit.visualization.kbi import KBIAnalysisPlotter

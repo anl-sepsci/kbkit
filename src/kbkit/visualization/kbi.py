@@ -130,7 +130,7 @@ class KBIAnalysisPlotter:
             Composition to plot (1D array).
         molecules: list[str]
             List of molecules corresponding to shape of KBI array.
-        xlab: str 
+        xlab: str
             x-label for plot.
         show_err: bool, optional
             Show errorbar on plot.
@@ -159,12 +159,12 @@ class KBIAnalysisPlotter:
                     kbis_err[s, i, j] = kbimeta.G_inf_err
 
         _, ax = plt.subplots(1, 1, figsize=(5, 4))
-        for c, (i,j) in enumerate(unique_combos):
+        for c, (i, j) in enumerate(unique_combos):
             label = f"{molecules[i]}-{molecules[j]}"
             if show_err:
-                ax.errorbar(x, kbi_res.value[:,i,j], yerr=kbis_err[:,i,j], color=colors[c], fmt="o", label=label)
+                ax.errorbar(x, kbi_res.value[:, i, j], yerr=kbis_err[:, i, j], color=colors[c], fmt="o", label=label)
             else:
-                ax.scatter(x, kbi_res.value[:,i,j], color=colors[c], marker="o", lw=1.1, label=label)
+                ax.scatter(x, kbi_res.value[:, i, j], color=colors[c], marker="o", lw=1.1, label=label)
 
         ax.set_xlabel(xlab)
         ax.set_ylabel(rf"$G_{{ij}}^\infty$ ({format_unit_str(units)})")

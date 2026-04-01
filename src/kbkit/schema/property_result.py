@@ -155,9 +155,9 @@ class PropertyResult:
         new_G_inf = ureg.Quantity(kbi_meta.G_inf, self.units).to(target_units).magnitude
         new_G_inf_err = ureg.Quantity(kbi_meta.G_inf_err, self.units).to(target_units).magnitude
 
-        if len(self.units.split('/')) == 1:
+        if len(self.units.split("/")) == 1:
             self.units += "/molecule"
-        if len(target_units.split('/')) == 1:
+        if len(target_units.split("/")) == 1:
             target_units += "/molecule"
 
         v_uni, n_uni = self.units.split("/")

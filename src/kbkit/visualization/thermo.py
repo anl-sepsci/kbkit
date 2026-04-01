@@ -322,9 +322,7 @@ class ThermoPlotter:
         name = name.replace("_", " ")
         cbar_label = f"{name} ({format_unit_str(units)})" if units else name
 
-        self.plot_ternary(
-            x=x, y=y, cbar_label=cbar_label, cmap=cmap, figsize=figsize, savepath=savepath, show=show
-        )
+        self.plot_ternary(x=x, y=y, cbar_label=cbar_label, cmap=cmap, figsize=figsize, savepath=savepath, show=show)
 
     def plot_activity_coef_deriv_fits(
         self,
