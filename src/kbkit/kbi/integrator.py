@@ -334,7 +334,7 @@ class KBIntegrator:
         Parameters
         ----------
         weight_type: str
-            Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
+            Type of weight function for finite-volume corrections. Options: ('none', 'u0', 'u1', 'u2', 'geometric')
 
         Returns
         -------
@@ -343,7 +343,7 @@ class KBIntegrator:
 
         Notes
         -----
-        The KBI is computed using the formula:
+        For ``weight_type='geometric'``, the KBI is computed using the formula:
 
         .. math::
             \begin{aligned}
@@ -525,7 +525,7 @@ class KBIntegrator:
         .. math::
             L G^V(L) = L G^\infty + F^\infty
 
-        For all other type of ``weight_type``, KBI is approximated by averaging the value of :math:`G$_\text{k}$(L)` over the last 0.1 nm.
+        For all other type of ``weight_type``, KBI is approximated by averaging the value of :math:`G_k(L)` over the last 0.1 nm.
 
         .. math::
             G^\infty \approx G_k(L)
