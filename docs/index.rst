@@ -9,12 +9,10 @@ Check out our `latest release <https://github.com/anl-sepsci/kbkit/releases>`_ o
     :titlesonly:
 
     kbkit.api
-    kbkit.config
     kbkit.io
     kbkit.kbi
     kbkit.schema
     kbkit.systems
-    kbkit.utils
     kbkit.visualization
 
 
