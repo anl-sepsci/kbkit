@@ -115,9 +115,9 @@ class Pipeline:
         rdf_dir: str = "",
         start_time: int = 10000,
         include_mode: str = "npt",
-        min_r_range: float = 0.5,
-        r2_threshold: float = 0.999,
+        weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
         raise_on_convergence_error: bool = True,
+        force: bool = False,
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
         activity_polynomial_degree: int = 5,
         molecule_map: dict[str, str] | None = None,
@@ -129,9 +129,9 @@ class Pipeline:
         self.rdf_dir = rdf_dir
         self.start_time = start_time
         self.include_mode = include_mode
-        self.min_r_range = min_r_range
-        self.r2_threshold = r2_threshold
+        self.weight_type = weight_type
         self.raise_on_convergence_error = raise_on_convergence_error
+        self.force = force
         self.activity_integration_type = activity_integration_type
         self.activity_polynomial_degree = int(activity_polynomial_degree)
         self.molecule_map = molecule_map
@@ -154,8 +154,8 @@ class Pipeline:
         """KBICalculator: Calculator for KBIs as a function of composition."""
         return KBICalculator(
             systems=self.systems,
-            min_r_range=self.min_r_range,
-            r2_threshold=self.r2_threshold,
+            weight_type=self.weight_type,
+            force=self.force,
             raise_on_convergence_error=self.raise_on_convergence_error,
         )
 
@@ -189,19 +189,14 @@ class Pipeline:
     @property
     def kbi_plotter(self) -> "KBIAnalysisPlotter":
         """KBIAnalysisPlotter: Plotter for visualizing KBI convergence and extrapolation."""
-        return self.calculator.kbi_plotter(molecule_map=self.molecule_map)
+        return self.calculator.kbi_plotter()
 
     @property
     def thermo_plotter(self) -> "ThermoPlotter":
         """ThermoPlotter: Plotter for visualizing KBI and derived thermodynamic properties as a function of composition."""
         return self.thermo.plotter(molecule_map=self.molecule_map)
 
-    def make_figures(
-        self,
-        xmol: str | None = None,
-        cmap: str = "jet",
-        savepath: str | None = None,
-    ) -> None:
+    def make_figures(self, xmol: str | None = None, cmap: str = "jet", savepath: str | None = None, **kwargs) -> None:
         """Make KBI analysis figures for all systems and default figures from ThermoPlotter.
 
         Parameters
@@ -224,7 +219,7 @@ class Pipeline:
         # plot all kbi_analysis
         kbi_savepath = fig_path / "system_figures"
         kbi_savepath.mkdir(parents=True, exist_ok=True)
-        self.kbi_plotter.plot_all(units="cm^3/mol", savepath=str(kbi_savepath), show=False)
+        self.kbi_plotter.plot_rkbis(savepath=str(kbi_savepath))
 
         # plot thermo figures
-        self.thermo_plotter.make_figures(xmol=xmol, cmap=cmap, savepath=str(fig_path))
+        self.thermo_plotter.make_figures(xmol=xmol, cmap=cmap, savepath=str(fig_path), **kwargs)
