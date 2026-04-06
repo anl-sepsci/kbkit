@@ -110,7 +110,7 @@ class KBICalculator:
             (len(self.systems), len(self.systems.residue_molecules), len(self.systems.residue_molecules)),
             fill_value=np.nan,
         )
-        integrators: dict[str, dict[tuple[str,...], KBIntegrator]] = {}
+        integrators: dict[str, dict[tuple[str, ...], KBIntegrator]] = {}
 
         for s, meta in enumerate(self.systems):
             if not meta.has_rdf():

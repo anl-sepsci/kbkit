@@ -541,9 +541,7 @@ class KBIntegrator:
             weight_type=self.weight_type, raise_on_convergence_error=self.raise_on_convergence_error, force=self.force
         )
 
-    def plotKBI(
-        self, axhandle: plt.axes, weight_type: str, **kwargs
-    ) -> None:
+    def plotKBI(self, axhandle: plt.axes, weight_type: str, **kwargs) -> None:
         """Add KBI as a function of radial distance to axes.
 
         Parameters
@@ -580,9 +578,7 @@ class KBIntegrator:
         r_rkbi_pred = result["r_rkbi_pred"]
         axhandle.plot(rfit, r_rkbi_pred, **kwargs)
 
-    def plotKBIValue(
-        self, axhandle: plt.axes, weight_type: str, **kwargs
-    ) -> None:
+    def plotKBIValue(self, axhandle: plt.axes, weight_type: str, **kwargs) -> None:
         """Add horizontal line for KBI in the thermodynamic limit for a given ``weight_type``.
 
         Parameters

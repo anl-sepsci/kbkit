@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def style_axes(
     axhandle: plt.axes,
     axes_linewidth: float = 0.5,
