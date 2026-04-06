@@ -1,23 +1,35 @@
 r"""
 Computes Kirkwood-Buff integrals (KBIs) from radial distribution function (RDF) and properties or a :class:`~kbkit.systems.properties.SystemProperties` object.
 
-The following RDF and finite-volume correction options are implemented, following the procedure outlined by `Simon (2022) <https://doi.org/10.1063/5.0106162>`_:
+By default (``weight_type='geometric'``), RDF and finite-volume correction options are implemented, following the procedure outlined by `Simon (2022) <https://doi.org/10.1063/5.0106162>`_:
     * Corrects RDF for molecule excess/depletion to accurately recover bulk density. [`Ganguly and van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_]
     * Uses the analytically correct form for hyperspheres to calculate finite-volume KBI [`Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_]
     * KBI is extrapolated to the thermodynamic limit [`Dawass, Krüger, et al. (2020) <https://doi.org/10.3390/nano10040771>`_]
+
+Various KBI correction methods demonstrated by `Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_ are accessible with the following ``weight_type`` parameters:
+    * ``weight_type='none'``: uses the uncorrected RDF, :math:`g^{NpT}(r)` with :math:`u_0(r)` weight function.
+    * ``weight_type='u0'``: uses the van der Vegt corrected RDF, :math:`g^{vdV}(r)` with :math:`u_0(r)` weight function.
+    * ``weight_type='u1'``: uses the van der Vegt corrected RDF, :math:`g^{vdV}(r)` with :math:`u_1(r)` weight function.
+    * ``weight_type='u2'``: uses the van der Vegt corrected RDF, :math:`g^{vdV}(r)` with :math:`u_2(r)` weight function.
+    * ``weight_type='geometric'``: uses the van der Vegt corrected RDF, :math:`g^{vdV}(r)` with :math:`w(r)` weight function.
+
+.. note::
+    Only for ``weight_type='geometric'`` is linear extrapolation performed; the other weight functions were developed as an estimate of :math:`G^\infty`
 """
 
-import os
 import warnings
-from typing import TYPE_CHECKING
+from functools import cached_property
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
+import scipy
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.io.rdf import RdfParser
 from kbkit.kbi.exceptions import KBIConvergenceError, LinearityError
+from kbkit.visualization.format import style_axes, style_legend
 
 if TYPE_CHECKING:
     from kbkit.systems.properties import SystemProperties
@@ -34,133 +46,96 @@ class KBIntegrator:
     ----------
     r: np.ndarray
         Radial distance array (nm).
-    g: np.ndarray
+    gr: np.ndarray
         Radial distribution function values.
-    volume: float
+    box_volume: float
         Averaged simulation box volume (nm³).
-    molecule_count: dict[str, int]
-        Dictionary mapping molecule names to their counts.
-    rdf_molecules: list[str], optional
-        The two molecules in this RDF pair. If None, inferred from molecule_count.
+    delta: int
+        Kronecker delta for RDF molecules.
+    weight_type: str, optional
+        Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
+    raise_on_convergence_error : bool, optional
+        Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
+        If True, raises KBIConvergenceError when convergence checks fail.
+        If False, returns NaN and prints warning. Default: True.
+    force: bool, optional
+        Only applied for ``weight_type='geometric'``. If KBIConvergenceError is raised, prints warning and returns KBI for ``weight_type='u2'``.
     """
 
     def __init__(
         self,
         r: np.ndarray,
-        g: np.ndarray,
-        volume: float,
-        molecule_count: dict[str, int],
-        rdf_molecules: list[str],
+        gr: np.ndarray,
+        n_ref: int,
+        box_volume: float,
+        delta: int,
+        weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
+        raise_on_convergence_error: bool = True,
+        force: bool = False,
     ) -> None:
-        self.r = r
-        self.g = g
-        self.box_volume = volume
-        self.molecule_count = molecule_count
-        self.rdf_molecules = rdf_molecules
+        self.r = np.asarray(r)
+        self.gr = np.asarray(gr)
+        self.n_ref = int(n_ref)
+        self.box_volume = float(box_volume)
+        self.delta = int(delta)
+        self.weight_type = weight_type.lower()
+        self.rho_ref = self.n_ref / self.box_volume
+        self.raise_on_convergence_error = raise_on_convergence_error
+        self.force = force
 
     @classmethod
-    def from_rdf_parser(
+    def from_rdf(
         cls,
-        rdf: RdfParser,
-        volume: float,
-        molecule_count: dict[str, int],
-    ) -> "KBIntegrator":
-        """
-        Create KBIntegrator from an RdfParser object.
-
-        Parameters
-        ----------
-        rdf: RdfParser
-            Parsed RDF data with r, g attributes.
-        volume: float
-            Averaged simulation box volume (nm³).
-        molecule_count: dict[str, int]
-            Dictionary mapping molecule names to their counts.
-
-        Returns
-        -------
-        KBIntegrator
-            Initialized integrator with molecules extracted from rdf.fname.
-        """
-        # Extract molecule pair from filename
-        rdf_molecules = RdfParser.extract_molecules(text=rdf.fname, mol_list=list(molecule_count.keys()))
-
-        return cls(
-            r=rdf.r,
-            g=rdf.g,
-            volume=volume,
-            molecule_count=molecule_count,
-            rdf_molecules=rdf_molecules,
-        )
-
-    @classmethod
-    def from_system_properties(
-        cls,
-        rdf: RdfParser,
+        rdf_file: str | Path,
         system_properties: "SystemProperties",
+        weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
+        raise_on_convergence_error: bool = True,
+        force: bool = False,
     ) -> "KBIntegrator":
         """
-        Create KBIntegrator from RdfParser and SystemProperties.
+        Create KBI object from RdfParser and SystemProperties.
 
         Automatically extracts volume and molecule_count from system_properties.
 
         Parameters
         ----------
-        rdf: RdfParser
-            Parsed RDF data.
+        rdf_file: str | Path
+            File containing rdf data. Supported filetypes: ('.xvg','.txt','.csv','.xlsx')
         system_properties: SystemProperties
             System properties containing volume and topology.
+        weight_type: str, optional
+            Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
+        raise_on_convergence_error : bool, optional
+            Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
+            If True, raises KBIConvergenceError when convergence checks fail.
+            If False, returns NaN and prints warning. Default: True.
+        force: bool, optional
+            Only applied for ``weight_type='geometric'``. If KBIConvergenceError is raised, prints warning and returns KBI for ``weight_type='u2'``.
 
         Returns
         -------
-        KBIntegrator
+        KBI
             Initialized integrator.
         """
-        volume = system_properties.get("volume", units="nm^3", avg=True)
-        if not isinstance(volume, float):
-            raise TypeError(f"Expected float for volume, got {type(volume)}")
+        rdf = RdfParser(rdf_file)
+        molecule_count = system_properties.get("molecule_count")
+        rdf_mols = rdf.extract_molecules(text=Path(rdf_file).name, mol_list=molecule_count.keys())
 
-        molecule_count = system_properties.topology.molecule_count
-
-        # Delegate to from_rdf_parser for molecule extraction
-        return cls.from_rdf_parser(
-            rdf=rdf,
-            volume=volume,
-            molecule_count=molecule_count,
+        return cls(
+            r=rdf.r,
+            gr=rdf.gr,
+            n_ref=molecule_count[rdf_mols[1]],
+            box_volume=system_properties.get("volume", units="nm^3"),
+            delta=int(rdf_mols[0] == rdf_mols[1]),
+            weight_type=weight_type,
+            raise_on_convergence_error=raise_on_convergence_error,
+            force=force,
         )
 
-    @property
-    def _mol_j(self) -> str:
-        """Returns second molecule in `rdf_molecules` as default options."""
-        return self.rdf_molecules[1]
-
-    def kronecker_delta(self) -> int:
-        """Return the Kronecker delta between molecules in RDF, i.e., determines if molecules :math:`i,j` are the same (returns True)."""
-        return int(self.rdf_molecules[0] == self.rdf_molecules[1])
-
-    @property
-    def n_j(self) -> int:
-        r"""Number of molecule :math:`j` in the system.
-
-        Returns
-        -------
-        int
-            Number of molecules :math:`j` in the system.
-        """
-        mol_j = self._mol_j
-
-        # Validate molecule to be used in RDF integration for coordination number calculation.
-        if len(mol_j) == 0:
-            raise ValueError(f"Molecule '{mol_j}' cannot be empty str!")
-        elif mol_j not in self.rdf_molecules:
-            raise ValueError(f"Molecule '{mol_j}' not in rdf molecules '{self.rdf_molecules}'.")
-
-        # compute molecule number
-        return self.molecule_count[mol_j]
-
-    def g_vdv(self) -> np.ndarray:
+    @cached_property
+    def gr_vdv(self) -> np.ndarray:
         r"""
-        Compute the corrected radial distribution function, accounting for finite-size effects in the simulation box, based on the approach by `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_.
+        Compute the corrected radial distribution function, accounting for excess/depletion of molecule :math:`i` around molecule :math:`j` due to a finite number of molecules, based on the approach by `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_.
 
         Returns
         -------
@@ -195,73 +170,160 @@ class KBIntegrator:
         .. note::
             The cumulative integral :math:`\Delta N_j(r)` is approximated numerically using the trapezoidal rule.
         """
-        # raise error if `box_vol` is zero
-        if self.box_volume == 0:
-            raise ZeroDivisionError("Simulation box volume cannot be zero!")
-        elif not self.box_volume:
-            raise ValueError("Simulation box volume required for Ganguly correction!")
+        sphere_volume = (4 / 3) * np.pi * self.r**3
+        Vr = 1 - (sphere_volume / self.box_volume)
+        delta_n_ref = scipy.integrate.cumulative_trapezoid(
+            4 * np.pi * self.rho_ref * self.r**2 * (self.gr - 1), x=self.r, initial=0
+        )
+        vdv_correction = self.n_ref * Vr / (self.n_ref * Vr - delta_n_ref - self.delta)
+        return self.gr * vdv_correction
 
-        # calculate the reduced volume
-        vr = 1 - ((4 / 3) * np.pi * self.r**3 / self.box_volume)
+    def compute_hr(self, weight_type: str) -> np.ndarray:
+        r"""Total correlation function, :math:`h(r) = g(r) - 1`.
 
-        # get the number density for Molecule :math:`j`
-        rho_j = self.n_j / self.box_volume
+        If ``weight_type='none'``,
 
-        # function to integrate over
-        f = 4.0 * np.pi * self.r**2 * rho_j * (self.g - 1)
-        try:
-            Delta_Nj = cumulative_trapezoid(f, x=self.r, dx=self.r[1] - self.r[0])
-            Delta_Nj = np.append(Delta_Nj, Delta_Nj[-1])
-        except IndexError as e:
-            raise IndexError(f"RDF file is too short; {len(self.r)} lines detected!") from e
+        .. math::
+            h(r) = g^{NpT}(r) - 1,
 
-        # correct g(r) with GV correction
-        vdv_f = self.n_j * vr / (self.n_j * vr - Delta_Nj - self.kronecker_delta())
-        return np.asarray(self.g * vdv_f)  # make sure that an array is returned
+        where :math:`g^{NpT}(r)` is the uncorrected radial distribution function.
 
-    def hypersphere_weight(self) -> np.ndarray:
+        For any other ``weight_type`` specified, the `Ganguly and Van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_ correction is applied,
+
+        .. math::
+            h(r) = g^{vdV}(r) - 1.
+        """
+        return self.gr - 1 if weight_type == "none" else self.gr_vdv - 1
+
+    @cached_property
+    def hr(self) -> np.ndarray:
+        r"""np.ndarray: Total correlation function, :math:`h(r) = g(r) - 1` based on the ``weight_type`` intitalized in class."""
+        return self.compute_hr(self.weight_type)
+
+    def geometric_weight(self, r: np.ndarray) -> np.ndarray:
         r"""
+        Geometric weighting function for 3D hypersphere.
+
         Correct KBI for finite volumes with an exact analytically correct form for hyperspheres, based on the method described by `Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_.
+
+        Parameters
+        ----------
+        r: np.ndarray
+            Radial distance for weight function.
 
         Returns
         -------
         np.ndarray
-           Correction factor for finite volumes.
+           Geometric weight function for hyperspheres.
 
         Notes
         -----
-        The correction factor, :math:`w(r)`, is defined as:
+        The geometric weight function, :math:`w(r)`, is defined as:
 
         .. math::
-            w(r) = 1 - \frac{3}{2} \left( \frac{r}{r_{max}} \right) + \frac{1}{2} \left( \frac{r}{r_{max}} \right)^3
+            w(r) = 4 \pi r^2 \left( 1 - \frac{3}{2}x + \frac{1}{2}x^3 \right),
+
+        where :math:`x` is the dimensionless distance, :math:`x = r/L`.
+        """
+        return 4 * np.pi * r**2 * (1 - (3 / 2) * (r / r.max()) + (1 / 2) * (r / r.max()) ** 3)
+
+    def u0_weight(self, r: np.ndarray) -> np.ndarray:
+        r"""
+        Simple truncation of :math:`r = L`.
+
+        This weighting function is well-known to converge badly, it lacks any finite-volume corrections [`Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_].
+
+        Parameters
+        ----------
+        r: np.ndarray
+            Radial distance for weight function.
+
+        Returns
+        -------
+        np.ndarray
+           Weight function.
+
+        Notes
+        -----
+        The weight function, :math:`u_0(r)`, is defined as:
+
+        .. math::
+            u_0(r) = 4 \pi r**2
 
         where:
             - :math:`r` is the radial distance
-            - :math:`r_{max}` is the maximum value in the RDF, typically half the length of the simulation box
         """
-        return np.asarray(1 - (3 / 2) * (self.r / self.r.max()) + (1 / 2) * (self.r / self.r.max()) ** 3)
+        return 4 * np.pi * r**2
 
-    def h_vdv(self) -> np.ndarray:
+    def u1_weight(self, r: np.ndarray) -> np.ndarray:
         r"""
-        Calculate correlation function h(r) from van der Vegt corrected g:math:`^{vdV}`(r).
+        First order Taylor series expansion in :math:`1/R` of the exact finite-volume integral of the sphere [`Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_].
+
+        Parameters
+        ----------
+        r: np.ndarray
+            Radial distance for weight function.
 
         Returns
         -------
         np.ndarray
-            Correlation function h(r) as a numpy array.
+            Weight function.
 
         Notes
         -----
-        The correlation function is defined as:
+        The weight function, :math:`u_1(r)`, is defined as:
 
         .. math::
-            h(r) = g^{vdV}(r) - 1
+            u_1(r) = 4 \pi r**2 \left( 1 - x^3 \right)
         """
-        return self.g_vdv() - 1
+        return 4 * np.pi * r**2 * (1 - (r / r.max()) ** 3)
 
-    def running_kbi(self) -> np.ndarray:
+    def u2_weight(self, r: np.ndarray) -> np.ndarray:
         r"""
-        Compute KBI as a function of radial distance between molecules :math:`i` and :math:`j`, i.e., running KBI (RKBI).
+        Approximation of KBI in the thermodynamic limit using the exact geometric weighting function for hyperspheres and approximation of the surface term [`Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_].
+
+        Parameters
+        ----------
+        r: np.ndarray
+            Radial distance for weight function.
+
+        Returns
+        -------
+        np.ndarray
+            Weight function.
+
+        Notes
+        -----
+        The weight function, :math:`u_2(r)`, is defined as:
+
+        .. math::
+            \begin{aligned}
+            u_2(r) &= w(r) \left( 1 + \frac{3}{2}x + \frac{9}{4}x^2 \right)
+            &= 4 \pi r^2 \left( 1 - \frac{23}{8}x^3 + \frac{3}{4}x^4 + \frac{9}{8}x^5  \right)
+            \end{aligned}
+        """
+        return self.geometric_weight(r=r) * (1 + (3 / 2) * (r / r.max()) + (9 / 4) * (r / r.max()) ** 2)
+
+    @property
+    def _weight_mapped(self) -> dict:
+        return {
+            "none": self.u0_weight,
+            "u0": self.u0_weight,
+            "u1": self.u1_weight,
+            "u2": self.u2_weight,
+            "geometric": self.geometric_weight,
+        }
+
+    def compute_running_kbi(self, weight_type: str):
+        r"""
+        Compute KBI as a function of radial distance between molecules, also referred to as the `running KBI`.
+
+        We follow the different correction schemes dicussed in `Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_, where various ``weight_type`` implement different corrections.
+
+        Parameters
+        ----------
+        weight_type: str
+            Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
 
         Returns
         -------
@@ -270,408 +332,426 @@ class KBIntegrator:
 
         Notes
         -----
-        The KBI is computed using the formula:
+        The KBI is computed using the formula, where :math:`L \equiv 6V/A` is the linear dimension of the system.
 
         .. math::
-            G_{ij}^R = \int_0^R 4 \pi r^2 w(r) h(r) dr
+            G^V(L) = \int_0^L h(r) w(r) dr = G^\infty + \frac{1}{L}F^\infty + \mathcal{O}(L^{-2})
 
-        where:
-            - :math:`h(r)` is the correlation function
-            - :math:`w(r)` is the finite volume correction factor
-            - :math:`r` is the radial distance
+        With :math:`F^\infty` being the surface term, related to surface effects of the subvolume and :math:`h(r)` is the total correlation function.
+        While the above equation provides an exact relation to :math:`G^\infty` it requires a linear region for extrapolation to the thermodynamic limit, which can be a disadvantage if a linear region is not identified.
+        Krüger and Vlugt proposed a method for direct estimation of :math:`G^\infty`, where the accuracy is depending upon weight functions of the form, :math:`u_k(r)`:
+
+        .. math::
+            G^\infty \approx G_k(L) = \int_0^L h(r) u_k(r) dr.
 
         .. note::
-            The integration is performed using the trapezoidal rule.
+            * The integration is performed using the trapezoidal rule.
         """
-        integrand = 4 * np.pi * self.r**2 * self.h_vdv() * self.hypersphere_weight()
-        rkbi_arr = cumulative_trapezoid(integrand, self.r, initial=0)
-        return np.asarray(rkbi_arr)
+        weight_fn = self._weight_mapped[weight_type]
+        hr = self.compute_hr(weight_type)
+        rkbi = np.zeros(self.r.size)
+        for i in range(1, rkbi.size):
+            rkbi[i] = scipy.integrate.trapezoid(weight_fn(r=self.r[: i + 1]) * (hr[: i + 1]), x=self.r[: i + 1])
+        return rkbi
 
-    @staticmethod
-    def _find_max_linear_range(
-        x: np.ndarray, y: np.ndarray, min_x_range: float, r2_threshold: float = 0.9999, force: bool = False
-    ) -> dict:
-        r"""
-        Find the maximum x-range where linear regression R:math:`^2` stays above threshold.
-
-        The range is forced to include the last 10% of data points.
-
-        Implements convergence metric:
-        1. Linearity: R² >= r2_threshold
-        2. Range constraint: Must include last 10% of data points
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Array of x values (must be strictly increasing).
-        y : np.ndarray
-            Array of y values corresponding to x.
-        min_x_range : float
-            Minimum x-range to consider (must be > 0).
-        r2_threshold : float, optional
-            Desired minimum R² value (default: 0.9999).
-        force: bool, optional
-            Force the regression over the last 1.0 nm, if a suitable fit is not found. (default: False)
-
-        Returns
-        -------
-        dict
-            - 'x_start'        : Start of the optimal x-range.
-            - 'x_end'          : End of the optimal x-range.
-            - 'x_range'        : Total x-range (x_end - x_start).
-            - 'r2'             : R² value for the optimal range.
-            - 'slope'          : Slope of the linear fit (G_∞).
-            - 'slope_err'      : Standard error of the slope.
-            - 'intercept'      : Intercept of the linear fit (F_∞).
-            - 'intercept_err'  : Standard error of the intercept.
-            - 'x_fit'          : x values used in the fit.
-            - 'y_fit'          : y values used in the fit.
-
-        Raises
-        ------
-        LinearityError
-            If no range meets the R² threshold.
-        """
-        # --- Input validation ---
-        x = np.asarray(x, dtype=float)
-        y = np.asarray(y, dtype=float)
-
-        if x.ndim != 1 or y.ndim != 1:
-            raise ValueError("x and y must be 1D arrays.")
-        if len(x) != len(y):
-            raise ValueError("x and y must have the same length.")
-        MAGIC_THREE = 3
-        if len(x) < MAGIC_THREE:
-            raise ValueError("At least 3 data points are required.")
-        if not np.all(np.diff(x) > 0):
-            raise ValueError("x must be strictly increasing (sorted).")
-        if min_x_range <= 0:
-            raise ValueError("min_x_range must be positive.")
-        if not (0 < r2_threshold <= 1):
-            raise ValueError("r2_threshold must be in the range (0, 1].")
-
-        n = len(x)
-
-        # Calculate the index for the last 10% of data points
-        last_10_percent_start_idx = max(0, int(n * 0.9))
-
-        # --- Precompute cumulative sums for O(1) regression stats ---
-        # We need: sum(x), sum(y), sum(x^2), sum(xy), sum(y^2), count
-        cum_x = np.concatenate(([0.0], np.cumsum(x)))
-        cum_y = np.concatenate(([0.0], np.cumsum(y)))
-        cum_x2 = np.concatenate(([0.0], np.cumsum(x * x)))
-        cum_xy = np.concatenate(([0.0], np.cumsum(x * y)))
-        cum_y2 = np.concatenate(([0.0], np.cumsum(y * y)))
-
-        def compute_regression_fast(i: int, j: int) -> tuple[float, float, float, float, float] | None:
-            r"""
-            Compute slope, intercept, R², and standard errors for x[i:j+1] in O(1).
-
-            Standard errors are derived from the residual sum of squares (RSS):
-
-                s:math:`^2` = RSS / (n - 2)                      # mean squared error
-
-                SE(slope)     = sqrt( s^2 / SS_{xx} )
-                SE(intercept) = sqrt( s^2 * (1/n + \bar{x}^2 / SS_{xx}) )
-
-            where SS_{xx} = \Sigma(x_i - \bar{x})²
-
-            Returns None if fewer than 3 points or degenerate case.
-            """
-            count = j - i + 1
-            if count < MAGIC_THREE:
-                return None
-
-            sx = cum_x[j + 1] - cum_x[i]
-            sy = cum_y[j + 1] - cum_y[i]
-            sx2 = cum_x2[j + 1] - cum_x2[i]
-            sxy = cum_xy[j + 1] - cum_xy[i]
-            sy2 = cum_y2[j + 1] - cum_y2[i]
-
-            ss_xx = sx2 - (sx * sx) / count
-            ss_yy = sy2 - (sy * sy) / count
-            ss_xy = sxy - (sx * sy) / count
-
-            if ss_xx <= 0 or ss_yy <= 0:
-                return None
-
-            slope = ss_xy / ss_xx
-            intercept = (sy - slope * sx) / count
-            r2 = (ss_xy**2) / (ss_xx * ss_yy)
-
-            # --- Standard errors ---
-            # Residual sum of squares: RSS = SS_yy - slope * SS_xy
-            rss = ss_yy - slope * ss_xy
-
-            # Degrees of freedom = n - 2 (two fitted parameters: slope, intercept)
-            dof = count - 2
-
-            # Mean squared error (variance of residuals)
-            s2 = rss / dof if dof > 0 else 0.0
-
-            # SE of slope:     sqrt(s² / SS_xx)
-            # SE of intercept: sqrt(s² * (1/n + x̄²/SS_xx))
-            x_mean = sx / count
-            slope_err = np.sqrt(s2 / ss_xx) if s2 >= 0 else 0.0
-            intercept_err = np.sqrt(s2 * (1.0 / count + x_mean**2 / ss_xx)) if s2 >= 0 else 0.0
-
-            return slope, intercept, r2, slope_err, intercept_err
-
-        # --- Find all valid windows that include the last 10% of data points ---
-        valid_windows = []
-
-        # Only consider starting points that allow the range to include the last 10%
-        max_start_idx = last_10_percent_start_idx
-
-        i_start = 0
-        while i_start <= max_start_idx:
-            # Find minimum end index using searchsorted
-            i_min_end = int(np.searchsorted(x, x[i_start] + min_x_range, side="left"))
-
-            # Ensure the end index includes at least the start of the last 10%
-            i_min_end = max(i_min_end, last_10_percent_start_idx)
-
-            if i_min_end >= n:
-                i_start += 1
-                continue
-
-            # Check if minimum range meets R² threshold
-            result = compute_regression_fast(i_start, i_min_end)
-            if result is None or result[2] < r2_threshold:
-                i_start += 1
-                continue
-
-            # Expand end index as far as R² allows
-            i_end = i_min_end
-            while i_end + 1 < n:
-                result = compute_regression_fast(i_start, i_end + 1)
-                if result is None or result[2] < r2_threshold:
-                    break
-                i_end += 1
-
-            slope, intercept, r2, slope_err, intercept_err = compute_regression_fast(i_start, i_end)
-            valid_windows.append(
-                {
-                    "i_start": i_start,
-                    "i_end": i_end,
-                    "x_start": x[i_start],
-                    "x_end": x[i_end],
-                    "x_range": x[i_end] - x[i_start],
-                    "slope": slope,
-                    "slope_err": slope_err,
-                    "intercept": intercept,
-                    "intercept_err": intercept_err,
-                    "r2": r2,
-                }
-            )
-
-            i_start += 1
-
-        # --- Check: Linearity Metric ---
-        if not valid_windows:
-            # if no windows found, manually perform regression over last nm
-            if force:
-                i_end = int(np.argmin(np.abs(x - x.max())))
-                i_start = int(np.argmin(np.abs(x - (x.max() - 1))))
-                slope, intercept, r2, slope_err, intercept_err = compute_regression_fast(i_start, i_end)
-                valid_windows.append(
-                    {
-                        "i_start": i_start,
-                        "i_end": i_end,
-                        "x_start": x[i_start],
-                        "x_end": x[i_end],
-                        "x_range": x[i_end] - x[i_start],
-                        "slope": slope,
-                        "slope_err": slope_err,
-                        "intercept": intercept,
-                        "intercept_err": intercept_err,
-                        "r2": r2,
-                    }
-                )
-
-            # if not force, raise error
-            else:
-                raise LinearityError(
-                    f"No x-range of at least {min_x_range} nm found with R² >= {r2_threshold} "
-                    f"that includes the last 10% of data points. "
-                    "The running KBI does not exhibit linear scaling with 1/R in the required region. "
-                    "Consider: (1) running longer simulation, (2) reducing r2_threshold, "
-                    "(3) checking RDF convergence."
-                )
-
-        # Select best window (largest range)
-        best_window = max(valid_windows, key=lambda w: w["x_range"])
-
-        # --- Extract final results ---
-        i_start = best_window["i_start"]
-        i_end = best_window["i_end"]
-
+    @cached_property
+    def running_kbi_map(self) -> dict[str, np.ndarray]:
+        """dict[str, np.ndarray]: Compute the running KBI for each ``weight_type``."""
         return {
-            "x_start": best_window["x_start"],
-            "x_end": best_window["x_end"],
-            "x_range": best_window["x_range"],
-            "r2": best_window["r2"],
-            "slope": best_window["slope"],
-            "slope_err": best_window["slope_err"],
-            "intercept": best_window["intercept"],
-            "intercept_err": best_window["intercept_err"],
-            "x_fit": x[i_start : i_end + 1],
-            "y_fit": y[i_start : i_end + 1],
+            "none": self.compute_running_kbi(weight_type="none"),
+            "u0": self.compute_running_kbi(weight_type="u0"),
+            "u1": self.compute_running_kbi(weight_type="u1"),
+            "u2": self.compute_running_kbi(weight_type="u2"),
+            "geometric": self.compute_running_kbi(weight_type="geometric"),
         }
 
-    def fit_running_kbi(
+    @property
+    def rkbi(self) -> np.ndarray:
+        """np.ndarray: Running KBI for class initialized ``weight_type``."""
+        return self.running_kbi_map[self.weight_type]
+
+    def compute_geometric_extrapolation(
         self,
-        min_r_range: float = 1.0,
-        r2_threshold: float = 0.9999,
-        raise_on_convergence_error: bool = True,
-        force: bool = False,
+        positions: tuple[float, float] | None = None,
+        maximize_r2: bool = False,
     ) -> dict:
         r"""
-        Fit linear regression to running KBI for extrapolation to thermodynamic limit.
-
-        .. math::
-            R G_{ij}^R = R G_{ij}^\infty + F_{ij}^\infty
-
-        where:
-            * :math:`G_{ij}^\infty` is KBI in the thermodynamic limit.
-            * :math:`F_{ij}^\infty` is a finite-size surface offset.
-
-        Implements convergence checks from `Dawass et al. (2020) <https://doi.org/10.3390/nano10040771>`_.
+        Extrapolate KBI to the thermodynamic limit for ``weight_type='geometric'`` using linear regression [`Dawass, Krüger, et al. (2020) <https://doi.org/10.3390/nano10040771>`_].
 
         Parameters
         ----------
-        min_r_range : float
-            Minimum r-range to consider for KBI convergence (must be > 0).
-        r2_threshold : float, optional
-            Desired minimum R² value (default: 0.999).
-        raise_on_convergence_error : bool, optional
-            If True, raises KBIConvergenceError when convergence checks fail.
-            If False, returns NaN and prints warning. Default: True.
-        force: bool, optional
-            Force the regression over the last 1.0 nm, if a suitable fit is not found. (default: False)
+        position: tuple[float,float], optional
+            Range of `r` values to include for linear fit. Values outside this range will be excluded.
+        maximize_r2: bool, optional
+            Search through valid positions to find the `r` values that maximize :math:`R^2` with a `r` range greater than 1.0 nm, and that include the last 10% of data (this ensures some range in the beginning is not selected).
+        update: bool, optional
+            Update the ``key='geometric'`` value in `kbi_map`.
 
         Returns
         -------
         dict
-            Fit results including convergence metrics.
+            Dictionary containing results from linear extrapolation.
+
+        Notes
+        -----
+        Linear extrapolation of KBI is only performed for the ``weight_type='geometric'`` and provides the exact value in the thermodynamic limit.
+        The relation to finite-volume KBI is given through:
+
+        .. math::
+            L G^V(L) = L G^\infty + F^\infty,
+
+        where convergence is met if a linear region greater than 1.0 is identified and :math:`R^2 > 0.99`.
         """
-        r = self.r
-        y = r * self.running_kbi()  # G_R * R vs R
+        positions = positions or (min([1.0, self.r.max() - 1]), self.r.max())
+        rmin = min(positions)  # if all(positions) else min([1.0, (self.r.max() - 1)])
+        rmax = max(positions)  # if all(positions) else self.r.max()
 
-        # Perform linear fit with all convergence checks
-        try:
-            result = self._find_max_linear_range(
-                x=r, y=y, min_x_range=min_r_range, r2_threshold=r2_threshold, force=force
+        rkbi = self.running_kbi_map["geometric"]  # this method is only for 1 type of rkbi
+
+        valid_mask = (self.r >= rmin) & (self.r <= rmax)
+        valid_indices = np.where(valid_mask)[0]
+
+        if len(valid_indices) == 0:
+            raise ValueError(f"No data points with r > {rmin}")
+
+        if not maximize_r2:
+            slope, intercept, r_value, p_value, std_error = scipy.stats.linregress(
+                self.r[valid_mask], self.r[valid_mask] * rkbi[valid_mask]
             )
-            return result
+            return {
+                "G": slope,
+                "F": intercept,
+                "r2": r_value**2,
+                "p_value": p_value,
+                "std_error": std_error,
+                "index_list": valid_indices.tolist(),
+                "r_fit": self.r[valid_mask],
+                "r_rkbi_pred": slope * self.r[valid_mask] + intercept,
+            }
 
-        except KBIConvergenceError as e:
-            if raise_on_convergence_error:
-                raise
-            else:
-                warnings.warn(f"KBI convergence failed: {e}", RuntimeWarning, stacklevel=2)
-                return {}
+        # Define the last 10% range
+        n_valid = len(valid_indices)
+        last_10_percent_start_idx = valid_indices[int(0.9 * n_valid)]
 
-    def kbi(
+        best_r2 = 0.0
+        best_fit = None
+
+        # Sample starting points (e.g., every 5th point or adaptive sampling)
+        step = max(1, len(valid_indices) // 50)  # ~50 starting points max
+
+        for i in range(0, len(valid_indices), step):
+            start_idx = valid_indices[i]
+
+            # For each start, try a few strategic end points in the last 10%
+            end_candidates = valid_indices[valid_indices >= last_10_percent_start_idx][:: max(1, n_valid // 20)]
+
+            for end_idx in end_candidates:
+                if start_idx >= end_idx:
+                    continue
+
+                idx_range = valid_indices[(valid_indices >= start_idx) & (valid_indices <= end_idx)]
+
+                # Check if r range > 1.0
+                r_range = self.r[idx_range[-1]] - self.r[idx_range[0]]
+                if r_range <= 1.0:
+                    continue
+
+                if len(idx_range) < 3:
+                    continue
+
+                slope, intercept, r_val, p_val, std_err = scipy.stats.linregress(
+                    self.r[idx_range], self.r[idx_range] * rkbi[idx_range]
+                )
+
+                r2 = r_val**2
+                if np.abs(r2) > best_r2:
+                    best_r2 = np.abs(r2)
+                    best_fit = {
+                        "G": slope,
+                        "F": intercept,
+                        "r2": r2,
+                        "p_value": p_val,
+                        "std_error": std_err,
+                        "index_list": idx_range.tolist(),
+                        "r_fit": self.r[idx_range],
+                        "r_rkbi_pred": slope * self.r[idx_range] + intercept,
+                    }
+
+        if best_fit is None:
+            raise LinearityError("Could not find valid regression window with range > 1.0.")
+
+        if best_r2 < 0.99:
+            raise LinearityError("Could not find valid regression window with R^2 > 0.99.")
+
+        return best_fit
+
+    @cached_property
+    def geometric_extrapolation_result(self) -> dict:
+        """dict: Returns the result of the linear extrapolation using ``maximize_r2=True``."""
+        return self.compute_geometric_extrapolation(maximize_r2=True)
+
+    def compute_kbi(
         self,
-        min_r_range: float = 1.0,
-        r2_threshold: float = 0.9999,
+        weight_type: str,
         raise_on_convergence_error: bool = True,
         force: bool = False,
     ) -> float:
-        """
-        Compute KBI with comprehensive convergence checking.
-
-        Parameters
-        ----------
-        min_r_range : float
-            Minimum r-range to consider for KBI convergence (must be > 0).
-        r2_threshold : float, optional
-            Desired minimum R² value (default: 0.999).
-        raise_on_convergence_error : bool, optional
-            If True, raises KBIConvergenceError when convergence checks fail.
-            If False, returns NaN and prints warning. Default: True.
-        force: bool, optional
-            Force the regression over the last 1.0 nm, if a suitable fit is not found. (default: False)
+        r"""Get KBI value in the thermodynamic limit according to ``weight_type``.
 
         Returns
         -------
         float
-            Converged KBI value.
+            KBI in the thermodynamic limit
+
+        Notes
+        -----
+        For ``weight_type='geometric'``; KBI is compute via extrapolation to the thermodynamic limit. (see also: :meth:`compute_geometric_extrapolation`)
+
+        .. math::
+            L G^V(L) = L G^\\infty + F^\\infty
+
+        For all other type of ``weight_type``, KBI is approximated by averaging the value of :math:`G$_\text{k}$(L)` over the last 0.1 nm.
+
+        .. math::
+            G^\\infty \approx G_k(L)
         """
-        result = self.fit_running_kbi(
-            min_r_range=min_r_range,
-            r2_threshold=r2_threshold,
-            raise_on_convergence_error=raise_on_convergence_error,
-            force=force,
+        # get mask for rkbi tail average
+        mask = (self.r > (self.r.max() - 0.1)) & (self.r < self.r.max())
+        if weight_type.lower() == "geometric":
+            try:
+                return self.geometric_extrapolation_result["G"]
+            except KBIConvergenceError as e:
+                if force:
+                    warnings.warn(f"KBI convergence failed: {e}", RuntimeWarning, stacklevel=2)
+                    print("Falling back on KBI for `weight_type='u2'`.")
+                    return float(np.nanmean(self.running_kbi_map["u2"][mask]))
+                if raise_on_convergence_error:
+                    raise
+                else:
+                    warnings.warn(f"KBI convergence failed: {e}", RuntimeWarning, stacklevel=2)
+                    return np.nan
+
+        # for all other types; just extract last values in running kbi
+        return float(np.nanmean(self.running_kbi_map[weight_type.lower()][mask]))
+
+    @cached_property
+    def kbi(self) -> float:
+        """float: KBI value in the thermodynamic limit for class initialized: ``weight_type``, ``raise_on_convergence_error``, ``force``."""
+        return self.compute_kbi(
+            weight_type=self.weight_type, raise_on_convergence_error=self.raise_on_convergence_error, force=self.force
         )
-        return float(result.get("slope", np.nan))
 
-    def plot_integrand(self, save_dir: str | None = None) -> None:
-        """
-        Plot integrand for running KBI calculation. Includes demonstrating the effect of KBI corrections on the integrand.
-
-        Parameters
-        ----------
-        save_dir: str, optional
-            Directory to save the plot. If not provided, the plot will be displayed but not saved
-        """
-        A = 4 * np.pi * self.r**2
-        integrand_uncorr = A * self.h_vdv()
-        integrand_k_anal = A * self.h_vdv() * self.hypersphere_weight()
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.plot(self.r, integrand_uncorr, c="skyblue", label=r"vdV")
-        ax.plot(self.r, integrand_k_anal, c="crimson", lw=1.2, zorder=3, label=r"vdV + Kr$\ddot{u}$ger")
-        ax.set_xlabel(r"$R$ [$nm$]")
-        ax.set_ylabel(r"$4 \pi r^2 \ w(r) \ [g(r) - 1]$")
-        ax.legend(fontsize=12)
-
-        if save_dir is not None:
-            mols = "_".join(self.rdf_molecules)
-            fig.savefig(os.path.join(save_dir, f"kbi_integrand_{mols}.pdf"), dpi=100)
-        plt.show()
-
-    def plot_extrapolation(
-        self, min_r_range: float = 0.5, r2_threshold: float = 0.999, save_dir: str | None = None
+    def plotKBI(
+        self, axhandle: plt.axes, weight_type: str, **kwargs
     ) -> None:
-        """Plot RDF and the running KBI fit to thermodynamic limit.
+        """Add KBI as a function of radial distance to axes.
 
         Parameters
         ----------
-        min_r_range : float
-            Minimum r-range to consider for KBI convergence (must be > 0).
-        r2_threshold : float, optional
-            Desired minimum R² value (default: 0.999).
-        save_dir : str, optional
-            Directory to save the plot. If not provided, the plot will be displayed but not saved.
+        axhandle: plt.axes
+            Axes to add plot.
+        weight_type: str
+            Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
         """
-        label = "-".join(self.rdf_molecules)
+        axhandle.plot(self.r, self.running_kbi_map[weight_type], **kwargs)
 
-        fig, ax = plt.subplots(1, 3, figsize=(12, 3.6), sharex=True)
-        ax[0].plot(self.r, self.g, c="skyblue", label=label)
-        ax[0].set_xlabel(r"$r$ [$nm$]")
-        ax[0].set_ylabel(r"$g(r)$")
-        ax[0].legend()
+    def plotLKBI(self, axhandle: plt.axes, **kwargs) -> None:
+        """Add scaled KBI as a function of radial distance to axes, for plotting geometric linear extrapolation.
 
-        ax[1].plot(self.r, self.running_kbi(), c="skyblue")
-        ax[1].set_xlabel(r"$R$ [$nm$]")
-        ax[1].set_ylabel(r"$G_{{ij}}^R$ [$nm^3$]")
+        Parameters
+        ----------
+        axhandle: plt.axes
+            Axes to add plot.
+        """
+        axhandle.plot(self.r, self.r * self.running_kbi_map["geometric"], **kwargs)
 
-        ax[2].plot(self.r, self.r * self.running_kbi(), c="skyblue")
-        result = self.fit_running_kbi(min_r_range=min_r_range, r2_threshold=r2_threshold)
-        ax[2].plot(
-            result["x_fit"],
-            result["slope"] * result["x_fit"] + result["intercept"],
-            "k--",
-            lw=3,
-            label=rf"Linear fit (R$^2$={result['r2']:.6f})",
+    def plotKBIFit(self, axhandle: plt.axes, result: dict | None = None, **kwargs) -> None:
+        """Add fit results from  geometric linear extrapolation to axes.
+
+        Parameters
+        ----------
+        axhandle: plt.axes
+            Axes to add plot.
+        result: dict, optional
+            Geometric extrapolation result.
+        """
+        result = result or self.geometric_extrapolation_result
+        rfit = result["r_fit"]
+        r_rkbi_pred = result["r_rkbi_pred"]
+        axhandle.plot(rfit, r_rkbi_pred, **kwargs)
+
+    def plotKBIValue(
+        self, axhandle: plt.axes, weight_type: str, **kwargs
+    ) -> None:
+        """Add horizontal line for KBI in the thermodynamic limit for a given ``weight_type``.
+
+        Parameters
+        ----------
+        axhandle: plt.axes
+            Axes to add plot.
+        weight_type: str
+            Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
+        """
+        kbi = self.compute_kbi(weight_type, raise_on_convergence_error=False)
+        if all(x not in kwargs for x in ("ls", "linestyle")):
+            kwargs.update({"ls": (0, (10, 5, 2, 5))})
+        axhandle.axhline(kbi, **kwargs)
+
+    @property
+    def _colors_by_weight(self) -> dict:
+        return {
+            "none": "gold",
+            "u0": "cyan",
+            "u1": "lawngreen",
+            "u2": "red",
+            "geometric": plt.colormaps["hsv"](np.linspace(0.12, 1, 5))[3],
+        }
+
+    def get_colors(self, cmap: str | None = None) -> dict:
+        """dict: Get colors mapped to ``weight_type``."""
+        if cmap is None:
+            return self._colors_by_weight
+        else:
+            colors_from_cmap = plt.colormaps[cmap](np.linspace(0, 1, 5))
+            return {weight: colors_from_cmap[i] for i, weight in enumerate(self._colors_by_weight)}
+
+    def plotKBICompare(
+        self,
+        weight_types: list[Literal["none", "u0", "u1", "u2", "geometric"]],
+        cmap: str | None = None,
+        addKBIValue: bool = True,
+        filepath: str | None = None,
+    ) -> None:
+        """Create figure for comparing KBI's from various correction methods.
+
+        Parameters
+        ----------
+        weight_types: list[str]
+            Weight functions to include in plot. Options: ('none','u0','u1','u2','geometric')
+        cmap: str, optional
+            Matplotlib colormap name.
+        addKBIValue: bool, optional
+            Add horizontal value for KBI with ``weight_type='geometric'``.
+        filepath: str, optional
+            Filepath to save figure as.
+        """
+        colors_by_weight = self.get_colors(cmap)
+
+        fig, ax = plt.subplots()
+        style_axes(ax, minorxticks=np.arange(0, self.r.max(), 0.5))
+        for weight_type in weight_types:
+            label = r"G"
+            if weight_type.startswith("u"):
+                label += rf"$_{weight_type[1]}^\infty$"
+            elif weight_type == "geometric":
+                label += r"$^\text{V}$"
+            self.plotKBI(ax, weight_type=weight_type, lw=1, color=colors_by_weight[weight_type], label=label)
+        if addKBIValue:
+            self.plotKBIValue(ax, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
+
+        style_legend(ax)
+        ax.set_ylabel(r"G(L) (nm$^3$)", fontsize=16)
+        ax.set_xlabel(r"L (nm)", fontsize=16)
+        if filepath:
+            fig.savefig(filepath, dpi=100)
+            plt.close()
+        else:
+            plt.show()
+
+    def plotKBIExtrap(
+        self,
+        result: dict | None = None,
+        color: str = "turquoise",
+        linewidth: float = 1.0,
+        fitcolor: str = "k",
+        fitstyle: tuple | str = (0, (3, 2)),
+        fitwidth: float = 2,
+        filepath: str | None = None,
+    ) -> None:
+        """Create figure for evaluating geometric extrapolation.
+
+        Parameters
+        ----------
+        result: dict, optional
+            Geometric extrapolation result.
+        color: str, optional
+            Color for KBI value.
+        linewidth: float, optional
+            Linewidth for plotting KBI value.
+        fitcolor: str, optional
+            Color for linear fit.
+        fitstyle: tuple | str, optional
+            Linestyle for linear fit.
+        fitwidth: float, optional
+            Linewidth for linear fit.
+        filepath: str, optional
+            Filepath to save figure as.
+        """
+        result = result or self.geometric_extrapolation_result
+        G = result["G"]
+        r2 = result["r2"]
+
+        fig, ax = plt.subplots()
+        style_axes(ax, minorxticks=np.arange(0, self.r.max(), 0.5))
+        self.plotLKBI(ax, c=color, lw=linewidth)
+        self.plotKBIFit(ax, result, c=fitcolor, lw=fitwidth, ls=fitstyle, label=rf"G$^\infty$={G:.4f} ($r^2$={r2:.4f})")
+        style_legend(ax, linewidth=1.5)
+        ax.set_xlabel(r"L")
+        ax.set_ylabel(r"LG$^\text{V}$")
+        if filepath:
+            fig.savefig(filepath, dpi=100)
+            plt.close()
+        else:
+            plt.show()
+
+    def plotKBICompareExtrap(
+        self,
+        weight_types: list[Literal["none", "u0", "u1", "u2", "geometric"]],
+        cmap: str | None = None,
+        addKBIValue: bool = True,
+        filepath: str | None = None,
+    ):
+        """Combine KBI comparisons of ``weight_type`` and geometric extrapolation on a single plot.
+
+        Parameters
+        ----------
+        weight_types: list[str]
+            Weight functions to include in plot. Options: ('none','u0','u1','u2','geometric')
+        cmap: str, optional
+            Matplotlib colormap name.
+        addKBIValue: bool, optional
+            Add horizontal value for KBI with ``weight_type='geometric'``.
+        filepath: str, optional
+            Filepath to save figure as.
+        """
+        colors_by_weight = self.get_colors(cmap)
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), width_ratios=[2, 1])
+        for weight_type in weight_types:
+            label = r"G"
+            if weight_type.startswith("u"):
+                label += rf"$_{weight_type[1]}^\infty$"
+            elif weight_type == "geometric":
+                label += r"$^\text{V}$"
+            self.plotKBI(ax1, weight_type=weight_type, lw=1, color=colors_by_weight[weight_type], label=label)
+        if addKBIValue:
+            self.plotKBIValue(ax1, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
+
+        self.plotLKBI(ax2, color=colors_by_weight["geometric"], alpha=0.8, lw=1)
+        self.plotKBIFit(
+            ax2, color="k", ls=(0, (3, 2)), lw=2.5, label=rf"G$^\infty$={self.compute_kbi('geometric'):.2e}"
         )
-        ax[2].legend(fontsize=11)
-        ax[2].set_xlabel(r"$R$ [$nm$]")
-        ax[2].set_ylabel(r"$R \ G_{{ij}}^R$ [$nm^4$]")
 
-        if save_dir is not None:
-            mols = "_".join(self.rdf_molecules)
-            fig.savefig(os.path.join(save_dir, f"kbi_extrapolation_{mols}.pdf"), dpi=100)
-        plt.show()
+        style_axes(ax1, minorxticks=np.arange(0, self.r.max(), 0.5))
+        style_axes(ax2, minorxticks=np.arange(0, self.r.max(), 1))
+        style_legend(ax1, ncol=2, linewidth=1.5, linelength=1.5)
+        style_legend(ax2, ncol=1, linewidth=1.5, linelength=1)
+        ax1.set_xlabel("L (nm)")
+        ax1.set_ylabel(r"G(L) (nm$^3$)")
+        ax2.set_xlabel("L (nm)")
+        ax2.set_ylabel(r"LG$^\text{V}$ (nm $\cdot$ nm$^3$)")
+        if filepath:
+            fig.savefig(filepath, dpi=100)
+            plt.close()
+        else:
+            plt.show()

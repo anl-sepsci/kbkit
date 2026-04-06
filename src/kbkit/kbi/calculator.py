@@ -6,14 +6,13 @@ Additional inputs are key parameters used for the KBI corrections provided in :c
 """
 
 import itertools
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
 from kbkit.io.rdf import RdfParser
 from kbkit.kbi.exceptions import KBIConvergenceError
 from kbkit.kbi.integrator import KBIntegrator
-from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.schema.property_result import PropertyResult
 from kbkit.visualization.kbi import KBIAnalysisPlotter
 
@@ -28,26 +27,27 @@ class KBICalculator:
     ----------
     systems: SystemCollection
         SystemCollection object for set of systems.
-    min_r_range : float
-        Minimum r-range to consider for KBI convergence (must be > 0).
-    r2_threshold : float, optional
-        Desired minimum R:math:`^2` value (default: 0.9999).
+    weight_type: str, optional
+        Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
     raise_on_convergence_error : bool, optional
+        Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
         If True, raises KBIConvergenceError when convergence checks fail.
         If False, returns NaN and prints warning. Default: True.
+    force: bool, optional
+        Only applied for ``weight_type='geometric'``. If KBIConvergenceError is raised, prints warning and returns KBI for ``weight_type='u2'``.
     """
 
     def __init__(
         self,
         systems: "SystemCollection",
-        min_r_range: float = 1.0,
-        r2_threshold: float = 0.9999,
+        weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
         raise_on_convergence_error: bool = True,
+        force: bool = False,
     ) -> None:
         self.systems = systems
-        self.min_r_range = min_r_range
-        self.r2_threshold = r2_threshold
+        self.weight_type = weight_type.lower()
         self.raise_on_convergence_error = raise_on_convergence_error
+        self.force = force
 
         self._cache: dict[tuple, PropertyResult] = {}
 
@@ -92,7 +92,7 @@ class KBICalculator:
 
         .. notes::
             * If an RDF directory is missing, the corresponding system's values remain NaN, if ignore_convergence_errors is True.
-            * Populates `metadata` with integration results for each RDF file.
+            * Populates `metadata` with :class:`~kbkit.kbi.integrator.KBIntegrator` object for each RDF file.
 
         See Also
         --------
@@ -110,7 +110,7 @@ class KBICalculator:
             (len(self.systems), len(self.systems.residue_molecules), len(self.systems.residue_molecules)),
             fill_value=np.nan,
         )
-        kbi_metadata: dict[str, dict[str, KBIMetadata]] = {}
+        integrators: dict[str, dict[tuple[str,...], KBIntegrator]] = {}
 
         for s, meta in enumerate(self.systems):
             if not meta.has_rdf():
@@ -120,46 +120,27 @@ class KBICalculator:
             rdf_files = [f for f in all_files if f.suffix in (".xvg", ".txt")]
 
             for fpath in rdf_files:
-                rdf = RdfParser(path=fpath)
+                integrator = KBIntegrator.from_rdf(rdf_file=fpath, system_properties=meta.props)
 
-                integrator = KBIntegrator.from_system_properties(rdf=rdf, system_properties=meta.props)
-
-                i, j = [list(self.systems.residue_molecules).index(mol) for mol in integrator.rdf_molecules]
+                # get molecules present in RDF
+                rdf_molecules = RdfParser.extract_molecules(text=fpath.name, mol_list=meta.props.get("molecules"))
+                i, j = [list(self.systems.residue_molecules).index(mol) for mol in rdf_molecules]
 
                 try:
-                    kbi_result_dict = integrator.fit_running_kbi(
-                        min_r_range=self.min_r_range,
-                        r2_threshold=self.r2_threshold,
-                        raise_on_convergence_error=self.raise_on_convergence_error,
-                    )
-                    kbis[s, i, j] = kbi_result_dict.get("slope", np.nan)
-                    kbis[s, j, i] = kbi_result_dict.get("slope", np.nan)
+                    kbis[s, i, j] = integrator.kbi
+                    kbis[s, j, i] = integrator.kbi
                 except KBIConvergenceError as e:
                     if self.raise_on_convergence_error:
                         raise
                     else:
                         print(
-                            f"WARNING! KBI convergence failed for system '{meta.name}' and pair {integrator.rdf_molecules}: {e}."
+                            f"WARNING! KBI convergence failed for system '{meta.name}' and pair {rdf_molecules}: {e}."
                         )
 
-                # add values to metadata
-                kbi_metadata.setdefault(meta.name, {})[".".join(integrator.rdf_molecules)] = KBIMetadata(
-                    mols=tuple(integrator.rdf_molecules),
-                    r=integrator.r,
-                    g=integrator.g_vdv(),
-                    rkbi=(integrator.running_kbi()),
-                    r_rkbi=(integrator.r * integrator.running_kbi()),
-                    r_fit=kbi_result_dict.get("x_fit", np.nan),
-                    r_rkbi_fit=kbi_result_dict.get("y_fit", np.nan),
-                    r_rkbi_est=kbi_result_dict.get("x_fit", np.nan) * kbi_result_dict.get("slope", np.nan)
-                    + kbi_result_dict.get("intercept", np.nan),
-                    G_inf=kbi_result_dict.get("slope", np.nan),
-                    G_inf_err=kbi_result_dict.get("slope_err", np.nan),
-                    F_inf=kbi_result_dict.get("intercept", np.nan),
-                    F_inf_err=kbi_result_dict.get("intercept_err", np.nan),
-                )
+                # add integrator to dict
+                integrators.setdefault(meta.name, {})[tuple(rdf_molecules)] = integrator
 
-        result = PropertyResult(name="kbi", value=kbis, units="nm^3/molecule", metadata=kbi_metadata)
+        result = PropertyResult(name="kbi", value=kbis, units="nm^3/molecule", metadata=integrators)
 
         self._cache[cache_key] = result
         return result.to(units)
@@ -324,7 +305,7 @@ class KBICalculator:
 
         return xc, xa
 
-    def kbi_plotter(self, molecule_map: dict[str, str] | None = None) -> KBIAnalysisPlotter:
+    def kbi_plotter(self) -> KBIAnalysisPlotter:
         """
         Create a KBIAnalysisPlotter for visualizing RDF integration and KBI convergence.
 
@@ -338,4 +319,4 @@ class KBICalculator:
         KBIAnalysisPlotter
             Plotter instance for inspecting KBI process.
         """
-        return KBIAnalysisPlotter(kbi=self.kbi(), molecule_map=molecule_map)
+        return KBIAnalysisPlotter(kbi=self.kbi())
