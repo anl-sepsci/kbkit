@@ -2,7 +2,6 @@
 
 import difflib
 import re
-from re import Match
 
 # Default alias map (can be extended or replaced)
 ENERGY_ALIASES: dict[str, set[str]] = {
@@ -100,40 +99,34 @@ def format_unit_str(text: str) -> str:
         text = str(text)
     except TypeError as e:
         raise TypeError(f"Could not convert type {type(text)} to str.") from e
+    
+    # 1. Handle explicit subscript syntax: X_(stuff) -> X_{stuff}
+    text = re.sub(r"_\(([^)]+)\)", r"_{\1}", text)
+    
+    # 2. Handle implicit subscripts: X_num -> X_{num} (e.g., H_2 -> H_{2})
+    text = re.sub(r"_(\d+)", r"_{\1}", text)
 
-    def inverse_fix(match: Match[str]) -> str:
-        """Replace /unit ** exponent with /unit^{exponent}."""
-        unit = match.group(1)
-        exp = match.group(2)
-        return f"/{unit}^{{{exp}}}"
+    # 3. Normalize: convert ** to ^
+    text = text.replace("**", "^")
+    
+    # 4. Ensure all exponents use braces: X^num -> X^{num}
+    text = re.sub(r"\^(\d+)", r"^{\1}", text)
 
-    # correct inverse unit format of first type
-    text = re.sub(r"/\s*([a-zA-Z]+)\s*\*\*\s*(\d+)", inverse_fix, text)
+    # 5. Handle division: /base^exp -> base^{-exp}
+    def inverse_repl(match):
+        base = match.group(1)
+        exponent = match.group(2)
+        if exponent:
+            clean_exp = exponent.replace("{", "").replace("}", "")
+            return rf"\,{base}^{{-{clean_exp}}}"
+        return rf"\,{base}^{{-1}}"
 
-    def inverse_unit_repl(match: Match[str]) -> str:
-        """Inverse replacement for /unit^{exp} or /unitexp to unit^{-exp}."""
-        unit = match.group(1)
-        m_exp = re.match(r"^([a-zA-Z]+)\^\{(-?\d+)\}$", unit)
-        if m_exp:
-            letters, exponent = m_exp.groups()
-            new_exp = str(-int(exponent))
-            return rf"\text{{ }}\mathrm{{{letters}^{{{new_exp}}}}}"
-        m_simple = re.match(r"^([a-zA-Z]+)(\d+)$", unit)
-        if m_simple:
-            letters, digits = m_simple.groups()
-            return rf"\text{{ }}\mathrm{{{letters}^{{-{digits}}}}}"
-        return rf"\text{{ }}\mathrm{{{unit}^{{-1}}}}"
+    text = re.sub(r"/\s*([a-zA-Z]+)(?:\^\{?(-?\d+)\}?)?", inverse_repl, text)
 
-    # replace /unit^{exp} to unit^{-exp}
-    text = re.sub(r"/\s*([a-zA-Z0-9_\^\{\}]+)", inverse_unit_repl, text)
+    # 6. Final LaTeX cleanup
+    text = text.replace("*", r"\,")
 
-    # convert subscripts to _{val} FIRST
-    text = re.sub(r"_(\(?[a-zA-Z0-9+\-*/=]+\)?)", r"_{\1}", text)
-
-    # THEN convert superscripts **exp to ^{exp}
-    text = re.sub(r"\*\*\s*([^\s_]+)", r"^{\1}", text)
-
-    # wrap with $ if needed
+    # 7. Wrap in $ if not already
     if not (text.startswith("$") and text.endswith("$")):
         text = f"${text}$"
 
