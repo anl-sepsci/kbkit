@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from kbkit.config.mplstyle import load_mplstyle
-from kbkit.config.unit_registry import load_unit_registry
 from kbkit.schema.property_result import PropertyResult
 from kbkit.utils.format import format_unit_str
+from kbkit.visualization.format import style_axes, style_legend
 
 load_mplstyle()
 
@@ -22,104 +22,54 @@ class KBIAnalysisPlotter:
     ----------
     kbi: PropertyResult
         PropertyResult object containing KBI values and :class:`~kbkit.schema.kbi_metadata.KBIMetadata` for analysis.
-    molecule_map: dict[str, str]
-        Dictionary mapping molecules from simulation to desired labels in legend.
     """
 
-    def __init__(self, kbi: PropertyResult, molecule_map: dict[str, str] | None = None) -> None:
+    def __init__(self, kbi: PropertyResult) -> None:
         self.result = kbi
         self.metadata = self.result.metadata
-        self.molecule_map = molecule_map
-        self.ureg = load_unit_registry()
-        self.Q_ = self.ureg.Quantity
 
-    def plot(self, system_name: str, units: str = "cm^3/mol", savepath: str | Path | None = None, show: bool = True):
-        """Plot KBI analysis for a given system.
-
-        This is a 1x3 subplot showing RDFs, corrected running KBI, and extrapolation of KBI to the thermodynamic limit for all molecular pairs in the system.
+    def plot_rkbis(self, savepath: str | Path | None = None):
+        """Plot KBI analysis plots for all systems present.
 
         Parameters
         ----------
-        system_name: str
-            System to plot.
-        units: str, optional
-            Units of KBIs to display.
-        savepath: str | Path, optional
-            Path to save figure to. Will not save if this is ignored.
-        show: bool, optional
-            Display the figure.
-        """
-        # convert units if desired
-        converted_result = self.result.to(units=units)
-        if not isinstance(converted_result.metadata, dict) or converted_result.metadata is None:
-            return
-
-        # check that system exists
-        if system_name not in converted_result.metadata:
-            return
-
-        _fig, ax = plt.subplots(1, 3, figsize=(12, 3.6))
-        lines = []
-        for _, meta in converted_result.metadata[system_name].items():
-            molmap = self.molecule_map or {m: m for m in meta.mols}
-            line = ax[0].plot(meta.r, meta.g, lw=2.5, label="-".join(molmap[mol] for mol in meta.mols))
-            ax[1].plot(meta.r, meta.rkbi, lw=2.5)
-            ax[2].plot(meta.r, meta.r_rkbi, lw=2.5)
-            ax[2].plot(meta.r_fit, meta.r_rkbi_est, lw=3, ls="--", c="k")
-            lines.append(line)
-
-        # if no lines are found just be done
-        if lines:
-            ax[0].legend(loc="best", ncol=1, fontsize="small", frameon=True)
-
-        ax[0].set_xlabel(r"$r$ [$nm$]")
-        ax[1].set_xlabel(r"$R$ [$nm$]")
-        ax[2].set_xlabel(r"$R$ [$nm$]")
-        ax[0].set_ylabel("g(r)")
-        ax[1].set_ylabel(f"G$_{{ij}}^R$ [{format_unit_str('cm^3/mol')}]")
-        ax[2].set_ylabel(f"$R$ $G_{{ij}}^R$ [$nm$ {format_unit_str('cm^3/mol')}]")
-        if savepath:
-            fpath = Path(savepath) if not Path(savepath).is_dir() else Path(savepath) / f"{system_name}.pdf"
-            plt.savefig(fpath, dpi=100)
-        if show:
-            plt.show()
-        else:
-            plt.close()
-
-    def plot_all(self, units: str = "cm^3/mol", savepath: str | Path | None = None, show: bool = True):
-        """
-        Plot KBI analysis subplots for all systems present in :class:`~kbkit.schema.kbi_metadata.KBIMetadata`.
-
-        Parameters
-        ----------
-        units: str, optional
-            Units for KBI in figures.
+        weight_types: list[str]
+            Weight functions to include in plot. Options: ('none','u0','u1','u2','geometric')
+        cmap: str, optional
+            Matplotlib colormap name.
+        addKBIValue: bool, optional
+            Add horizontal value for KBI with ``weight_type='geometric'``.
         savepath: str | Path, optional
             Path to save figures to.
-        show: bool, optional
-            Show all figures.
         """
         if savepath:
-            parent_path = Path(savepath)
-            parent_path = parent_path if parent_path.is_dir() else parent_path.parent
+            parent_path = Path(savepath) if Path(savepath).is_dir() else Path(savepath).parent
 
         if self.metadata is None:
             return
 
-        for sys in self.metadata:
-            fpath = parent_path / f"{sys}.pdf" if savepath else None
-            self.plot(system_name=sys, units=units, savepath=fpath, show=show)
+        for sys, mol_dict in self.metadata.items():
+            for mols, kbi_obj in mol_dict.items():
+                filepath = parent_path / f"{sys}_{'_'.join(mols)}.pdf"
+                if kbi_obj.weight_type == "geometric":
+                    kbi_obj.plotKBICompareExtrap(
+                        weight_types=[kbi_obj.weight_type], addKBIValue=True, cmap=None, filepath=filepath
+                    )
+                else:
+                    kbi_obj.plotKBICompare(
+                        weight_types=[kbi_obj.weight_type], addKBIValue=True, cmap=None, filepath=filepath
+                    )
 
     def plot_composition(
         self,
         x: np.ndarray,
         molecules: list[str],
         xlab: str,
-        show_err: bool = True,
         units: str = "cm^3/mol",
         cmap: str = "jet",
         savepath: str | Path | None = None,
         show: bool = True,
+        **kwargs,
     ):
         """
         Plot KBIs as a function of composition for all systems present in :class:`~kbkit.schema.kbi_metadata.KBIMetadata` and show error from linear extrapolation.
@@ -151,24 +101,16 @@ class KBIAnalysisPlotter:
         unique_combos = [(i, j) for (i, j) in combos if i <= j]
         colors = plt.colormaps.get(cmap, "jet")(np.linspace(0, 1, len(unique_combos)))
 
-        if show_err:
-            kbis_err = np.full_like(kbi_res.value, fill_value=np.nan)
-            for s, sysmeta in enumerate(kbi_res.metadata.values()):
-                for kbimeta in sysmeta.values():
-                    i, j = [molecules.index(mol) for mol in kbimeta.mols]
-                    kbis_err[s, i, j] = kbimeta.G_inf_err
-
         _, ax = plt.subplots(1, 1, figsize=(5, 4))
         for c, (i, j) in enumerate(unique_combos):
             label = f"{molecules[i]}-{molecules[j]}"
-            if show_err:
-                ax.errorbar(x, kbi_res.value[:, i, j], yerr=kbis_err[:, i, j], color=colors[c], fmt="o", label=label)
-            else:
-                ax.scatter(x, kbi_res.value[:, i, j], color=colors[c], marker="o", lw=1.1, label=label)
+            ax.plot(x, kbi_res.value[:, i, j], color=colors[c], label=label, **kwargs)
 
         ax.set_xlabel(xlab)
         ax.set_ylabel(rf"$G_{{ij}}^\infty$ ({format_unit_str(units)})")
-        ax.legend()
+        ax.set_xlim(-0.05, 1.05)
+        style_legend(ax, ncol=1)
+        style_axes(ax, minorxticks=np.arange(0, 1, 0.1))
 
         if savepath:
             fpath = Path(savepath) if not Path(savepath).is_dir() else Path(savepath) / "kbis_composition.pdf"

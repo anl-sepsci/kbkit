@@ -11,6 +11,7 @@ from matplotlib.ticker import MultipleLocator
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.utils.format import format_unit_str
+from kbkit.visualization.format import style_axes, style_legend
 
 if TYPE_CHECKING:
     from kbkit.kbi.thermodynamics import KBThermo
@@ -54,13 +55,11 @@ class ThermoPlotter:
         ylabel: str | None = None,
         xlim: tuple | None = None,
         ylim: tuple | None = None,
-        lw: float = 1.5,
-        ls: str = "",
-        marker: str = "o",
         cmap: str = "jet",
         figsize: tuple = (5, 4.5),
         savepath: str | Path | None = None,
         show: bool = True,
+        **kwargs,
     ) -> None:
         """
         Create a plot for a given ``x`` and ``y`` arrays.
@@ -79,12 +78,6 @@ class ThermoPlotter:
             Limits for x-axis.
         ylim: tuple, optional
             Limits for y-axis.
-        lw: float, optional
-            Linewidth for timeseries.
-        ls: str, optional
-            Linestyle for timeseries.
-        marker: str, optional
-            Maker to display for timeseries.
         cmap: str, optional
             Matplotlib colormap.
         figsize: tuple, optional
@@ -105,21 +98,22 @@ class ThermoPlotter:
         colors = cmap_obj(np.linspace(0, 1, n_colors))
 
         fig, ax = plt.subplots(figsize=figsize)
+        style_axes(ax, minorxticks=np.arange(0, 1, 0.1))
         ax.set_prop_cycle(cycler(color=colors))
 
         if y.ndim == ARR_DIM_1:
             if x.ndim > 1:
                 x = x[:, 0]
-            ax.plot(x, y, lw=lw, ls=ls, marker=marker)
+            ax.plot(x, y, **kwargs)
 
         elif y.ndim == ARR_DIM_2:
-            ax.plot(x, y, lw=lw, ls=ls, marker=marker, label=self.molecules)
+            ax.plot(x, y, label=self.molecules, **kwargs)
 
         elif y.ndim == ARR_DIM_3:
             if x.ndim > 1:
                 x = x[:, 0]
             for i, j in combos:
-                ax.plot(x, y[:, i, j], lw=lw, ls=ls, marker=marker, label=f"{self.molecules[i]}-{self.molecules[j]}")
+                ax.plot(x, y[:, i, j], label=f"{self.molecules[i]}-{self.molecules[j]}", **kwargs)
 
         if xlabel:
             ax.set_xlabel(xlabel)
@@ -130,7 +124,7 @@ class ThermoPlotter:
         if ylim:
             ax.set_ylim(ylim)
 
-        ax.legend()
+        style_legend(ax, ncol=1)
         if savepath:
             fpath = Path(savepath)
             fpath = fpath if fpath.suffix else fpath / "thermo_property.pdf"
@@ -149,13 +143,11 @@ class ThermoPlotter:
         xmol: str | None = None,
         xlim: tuple | None = None,
         ylim: tuple | None = None,
-        lw: float = 1.5,
-        ls: str = "",
-        marker: str = "o",
         cmap: str = "jet",
         figsize: tuple = (5, 4.5),
         savepath: str | Path | None = None,
         show: bool = True,
+        **kwargs,
     ) -> None:
         """
         Create a plot for a given property name in KBThermo.
@@ -174,12 +166,6 @@ class ThermoPlotter:
             Limits for x-axis.
         ylim: tuple, optional
             Limits for y-axis.
-        lw: float, optional
-            Linewidth for timeseries.
-        ls: str, optional
-            Linestyle for timeseries.
-        marker: str, optional
-            Maker to display for timeseries.
         cmap: str, optional
             Matplotlib colormap.
         figsize: tuple, optional
@@ -210,7 +196,7 @@ class ThermoPlotter:
             fpath = Path(savepath)
             fpath = fpath if fpath.suffix else fpath / f"{name.lower()}.pdf"
 
-        self.plot(x, values, xlabel, ylabel, xlim, ylim, lw, ls, marker, cmap, figsize, savepath, show)
+        self.plot(x, values, xlabel, ylabel, xlim, ylim, cmap, figsize, savepath, show, **kwargs)
 
     def plot_ternary(
         self,
@@ -257,6 +243,7 @@ class ThermoPlotter:
         values = y[valid_mask]
 
         fig, ax = plt.subplots(figsize=figsize, subplot_kw={"projection": "ternary"})
+        style_axes(ax)
         ax.set_aspect(25)
         tp = ax.tricontourf(a, b, c, values, cmap=cmap, alpha=1, edgecolors="none", levels=40)  # type: ignore
         cbar_label = cbar_label or ""
@@ -267,7 +254,7 @@ class ThermoPlotter:
         ax.set_rlabel(ztext)  # type: ignore[attr-defined]
 
         # Add grid lines on top
-        ax.grid(True, which="major", linestyle="-", linewidth=1, color="k")
+        ax.grid(True, which="major", linestyle="-", linewidth=0.5, color="k")
 
         ax.taxis.set_major_locator(MultipleLocator(0.10))  # type: ignore[attr-defined]
         ax.laxis.set_major_locator(MultipleLocator(0.10))  # type: ignore[attr-defined]
@@ -328,13 +315,11 @@ class ThermoPlotter:
         self,
         xlim: tuple | None = None,
         ylim: tuple | None = None,
-        lw: float = 2.5,
-        ls: str = "",
-        marker: str = "o",
         cmap: str = "jet",
         figsize: tuple = (5, 4.5),
         savepath: str | Path | None = None,
         show: bool = True,
+        **kwargs,
     ) -> None:
         """Plot the fits to activity coefficient derivatives, for the polynomial ``integration_type``.
 
@@ -344,12 +329,6 @@ class ThermoPlotter:
             Limits for x-axis.
         ylim: tuple, optional
             Limits for y-axis.
-        lw: float, optional
-            Linewidth for timeseries.
-        ls: str, optional
-            Linestyle for timeseries.
-        marker: str, optional
-            Maker to display for timeseries.
         cmap: str, optional
             Matplotlib colormap.
         figsize: tuple, optional
@@ -366,16 +345,17 @@ class ThermoPlotter:
         colors = cmap_obj(np.linspace(0, 1, n_colors))
 
         fig, ax = plt.subplots(figsize=figsize)
+        style_axes(ax, minorxticks=np.arange(0, 1, 0.1))
         ax.set_prop_cycle(cycler(color=colors))
-        ax.plot(x, values, lw=lw, ls=ls, marker=marker, label=self.molecules)
+        ax.plot(x, values, label=self.molecules, **kwargs)
 
         # now add fit fns
         for _, meta in self.thermo.activity_metadata.by_types["derivative"].items():
             if not meta.has_fn:
                 continue
-            ax.plot(meta.x_eval, meta.y_eval, c="k", lw=1.5, ls="-")
+            ax.plot(meta.x_eval, meta.y_eval, c="k", lw=1, ls="-")
 
-        ax.legend()
+        style_legend(ax, ncol=1)
         ax.set_xlabel(r"$x_i$")
         ax.set_ylabel(r"$\partial \ln \gamma_i / \partial x_i$")
         if xlim:
@@ -398,13 +378,11 @@ class ThermoPlotter:
         xmol,
         xlim: tuple | None = None,
         ylim: tuple | None = None,
-        lw: float = 1.5,
-        ls: str = "",
-        marker: str = "o",
         cmap: str = "jet",
         figsize: tuple = (5, 4.5),
         savepath: str | Path | None = None,
         show: bool = True,
+        **kwargs,
     ) -> None:
         """
         Plots the contributions to Gibbs mixing free energy for binary mixtures.
@@ -417,12 +395,6 @@ class ThermoPlotter:
             Limits for x-axis.
         ylim: tuple, optional
             Limits for y-axis.
-        lw: float, optional
-            Linewidth for timeseries.
-        ls: str, optional
-            Linestyle for timeseries.
-        marker: str, optional
-            Maker to display for timeseries.
         cmap: str, optional
             Matplotlib colormap.
         figsize: tuple, optional
@@ -434,27 +406,26 @@ class ThermoPlotter:
         """
         # plot mixing properties
         fig, ax = plt.subplots(figsize=figsize)
+        style_axes(ax, minorxticks=np.arange(0, 1, 0.1))
         cmap_obj = plt.get_cmap(cmap)
         colors = cmap_obj(np.linspace(0, 1, 5))
         xmol_mix = xmol or self.thermo.systems.molecules[0]
         xi = self.thermo.systems.x[:, self.thermo.systems.get_mol_index(xmol_mix)]
         ax.set_prop_cycle(cycler(color=colors))
-        ax.plot(xi, self.thermo.h_mix(), lw=lw, ls=ls, marker=marker, label=r"$\Delta H_{mix}$")
-        ax.plot(xi, -self.thermo.temperature() * self.thermo.s_ex(), lw=lw, ls=ls, marker=marker, label=r"$-TS^{EX}$")
-        ax.plot(xi, self.thermo.g_ex(), lw=lw, ls=ls, marker=marker, label=r"$G^{EX}$")
+        ax.plot(xi, self.thermo.h_mix(), label=r"$\Delta H_{mix}$", **kwargs)
+        ax.plot(xi, -self.thermo.temperature() * self.thermo.s_ex(), label=r"$-TS^{EX}$", **kwargs)
+        ax.plot(xi, self.thermo.g_ex(), label=r"$G^{EX}$", **kwargs)
         ax.plot(
             xi,
             -self.thermo.temperature() * self.thermo.g_id() / self.thermo.temperature(),
-            lw=lw,
-            ls=ls,
-            marker=marker,
             label=r"$-TS^{id}$",
+            **kwargs,
         )
-        ax.plot(xi, self.thermo.g_mix(), lw=lw, ls=ls, marker=marker, label=r"$\Delta G_{mix}$")
+        ax.plot(xi, self.thermo.g_mix(), label=r"$\Delta G_{mix}$", **kwargs)
         ax.set_xlabel(rf"$x_{{{xmol_mix}}}$")
         unit_str = format_unit_str("kJ/mol")
         ax.set_ylabel(rf"Thermodynamic Properties ({unit_str})")
-        ax.legend()
+        style_legend(ax, ncol=1)
 
         if xlim:
             ax.set_xlim(xlim)
@@ -471,12 +442,7 @@ class ThermoPlotter:
         else:
             plt.close()
 
-    def make_figures(
-        self,
-        savepath: str | Path,
-        xmol: str | None = None,
-        cmap: str = "jet",
-    ) -> None:
+    def make_figures(self, savepath: str | Path, xmol: str | None = None, cmap: str = "jet", **kwargs) -> None:
         """
         Create default figures for a binary or ternary system.
 
@@ -500,6 +466,7 @@ class ThermoPlotter:
             cmap=cmap,
             savepath=Path(savepath) / "kbi.pdf",
             show=False,
+            **kwargs,
         )
 
         # plot activity coeffs.
@@ -515,6 +482,7 @@ class ThermoPlotter:
                 cmap=cmap,
                 savepath=Path(savepath) / "ln_activity_coef_derivs.pdf",
                 show=False,
+                **kwargs,
             )
 
         self.plot_property(
@@ -524,6 +492,7 @@ class ThermoPlotter:
             cmap=cmap,
             savepath=Path(savepath) / "activity_coef.pdf",
             show=False,
+            **kwargs,
         )
 
         # plot structure factors
@@ -534,6 +503,7 @@ class ThermoPlotter:
             cmap=cmap,
             savepath=Path(savepath) / "partial_structure_factors.pdf",
             show=False,
+            **kwargs,
         )
 
         system_types = {BINARY: "BINARY", TERNARY: "TERNARY"}
@@ -551,6 +521,7 @@ class ThermoPlotter:
                 cmap=cmap,
                 savepath=Path(savepath) / "hessian_determinant.pdf",
                 show=False,
+                **kwargs,
             )
 
             # plot mixing
@@ -559,6 +530,7 @@ class ThermoPlotter:
                 cmap=cmap,
                 savepath=Path(savepath) / "thermodynamic_mixing_properties.pdf",
                 show=False,
+                **kwargs,
             )
 
         else:

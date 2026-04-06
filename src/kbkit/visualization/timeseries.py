@@ -10,6 +10,7 @@ import numpy as np
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.utils.format import ENERGY_ALIASES, format_unit_str, resolve_attr_key
+from kbkit.visualization.format import style_axes, style_legend
 
 warnings.filterwarnings("ignore")
 
@@ -69,13 +70,9 @@ class TimeseriesPlotter:
         title: str | None = None,
         ylim: tuple | None = None,
         xlim: tuple | None = None,
-        color: str = "skyblue",
-        alpha: float = 0.8,
-        ls: str = "-",
-        lw: float = 1,
-        marker: str = "none",
         savepath: str | Path | None = None,
         show: bool = True,
+        **kwargs,
     ):
         """
         Create a timeseries plot for a given energy property.
@@ -102,16 +99,6 @@ class TimeseriesPlotter:
             Limits for y-axis.
         xlim: tuple, optional
             Limits for x-axis.
-        color: str, optional
-            Color to display timeseries.
-        alpha: float, optional
-            Transparency for timeseries.
-        ls: str, optional
-            Linestyle for timeseries.
-        lw: float, optional
-            Linewidth for timeseries.
-        marker: str, optional
-            Maker to display for timeseries.
         savepath: str | Path, optional
             Path to save figure.
         show: bool, optional
@@ -121,17 +108,19 @@ class TimeseriesPlotter:
         units = units or self.props.energy[0].units[name]
 
         time, values = self.props.get(name=name, units=units, avg=False, time_series=True)
+        time_ns = time / 1000
 
         fig, ax = plt.subplots(figsize=figsize)
-        ax.plot(time / 1000, values, c=color, alpha=alpha, ls=ls, lw=lw, marker=marker)
+        style_axes(ax)
+        ax.plot(time_ns, values, **kwargs)
 
         if show_avg and len(time) > 0 and len(values) > 0:
             with np.errstate(divide="ignore", invalid="ignore"):
                 run_avg = [np.mean(values[:i]) for i in range(len(values))]
-                last = run_avg[-1]
-                label = f"{last:.3f} ({units})" if last < 1 else f"{last:.0f} ({units})"
-                ax.plot(time / 1000, run_avg, c="k", ls="-", lw=lw, label=label)
-                ax.legend()
+            last = run_avg[-1]
+            label = f"{last:.3f} {format_unit_str(units)}" if last < 1 else f"{last:.0f} {format_unit_str(units)}"
+            ax.plot(time_ns, run_avg, c="k", ls="-", lw=1, label=label)
+            style_legend(ax, ncol=1)
 
         if xlabel:
             ax.set_xlabel(xlabel)
@@ -143,6 +132,8 @@ class TimeseriesPlotter:
             ax.set_title(title)
         if xlim:
             ax.set_xlim(xlim)
+        else:
+            ax.set_xlim(time_ns.min(), time_ns.max())
         if ylim:
             ax.set_ylim(ylim)
 
@@ -154,5 +145,3 @@ class TimeseriesPlotter:
             plt.show()
         else:
             plt.close()
-
-        return fig, ax
