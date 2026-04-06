@@ -560,4 +560,3 @@ class TestEdgeCases:
         xc, xa = calc._ion_fraction(0, 1)
         np.testing.assert_allclose(xc, [0.7])
         np.testing.assert_allclose(xa, [0.3])
-

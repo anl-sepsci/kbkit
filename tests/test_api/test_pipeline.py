@@ -194,10 +194,7 @@ class TestPipelineCalculatorProperty:
         result = pipeline.calculator
 
         mock_calc_class.assert_called_once_with(
-            systems=mock_system_collection,
-            weight_type="u1",
-            force=True,
-            raise_on_convergence_error=False
+            systems=mock_system_collection, weight_type="u1", force=True, raise_on_convergence_error=False
         )
         assert result == mock_kbi_calculator
 
@@ -239,6 +236,7 @@ class TestPipelineKBIResProperty:
 
         mock_kbi_calculator.kbi.assert_called_once_with(units="cm^3/mol")
         assert result == mock_kbi_result
+
     @patch("kbkit.api.pipeline.KBICalculator")
     @patch("kbkit.api.pipeline.SystemCollection.load")
     def test_kbi_res_property_not_cached(self, mock_load, mock_calc_class, mock_system_collection, mock_kbi_calculator):
@@ -259,6 +257,7 @@ class TestPipelineKBIResProperty:
 
 class TestPipelineThermoProperty:
     """Test thermo cached property."""
+
     @patch("kbkit.api.pipeline.KBThermo")
     @patch("kbkit.api.pipeline.KBICalculator")
     @patch("kbkit.api.pipeline.SystemCollection.load")
@@ -448,7 +447,6 @@ class TestPipelineMakeFigures:
         pipeline.make_figures(savepath=str(save_path))
 
         mock_kbi_plotter.plot_rkbis.assert_called_once()
-        
 
     @patch("kbkit.api.pipeline.validate_path")
     @patch("kbkit.api.pipeline.KBThermo")
@@ -581,4 +579,3 @@ class TestPipelineIntegration:
 
         # Verify plotter was called with molecule_map
         mock_kb_thermo.plotter.assert_called_once_with(molecule_map={"MOL1": "Molecule 1"})
-
