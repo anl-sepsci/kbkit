@@ -91,13 +91,14 @@ class Pipeline:
         Start time for time-averaged properties.
     include_mode: str, optional
         Optional string to filter files (.edr, .gro, .top) if multiple are found of a given type.
-    min_r_range : float
-        Minimum r-range to consider for KBI convergence (must be > 0).
-    r2_threshold : float, optional
-        Desired minimum R² value (default: 0.999).
+    weight_type: str, optional
+        Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
     raise_on_convergence_error : bool, optional
+        Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
         If True, raises KBIConvergenceError when convergence checks fail.
         If False, returns NaN and prints warning. Default: True.
+    force: bool, optional
+        Only applied for ``weight_type='geometric'``. If KBIConvergenceError is raised, prints warning and returns KBI for ``weight_type='u2'``.
     activity_integration_type: str, optional
         Method for performing integration of activity coefficient derivatives.
     activity_polynomial_degree: int, optional
@@ -183,7 +184,12 @@ class Pipeline:
         return res_dict
 
     def timeseries_plotter(self, system: str, start_time: int = 0) -> "TimeseriesPlotter":
-        """TimeseriesPlotter: Plotter for visualizing property timeseries."""
+        """Plotter for visualizing property timeseries.
+        
+        Returns
+        -------
+        TimeseriesPlotter
+        """
         return self.systems.timeseries_plotter(system, start_time)
 
     @property

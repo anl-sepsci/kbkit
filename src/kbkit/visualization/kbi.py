@@ -21,7 +21,7 @@ class KBIAnalysisPlotter:
     Parameters
     ----------
     kbi: PropertyResult
-        PropertyResult object containing KBI values and :class:`~kbkit.schema.kbi_metadata.KBIMetadata` for analysis.
+        PropertyResult object containing KBI values for analysis.
     """
 
     def __init__(self, kbi: PropertyResult) -> None:
@@ -72,7 +72,7 @@ class KBIAnalysisPlotter:
         **kwargs,
     ):
         """
-        Plot KBIs as a function of composition for all systems present in :class:`~kbkit.schema.kbi_metadata.KBIMetadata` and show error from linear extrapolation.
+        Plot KBIs as a function of composition for all systems present.
 
         Parameters
         ----------

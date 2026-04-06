@@ -1,20 +1,31 @@
 r"""
-Computes Kirkwood-Buff integrals (KBIs) from radial distribution function (RDF) and properties or a :class:`~kbkit.systems.properties.SystemProperties` object.
+Computes Kirkwood-Buff integrals (KBIs) from radial distribution functions (RDFs).
 
-By default (``weight_type='geometric'``), RDF and finite-volume correction options are implemented, following the procedure outlined by `Simon (2022) <https://doi.org/10.1063/5.0106162>`_:
-    * Corrects RDF for molecule excess/depletion to accurately recover bulk density. [`Ganguly and van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_]
-    * Uses the analytically correct form for hyperspheres to calculate finite-volume KBI [`Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_]
-    * KBI is extrapolated to the thermodynamic limit [`Dawass, Krüger, et al. (2020) <https://doi.org/10.3390/nano10040771>`_]
+The KBI calculation typically suffers from finite-size effects because the RDF
+converges slowly toward the bulk value and is constrained by the simulation box.
+This class provides several correction schemes to recover the thermodynamic limit.
 
-Various KBI correction methods demonstrated by `Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_ are accessible with the following ``weight_type`` parameters:
-    * ``weight_type='none'``: uses the uncorrected RDF, :math:`g^{NpT}(r)` with :math:`u_0(r)` weight function.
-    * ``weight_type='u0'``: uses the van der Vegt corrected RDF, :math:`g^{vdV}(r)` with :math:`u_0(r)` weight function.
-    * ``weight_type='u1'``: uses the van der Vegt corrected RDF, :math:`g^{vdV}(r)` with :math:`u_1(r)` weight function.
-    * ``weight_type='u2'``: uses the van der Vegt corrected RDF, :math:`g^{vdV}(r)` with :math:`u_2(r)` weight function.
-    * ``weight_type='geometric'``: uses the van der Vegt corrected RDF, :math:`g^{vdV}(r)` with :math:`w(r)` weight function.
+Default Behavior (``weight_type='geometric'``)
+----------------------------------------------
+By default, the rigorous framework outlined by `Simon (2022) <https://doi.org/10.1063/5.0106162>`_ is employed to address finite-size effects:
+    * **RDF Correction**: The RDF is adjusted for molecule excess/depletion (`Ganguly and van der Vegt (2013) <https://doi.org/10.1021/ct301017q>`_), ensuring the integral correctly reflects bulk density behavior.
+    * **Finite-Volume Correction**: Corrects finite-volume effects by applying an analytical hypersphere model, compensating for volume loss at large radial distances (`Krüger et al. (2013) <https://doi.org/10.1021/jz301992u>`_).
+    * **Extrapolation**: The integral is extrapolated to the thermodynamic limit, accounting for box-size dependence (`Dawass, Krüger, et al. (2020) <https://doi.org/10.3390/nano10040771>`_).
+
+Correction Methods (``weight_type`` parameter)
+----------------------------------------------
+The ``weight_type`` parameter selects the specific weighting function :math:`w(r)` or :math:`u_k(r)` applied during integration.
+The ``'geometric'`` option triggers the default behavior described above.
+
+    * ``'none'``: Uses the uncorrected RDF. Suitable for validation or systems where finite-size effects are negligible.
+    * ``'u0'``: Simple truncation of the integral at :math:`r=L`. Generally converges poorly as it lacks finite-volume corrections.
+    * ``'u1'``: First-order Taylor expansion in 1/L of the exact hypersphere weight function, :math:`w(r)`. Provides a more accurate estimate of :math:`G^\infty` than the uncorrected `u0` approach.
+    * ``'u2'``: Uses the exact hypersphere weight function with an analytical approximation of the surface term. This provides the most robust estimate of :math:`G^\infty` among the non-extrapolated methods.
+    * ``'geometric'``: The most rigorous method. Uses the geometric weight function :math:`w(r)` and performs explicit linear extrapolation to the thermodynamic limit.
 
 .. note::
-    Only for ``weight_type='geometric'`` is linear extrapolation performed; the other weight functions were developed as an estimate of :math:`G^\infty`
+    Linear extrapolation to the thermodynamic limit is performed **only** for ``weight_type='geometric'``.
+    The other weight functions (``u0``-``u2``) serve as direct estimates of :math:`G^\infty` as demonstrated by `Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_.
 """
 
 import warnings
@@ -107,10 +118,10 @@ class KBIntegrator:
             Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
         raise_on_convergence_error : bool, optional
             Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
-            If True, raises KBIConvergenceError when convergence checks fail.
-            If False, returns NaN and prints warning. Default: True.
+            If True, raises `KBIConvergenceError` when convergence checks fail.
+            If False, returns NaN and prints warning.
         force: bool, optional
-            Only applied for ``weight_type='geometric'``. If KBIConvergenceError is raised, prints warning and returns KBI for ``weight_type='u2'``.
+            Only applied for ``weight_type='geometric'``. If `KBIConvergenceError` is raised, prints warning and returns KBI for ``weight_type='u2'``.
 
         Returns
         -------
@@ -248,7 +259,7 @@ class KBIntegrator:
         The weight function, :math:`u_0(r)`, is defined as:
 
         .. math::
-            u_0(r) = 4 \pi r**2
+            u_0(r) = 4 \pi r^2
 
         where:
             - :math:`r` is the radial distance
@@ -257,7 +268,7 @@ class KBIntegrator:
 
     def u1_weight(self, r: np.ndarray) -> np.ndarray:
         r"""
-        First order Taylor series expansion in :math:`1/R` of the exact finite-volume integral of the sphere [`Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_].
+        First order Taylor series expansion in :math:`1/L` of the exact finite-volume integral of the sphere [`Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_].
 
         Parameters
         ----------
@@ -274,7 +285,7 @@ class KBIntegrator:
         The weight function, :math:`u_1(r)`, is defined as:
 
         .. math::
-            u_1(r) = 4 \pi r**2 \left( 1 - x^3 \right)
+            u_1(r) = 4 \pi r^2 \left( 1 - x^3 \right).
         """
         return 4 * np.pi * r**2 * (1 - (r / r.max()) ** 3)
 
@@ -298,8 +309,8 @@ class KBIntegrator:
 
         .. math::
             \begin{aligned}
-            u_2(r) &= w(r) \left( 1 + \frac{3}{2}x + \frac{9}{4}x^2 \right)
-            &= 4 \pi r^2 \left( 1 - \frac{23}{8}x^3 + \frac{3}{4}x^4 + \frac{9}{8}x^5  \right)
+            u_2(r) &= w(r) \left( 1 + \frac{3}{2}x + \frac{9}{4}x^2 \right), \\
+            &= 4 \pi r^2 \left( 1 - \frac{23}{8}x^3 + \frac{3}{4}x^4 + \frac{9}{8}x^5  \right).
             \end{aligned}
         """
         return self.geometric_weight(r=r) * (1 + (3 / 2) * (r / r.max()) + (9 / 4) * (r / r.max()) ** 2)
@@ -332,20 +343,24 @@ class KBIntegrator:
 
         Notes
         -----
-        The KBI is computed using the formula, where :math:`L \equiv 6V/A` is the linear dimension of the system.
+        The KBI is computed using the formula:
 
         .. math::
-            G^V(L) = \int_0^L h(r) w(r) dr = G^\infty + \frac{1}{L}F^\infty + \mathcal{O}(L^{-2})
+            \begin{aligned}
+            G^V(L) &= \int_0^L h(r) w(r) dr,  \\
+            &= G^\infty + \frac{1}{L}F^\infty + \mathcal{O}(L^{-2}), 
+            \end{aligned}
 
-        With :math:`F^\infty` being the surface term, related to surface effects of the subvolume and :math:`h(r)` is the total correlation function.
+        where:
+            - :math:`L \equiv 6V/A` is the linear dimension of the system.
+            - :math:`F^\infty` being the surface term, related to surface effects of the subvolume 
+            - :math:`h(r)` is the total correlation function.
+
         While the above equation provides an exact relation to :math:`G^\infty` it requires a linear region for extrapolation to the thermodynamic limit, which can be a disadvantage if a linear region is not identified.
         Krüger and Vlugt proposed a method for direct estimation of :math:`G^\infty`, where the accuracy is depending upon weight functions of the form, :math:`u_k(r)`:
 
         .. math::
             G^\infty \approx G_k(L) = \int_0^L h(r) u_k(r) dr.
-
-        .. note::
-            * The integration is performed using the trapezoidal rule.
         """
         weight_fn = self._weight_mapped[weight_type]
         hr = self.compute_hr(weight_type)
@@ -508,12 +523,12 @@ class KBIntegrator:
         For ``weight_type='geometric'``; KBI is compute via extrapolation to the thermodynamic limit. (see also: :meth:`compute_geometric_extrapolation`)
 
         .. math::
-            L G^V(L) = L G^\\infty + F^\\infty
+            L G^V(L) = L G^\infty + F^\infty
 
         For all other type of ``weight_type``, KBI is approximated by averaging the value of :math:`G$_\text{k}$(L)` over the last 0.1 nm.
 
         .. math::
-            G^\\infty \approx G_k(L)
+            G^\infty \approx G_k(L)
         """
         # get mask for rkbi tail average
         mask = (self.r > (self.r.max() - 0.1)) & (self.r < self.r.max())

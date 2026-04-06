@@ -31,10 +31,10 @@ class KBICalculator:
         Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
     raise_on_convergence_error : bool, optional
         Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
-        If True, raises KBIConvergenceError when convergence checks fail.
-        If False, returns NaN and prints warning. Default: True.
+        If True, raises `KBIConvergenceError` when convergence checks fail.
+        If False, returns NaN and prints warning.
     force: bool, optional
-        Only applied for ``weight_type='geometric'``. If KBIConvergenceError is raised, prints warning and returns KBI for ``weight_type='u2'``.
+        Only applied for ``weight_type='geometric'``. If `KBIConvergenceError` is raised, prints warning and returns KBI for ``weight_type='u2'``.
     """
 
     def __init__(
@@ -83,14 +83,7 @@ class KBICalculator:
         PropertyResult
             KBI Matrix with shape (composition x components x components).
 
-        Notes
-        -----
-        KBIs between components :math:`i, j` are calculated according to:
-
-        .. math::
-            G_{ij}^{\infty} = \int_0^{\infty} 4 \pi r^2 (g_{ij}(r) - 1) dr
-
-        .. notes::
+        .. note::
             * If an RDF directory is missing, the corresponding system's values remain NaN, if ignore_convergence_errors is True.
             * Populates `metadata` with :class:`~kbkit.kbi.integrator.KBIntegrator` object for each RDF file.
 
