@@ -99,16 +99,16 @@ def format_unit_str(text: str) -> str:
         text = str(text)
     except TypeError as e:
         raise TypeError(f"Could not convert type {type(text)} to str.") from e
-    
+
     # 1. Handle explicit subscript syntax: X_(stuff) -> X_{stuff}
     text = re.sub(r"_\(([^)]+)\)", r"_{\1}", text)
-    
+
     # 2. Handle implicit subscripts: X_num -> X_{num} (e.g., H_2 -> H_{2})
     text = re.sub(r"_(\d+)", r"_{\1}", text)
 
     # 3. Normalize: convert ** to ^
     text = text.replace("**", "^")
-    
+
     # 4. Ensure all exponents use braces: X^num -> X^{num}
     text = re.sub(r"\^(\d+)", r"^{\1}", text)
 
