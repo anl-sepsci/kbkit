@@ -5,7 +5,6 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 
-from kbkit.schema.kbi_metadata import KBIMetadata
 from kbkit.schema.property_result import PropertyResult
 
 
@@ -186,50 +185,6 @@ class TestPropertyResultKBIConversion:
     """Test KBI-specific unit conversion."""
 
     @patch("kbkit.schema.property_result.load_unit_registry")
-    def test_to_converts_kbi_metadata(self, mock_load_ureg):
-        """Test that KBI metadata is converted."""
-        # Create mock KBIMetadata
-        mock_kbi_meta = Mock(spec=KBIMetadata)
-        mock_kbi_meta.mols = ("Water", "Ethanol")
-        mock_kbi_meta.r = np.array([0.1, 0.2, 0.3])
-        mock_kbi_meta.g = np.array([1.0, 1.1, 1.2])
-        mock_kbi_meta.rkbi = np.array([0.5, 0.6, 0.7])
-        mock_kbi_meta.r_rkbi = np.array([0.05, 0.06, 0.07])
-        mock_kbi_meta.r_fit = np.array([0.2, 0.3])
-        mock_kbi_meta.r_rkbi_fit = np.array([0.06, 0.07])
-        mock_kbi_meta.r_rkbi_est = np.array([0.06, 0.07])
-        mock_kbi_meta.G_inf = 0.8
-        mock_kbi_meta.G_inf_err = 0.05
-        mock_kbi_meta.F_inf = 0.2
-        mock_kbi_meta.F_inf_err = 0.005
-
-        metadata = {"system_1": {"Water-Ethanol": mock_kbi_meta}}
-
-        # Mock unit registry
-        mock_ureg = Mock()
-        mock_quantity = Mock()
-        mock_quantity.to.return_value.magnitude = np.array([1.0])
-
-        def quantity_side_effect(value, units):
-            mock_q = Mock()
-            if isinstance(value, np.ndarray):
-                mock_q.to.return_value.magnitude = value * 1000  # Simple conversion
-            else:
-                mock_q.to.return_value.magnitude = value * 1000
-            return mock_q
-
-        mock_ureg.Quantity.side_effect = quantity_side_effect
-        mock_load_ureg.return_value = mock_ureg
-
-        result = PropertyResult(name="kbi", value=np.array([[1.0, 2.0], [3.0, 4.0]]), units="nm^3", metadata=metadata)
-
-        converted = result.to("A^3")
-
-        # Check that metadata was converted
-        assert "system_1" in converted.metadata
-        assert "Water-Ethanol" in converted.metadata["system_1"]
-
-    @patch("kbkit.schema.property_result.load_unit_registry")
     def test_to_handles_non_kbi_metadata_in_kbi_property(self, mock_load_ureg):
         """Test that non-KBIMetadata objects in KBI property are preserved."""
         metadata = {"system_1": {"other_data": {"value": 123}}}
@@ -262,56 +217,6 @@ class TestPropertyResultKBIConversion:
         converted = result.to("A^3")
 
         assert converted.metadata["system_1"] == "some_string_value"
-
-
-class TestPropertyResultConvertSingleKBIMetadata:
-    """Test _convert_single_kbi_metadata method."""
-
-    @patch("kbkit.schema.property_result.load_unit_registry")
-    def test_convert_single_kbi_metadata(self, mock_load_ureg):
-        """Test conversion of a single KBIMetadata object."""
-        # Create KBIMetadata
-        kbi_meta = KBIMetadata(
-            mols=("Water", "Ethanol"),
-            r=np.array([0.1, 0.2, 0.3]),
-            g=np.array([1.0, 1.1, 1.2]),
-            rkbi=np.array([0.5, 0.6, 0.7]),
-            r_rkbi=np.array([0.05, 0.06, 0.07]),
-            r_fit=np.array([0.2, 0.3]),
-            r_rkbi_fit=np.array([0.06, 0.07]),
-            r_rkbi_est=np.array([0.06, 0.07]),
-            G_inf=0.8,
-            G_inf_err=0.05,
-            F_inf=0.2,
-            F_inf_err=0.005,
-        )
-
-        # Mock unit registry
-        mock_ureg = Mock()
-
-        def quantity_side_effect(value, units):
-            mock_q = Mock()
-            if isinstance(value, np.ndarray):
-                mock_q.to.return_value.magnitude = value * 1000
-            else:
-                mock_q.to.return_value.magnitude = value * 1000
-            return mock_q
-
-        mock_ureg.Quantity.side_effect = quantity_side_effect
-        mock_load_ureg.return_value = mock_ureg
-
-        result = PropertyResult(name="kbi", value=np.array([1.0]), units="nm^3")
-
-        converted_meta = result._convert_single_kbi_metadata(kbi_meta, "A^3", mock_ureg)
-
-        # Check that converted metadata is KBIMetadata
-        assert isinstance(converted_meta, KBIMetadata)
-
-        # Check that mols, r, and g are unchanged
-        assert converted_meta.mols == kbi_meta.mols
-        assert np.array_equal(converted_meta.r, kbi_meta.r)
-        assert np.array_equal(converted_meta.g, kbi_meta.g)
-        assert np.array_equal(converted_meta.r_fit, kbi_meta.r_fit)
 
 
 class TestPropertyResultRepr:

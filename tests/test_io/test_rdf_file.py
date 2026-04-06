@@ -76,10 +76,8 @@ class TestRdfParserInitialization:
         """Test initialization with valid RDF file."""
         parser = RdfParser(sample_rdf_file)
 
-        assert parser.filepath == Path(sample_rdf_file)
-        assert parser.fname == "rdf_test.xvg"
         assert isinstance(parser.r, np.ndarray)
-        assert isinstance(parser.g, np.ndarray)
+        assert isinstance(parser.gr, np.ndarray)
 
     def test_file_validation(self, tmp_path, mock_mplstyle):
         """Test file path validation."""
@@ -96,19 +94,19 @@ class TestReadMethod:
         parser = RdfParser(sample_rdf_file)
 
         assert len(parser.r) > 0
-        assert len(parser.g) > 0
-        assert len(parser.r) == len(parser.g)
+        assert len(parser.gr) > 0
+        assert len(parser.r) == len(parser.gr)
 
     def test_read_filters_tail_noise(self, sample_rdf_file, mock_mplstyle):
-        """Test that _read filters last 3 points."""
+        """Test that _read filters last point."""
         # Count lines in file
         with open(sample_rdf_file) as f:
             data_lines = [line for line in f if not line.startswith(("#", "@"))]
 
         parser = RdfParser(sample_rdf_file)
 
-        # Should have 3 fewer points than data lines
-        assert len(parser.r) == len(data_lines) - 3
+        # Should have 1 fewer point than data lines (removes last point)
+        assert len(parser.r) == len(data_lines) - 1
 
     def test_read_empty_file(self, tmp_path, mock_mplstyle):
         """Test reading empty file raises error."""
@@ -252,32 +250,30 @@ class TestIntegration:
         parser = RdfParser(sample_rdf_file)
 
         # Check all properties are accessible
-        assert parser.fname is not None
         assert len(parser.r) > 0
-        assert len(parser.g) > 0
+        assert len(parser.gr) > 0
 
     def test_complete_workflow_divergent(self, divergent_rdf_file, mock_mplstyle):
         """Test complete workflow with divergent RDF."""
         parser = RdfParser(divergent_rdf_file)
 
         # Should still create parser
-        assert parser.fname is not None
+        assert len(parser.r) > 0
 
     @patch("matplotlib.pyplot.subplots")
     def test_workflow_with_plotting(self, mock_subplots, sample_rdf_file, tmp_path, mock_mplstyle):
         """Test workflow including plotting."""
         mock_fig = Mock()
         mock_ax = Mock()
-        mock_inset = Mock()
-        mock_ax.inset_axes.return_value = mock_inset
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         parser = RdfParser(sample_rdf_file)
 
-        # Create plot
-        parser.plot(save_dir=str(tmp_path))
+        # Create plot using plotRDF method
+        parser.plotRDF(mock_ax, label="test")
 
-        assert mock_fig.savefig.called
+        # Verify plot was called
+        assert mock_ax.plot.called
 
     def test_multiple_parsers(self, tmp_path, mock_mplstyle):
         """Test creating multiple parsers."""
@@ -306,15 +302,16 @@ class TestIntegration:
         parser2 = RdfParser(str(rdf_file2))
 
         # Should be independent
-        assert parser1.fname != parser2.fname
         assert len(parser1.r) != len(parser2.r)
 
     def test_extract_molecules_integration(self, sample_rdf_file, mock_mplstyle):
         """Test extract_molecules with actual parser."""
         parser = RdfParser(sample_rdf_file)
 
+        # Extract filename from path
+        filename = Path(sample_rdf_file).name
         mol_list = ["test", "water", "ethanol"]
-        result = RdfParser.extract_molecules(parser.fname, mol_list)
+        result = RdfParser.extract_molecules(filename, mol_list)
 
         assert isinstance(result, list)
         assert "test" in result

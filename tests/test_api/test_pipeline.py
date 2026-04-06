@@ -97,6 +97,9 @@ class TestPipelineInitialization:
         assert pipeline.rdf_dir == ""
         assert pipeline.start_time == 10000
         assert pipeline.include_mode == "npt"
+        assert pipeline.weight_type == "geometric"
+        assert pipeline.raise_on_convergence_error is True
+        assert pipeline.force is False
 
     def test_init_with_all_parameters(self):
         """Test initialization with all parameters."""
@@ -108,7 +111,9 @@ class TestPipelineInitialization:
             rdf_dir="rdfs",
             start_time=5000,
             include_mode="nvt",
+            weight_type="u2",
             raise_on_convergence_error=False,
+            force=True,
             activity_integration_type="polynomial",
             activity_polynomial_degree=7,
             molecule_map={"MOL1": "Molecule 1"},
@@ -121,7 +126,9 @@ class TestPipelineInitialization:
         assert pipeline.rdf_dir == "rdfs"
         assert pipeline.start_time == 5000
         assert pipeline.include_mode == "nvt"
+        assert pipeline.weight_type == "u2"
         assert pipeline.raise_on_convergence_error is False
+        assert pipeline.force is True
         assert pipeline.activity_integration_type == "polynomial"
         assert pipeline.activity_polynomial_degree == 7
         assert pipeline.molecule_map == {"MOL1": "Molecule 1"}
@@ -182,12 +189,15 @@ class TestPipelineCalculatorProperty:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
 
-        pipeline = Pipeline(raise_on_convergence_error=False)
+        pipeline = Pipeline(weight_type="u1", raise_on_convergence_error=False, force=True)
 
         result = pipeline.calculator
 
         mock_calc_class.assert_called_once_with(
-            systems=mock_system_collection, min_r_range=0.5, r2_threshold=0.999, raise_on_convergence_error=False
+            systems=mock_system_collection,
+            weight_type="u1",
+            force=True,
+            raise_on_convergence_error=False
         )
         assert result == mock_kbi_calculator
 
@@ -199,7 +209,6 @@ class TestPipelineCalculatorProperty:
         """Test that calculator property is cached."""
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
-
         pipeline = Pipeline()
 
         result1 = pipeline.calculator
@@ -230,14 +239,12 @@ class TestPipelineKBIResProperty:
 
         mock_kbi_calculator.kbi.assert_called_once_with(units="cm^3/mol")
         assert result == mock_kbi_result
-
     @patch("kbkit.api.pipeline.KBICalculator")
     @patch("kbkit.api.pipeline.SystemCollection.load")
     def test_kbi_res_property_not_cached(self, mock_load, mock_calc_class, mock_system_collection, mock_kbi_calculator):
         """Test that kbi_res property is not cached (calls kbi each time)."""
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
-
         mock_kbi_result = PropertyResult(name="kbi", value=np.random.rand(3, 2, 2), units="cm^3/mol")
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
 
@@ -252,7 +259,6 @@ class TestPipelineKBIResProperty:
 
 class TestPipelineThermoProperty:
     """Test thermo cached property."""
-
     @patch("kbkit.api.pipeline.KBThermo")
     @patch("kbkit.api.pipeline.KBICalculator")
     @patch("kbkit.api.pipeline.SystemCollection.load")
@@ -292,7 +298,6 @@ class TestPipelineThermoProperty:
 
         mock_kbi_result = PropertyResult(name="kbi", value=np.random.rand(3, 2, 2), units="cm^3/mol")
         mock_kbi_calculator.kbi.return_value = mock_kbi_result
-
         pipeline = Pipeline()
 
         result1 = pipeline.thermo
@@ -314,7 +319,6 @@ class TestPipelineTimeseriesPlotter:
         mock_system_collection.timeseries_plotter.return_value = mock_plotter
 
         pipeline = Pipeline()
-
         result = pipeline.timeseries_plotter("system_1", start_time=5000)
 
         mock_system_collection.timeseries_plotter.assert_called_once_with("system_1", 5000)
@@ -339,11 +343,11 @@ class TestPipelineKBIPlotter:
         mock_plotter = Mock(spec=KBIAnalysisPlotter)
         mock_kbi_calculator.kbi_plotter.return_value = mock_plotter
 
-        pipeline = Pipeline(molecule_map={"MOL1": "Molecule 1"})
+        pipeline = Pipeline()
 
         result = pipeline.kbi_plotter
 
-        mock_kbi_calculator.kbi_plotter.assert_called_once_with(molecule_map={"MOL1": "Molecule 1"})
+        mock_kbi_calculator.kbi_plotter.assert_called_once_with()
         assert result == mock_plotter
 
 
@@ -443,10 +447,8 @@ class TestPipelineMakeFigures:
         pipeline = Pipeline()
         pipeline.make_figures(savepath=str(save_path))
 
-        mock_kbi_plotter.plot_all.assert_called_once()
-        call_kwargs = mock_kbi_plotter.plot_all.call_args[1]
-        assert call_kwargs["units"] == "cm^3/mol"
-        assert call_kwargs["show"] is False
+        mock_kbi_plotter.plot_rkbis.assert_called_once()
+        
 
     @patch("kbkit.api.pipeline.validate_path")
     @patch("kbkit.api.pipeline.KBThermo")
@@ -567,8 +569,7 @@ class TestPipelineIntegration:
         mock_thermo_plotter = Mock(spec=ThermoPlotter)
         mock_kb_thermo.plotter.return_value = mock_thermo_plotter
 
-        pipeline = Pipeline()
-
+        pipeline = Pipeline(molecule_map={"MOL1": "Molecule 1"})
         # Access all plotters
         ts_plotter = pipeline.timeseries_plotter("system_1")
         kbi_plotter = pipeline.kbi_plotter
@@ -577,3 +578,7 @@ class TestPipelineIntegration:
         assert ts_plotter == mock_ts_plotter
         assert kbi_plotter == mock_kbi_plotter
         assert thermo_plotter == mock_thermo_plotter
+
+        # Verify plotter was called with molecule_map
+        mock_kb_thermo.plotter.assert_called_once_with(molecule_map={"MOL1": "Molecule 1"})
+

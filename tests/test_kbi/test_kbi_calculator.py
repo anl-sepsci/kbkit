@@ -8,10 +8,9 @@ Mocking strategy
   ``electrolyte_molecules``, ``residue_counts``, ``n_sys``, and iteration
   (``__iter__`` / ``__len__``).
 * ``RdfParser`` - mocked at the module level so every instantiation returns a
-  controllable stub (``is_converged``, ``r``, ``g``, ``r_tail``).
-* ``KBIntegrator`` - mocked via ``from_system_properties``; the returned
-  instance exposes ``rdf_molecules``, ``compute_kbi``, ``rkbi``,
-  ``scaled_rkbi``, ``scaled_rkbi_fit``, ``fit_limit_params``.
+  controllable stub (``r``, ``gr``).
+* ``KBIntegrator`` - mocked via ``from_rdf``; the returned
+  instance exposes ``kbi`` property.
 * ``PropertyResult`` - real-ish wrapper; we mock only ``.to()`` to return
   *self* so unit-conversion round-trips don't need a real converter.
 * ``KBIAnalysisPlotter`` - mocked to verify it is constructed with the right
@@ -70,6 +69,7 @@ def _make_system_meta(
         def __init__(self, name: str):
             self._name = name
             self.suffix = Path(name).suffix
+            self.name = name
 
         def __lt__(self, other):
             return self._name < other._name
@@ -123,36 +123,24 @@ def _make_systems(
     return systems
 
 
-def _stub_integrator(rdf_molecules=("A", "B"), kbi_val=1.5, should_raise=False):
+def _stub_integrator(kbi_val=1.5, should_raise=False):
     """Return a mock KBIntegrator instance with sensible defaults."""
     integ = MagicMock()
-    integ.rdf_molecules = rdf_molecules
-
     if should_raise:
-        from kbkit.kbi.integrator import KBIConvergenceError
+        from kbkit.kbi.exceptions import KBIConvergenceError
 
-        integ.kbi.side_effect = KBIConvergenceError("Test convergence error")
+        integ.kbi = property(lambda self: (_ for _ in ()).throw(KBIConvergenceError("Test convergence error")))
     else:
-        integ.kbi.return_value = kbi_val
+        type(integ).kbi = property(lambda self: kbi_val)
 
-    integ.compute_kbi.return_value = kbi_val
-    integ.running_kbi.return_value = np.array([0.1, 0.2])
-    integ.fit_running_kbi.return_value = {
-        "x_fit": np.array([1.0, 2.0]),
-        "y_fit": np.array([0.05, 0.1]),
-        "slope": kbi_val,
-        "intercept": 0.0,
-    }
     return integ
 
 
-def _stub_rdf(converged: bool = True):
+def _stub_rdf():
     """Return a mock RdfParser instance."""
     rdf = MagicMock()
-    rdf.is_converged = converged
     rdf.r = np.linspace(0, 5, 50)
-    rdf.g = np.ones(50)
-    rdf.r_tail = 4.5
+    rdf.gr = np.ones(50)
     return rdf
 
 
@@ -215,15 +203,21 @@ class TestInit:
     def test_defaults_stored(self, two_component_systems):
         calc = KBICalculator(two_component_systems)
         assert calc.systems is two_component_systems
+        assert calc.weight_type == "geometric"
         assert calc.raise_on_convergence_error is True
+        assert calc.force is False
         assert calc._cache == {}
 
     def test_custom_params_stored(self, two_component_systems):
         calc = KBICalculator(
             two_component_systems,
+            weight_type="u2",
             raise_on_convergence_error=False,
+            force=True,
         )
+        assert calc.weight_type == "u2"
         assert calc.raise_on_convergence_error is False
+        assert calc.force is True
 
 
 # ===========================================================================
@@ -510,21 +504,9 @@ class TestKbiPlotter:
         systems = _make_systems(n_sys=1)
         calc = KBICalculator(systems)
 
-        mol_map = {"A": "Molecule A"}
-        calc.kbi_plotter(molecule_map=mol_map)
-
-        MockPlotter.assert_called_once_with(kbi=sentinel_result, molecule_map=mol_map)
-
-    @patch(_PATCH_PLOTTER)
-    @patch.object(KBICalculator, "kbi")
-    def test_plotter_default_molecule_map_none(self, mock_kbi, MockPlotter):
-        mock_kbi.return_value = MagicMock()
-
-        systems = _make_systems(n_sys=1)
-        calc = KBICalculator(systems)
         calc.kbi_plotter()
 
-        MockPlotter.assert_called_once_with(kbi=mock_kbi.return_value, molecule_map=None)
+        MockPlotter.assert_called_once_with(kbi=sentinel_result)
 
 
 # ===========================================================================
@@ -578,3 +560,4 @@ class TestEdgeCases:
         xc, xa = calc._ion_fraction(0, 1)
         np.testing.assert_allclose(xc, [0.7])
         np.testing.assert_allclose(xa, [0.3])
+
