@@ -6,7 +6,6 @@ from typing import Any
 import numpy as np
 
 from kbkit.config.unit_registry import load_unit_registry
-from kbkit.schema.kbi_metadata import KBIMetadata
 
 
 @dataclass
@@ -75,113 +74,9 @@ class PropertyResult:
         except Exception as e:
             raise ValueError(f"Cannot convert '{self.name}' from '{self.units}' to '{units}': {e}") from e
 
-        # Handle metadata conversion
-        new_metadata: dict[str, Any] = {}
-        if self.metadata:
-            if self.name.lower() == "kbi":
-                # Special handling for KBI metadata
-                new_metadata = self._convert_kbi_metadata(self.metadata, units, ureg)
-            else:
-                # For other properties, just copy metadata
-                new_metadata = self.metadata.copy() if self.metadata else {}
-
         # Return a new PropertyResult with converted values
         return PropertyResult(
-            name=self.name, value=new_value, property_type=self.property_type, units=units, metadata=new_metadata
-        )
-
-    def _convert_kbi_metadata(
-        self, property_meta: dict[str, Any], target_units: str, ureg
-    ) -> dict[str, dict[str, KBIMetadata]]:
-        """
-        Convert KBI metadata to target units.
-
-        Parameters
-        ----------
-        target_units : str
-            Target units for KBI values.
-        ureg : UnitRegistry
-            Pint unit registry.
-
-        Returns
-        -------
-        dict
-            Metadata with converted KBIMetadata objects.
-        """
-        new_metadata: dict[str, Any] = {}
-
-        for system_name, pair_dict in property_meta.items():
-            if not isinstance(pair_dict, dict):
-                # Not the expected structure, keep as-is
-                new_metadata[system_name] = pair_dict
-                continue
-
-            new_metadata[system_name] = {}
-            for pair_name, kbi_meta in pair_dict.items():
-                if isinstance(kbi_meta, KBIMetadata):
-                    # Convert KBIMetadata
-                    new_metadata[system_name][pair_name] = self._convert_single_kbi_metadata(
-                        kbi_meta, target_units, ureg
-                    )
-                else:
-                    # Keep non-KBIMetadata as-is
-                    new_metadata[system_name][pair_name] = kbi_meta
-
-        return new_metadata
-
-    def _convert_single_kbi_metadata(self, kbi_meta: KBIMetadata, target_units: str, ureg) -> KBIMetadata:
-        """
-        Convert a single KBIMetadata object to target units.
-
-        Parameters
-        ----------
-        kbi_meta : KBIMetadata
-            Original KBIMetadata object.
-        target_units : str
-            Target units for KBI values.
-        ureg : UnitRegistry
-            Pint unit registry.
-
-        Returns
-        -------
-        KBIMetadata
-            New KBIMetadata with converted values.
-        """
-        # Convert volume-based quantities (KBI values)
-        new_rkbi = ureg.Quantity(kbi_meta.rkbi, self.units).to(target_units).magnitude
-        new_r_rkbi = ureg.Quantity(kbi_meta.r_rkbi, self.units).to(target_units).magnitude
-        new_r_rkbi_fit = ureg.Quantity(kbi_meta.r_rkbi_fit, self.units).to(target_units).magnitude
-        new_r_rkbi_est = ureg.Quantity(kbi_meta.r_rkbi_est, self.units).to(target_units).magnitude
-        new_G_inf = ureg.Quantity(kbi_meta.G_inf, self.units).to(target_units).magnitude
-        new_G_inf_err = ureg.Quantity(kbi_meta.G_inf_err, self.units).to(target_units).magnitude
-
-        if len(self.units.split("/")) == 1:
-            self.units += "/molecule"
-        if len(target_units.split("/")) == 1:
-            target_units += "/molecule"
-
-        v_uni, n_uni = self.units.split("/")
-        a_uni = f"{v_uni}/{v_uni[:-2]}"
-        v_tar, n_tar = target_units.split("/")
-        a_tar = f"{v_tar}/{v_tar[:-2]}"
-
-        new_F_inf = ureg.Quantity(kbi_meta.F_inf, f"{a_uni}/{n_uni}").to(f"{a_tar}/{n_tar}").magnitude
-        new_F_inf_err = ureg.Quantity(kbi_meta.F_inf_err, f"{a_uni}/{n_uni}").to(f"{a_tar}/{n_tar}").magnitude
-
-        # Create new KBIMetadata with converted values
-        return KBIMetadata(
-            mols=kbi_meta.mols,
-            r=kbi_meta.r,  # Distance units (nm) - unchanged
-            g=kbi_meta.g,  # Dimensionless - unchanged
-            rkbi=new_rkbi,
-            r_rkbi=new_r_rkbi,
-            r_fit=kbi_meta.r_fit,  # Distance units - unchanged
-            r_rkbi_fit=new_r_rkbi_fit,
-            r_rkbi_est=new_r_rkbi_est,
-            G_inf=new_G_inf,
-            G_inf_err=new_G_inf_err,
-            F_inf=new_F_inf,
-            F_inf_err=new_F_inf_err,
+            name=self.name, value=new_value, property_type=self.property_type, units=units, metadata=self.metadata
         )
 
     def __repr__(self) -> str:
