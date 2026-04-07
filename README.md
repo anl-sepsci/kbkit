@@ -116,14 +116,13 @@ syspath = "./examples/test_data/ethanol_water_26C/sys_405"
 rdf_path = os.path.join(syspath, "kbi_rdf_files", "rdf_ETHOL_SPCEW.xvg")
 
 # create integrator object from single RDF file
-rdf = RDFParser(path=rdf_path)
-integrator = KBIntegrator.from_system_properties(
-    rdf=rdf,
-    system_properties=SystemProperties(syspath),
+integrator = KBIntegrator.from_rdf(
+    rdf_path=rdf_path,
+    system_properties=SystemProperties(syspath, start_time=10000),
 )
 
 # calculate KBI in thermodynamic limit
-kbi = integrator.kbi(min_r_range=1.0, r2_threshold=0.9999)
+kbi = integrator.kbi
 ```
 
 ### Run an automated pipeline for batch analysis
