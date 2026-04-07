@@ -117,7 +117,7 @@ class Pipeline:
         start_time: int = 10000,
         include_mode: str = "npt",
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
-        raise_on_convergence_error: bool = True,
+        errors: Literal["raise", "warn", "ignore"] = "warn",
         force: bool = False,
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
         activity_polynomial_degree: int = 5,
@@ -131,7 +131,7 @@ class Pipeline:
         self.start_time = start_time
         self.include_mode = include_mode
         self.weight_type = weight_type
-        self.raise_on_convergence_error = raise_on_convergence_error
+        self.errors = errors
         self.force = force
         self.activity_integration_type = activity_integration_type
         self.activity_polynomial_degree = int(activity_polynomial_degree)
@@ -157,7 +157,7 @@ class Pipeline:
             systems=self.systems,
             weight_type=self.weight_type,
             force=self.force,
-            raise_on_convergence_error=self.raise_on_convergence_error,
+            errors=self.errors,
         )
 
     @property
@@ -185,7 +185,7 @@ class Pipeline:
 
     def timeseries_plotter(self, system: str, start_time: int = 0) -> "TimeseriesPlotter":
         """Plotter for visualizing property timeseries.
-        
+
         Returns
         -------
         TimeseriesPlotter

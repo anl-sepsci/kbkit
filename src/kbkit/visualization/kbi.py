@@ -52,12 +52,12 @@ class KBIAnalysisPlotter:
             for mols, kbi_obj in mol_dict.items():
                 filepath = parent_path / f"{sys}_{'_'.join(mols)}.pdf"
                 if kbi_obj.weight_type == "geometric":
-                    kbi_obj.plotKBICompareExtrap(
-                        weight_types=[kbi_obj.weight_type], addKBIValue=True, cmap=None, filepath=filepath
+                    kbi_obj.plot_kbi_compare_extrapolation(
+                        weight_types=[kbi_obj.weight_type], add_kbi_value=True, cmap=None, filepath=filepath
                     )
                 else:
-                    kbi_obj.plotKBICompare(
-                        weight_types=[kbi_obj.weight_type], addKBIValue=True, cmap=None, filepath=filepath
+                    kbi_obj.plot_kbi_compare(
+                        weight_types=[kbi_obj.weight_type], add_kbi_value=True, cmap=None, filepath=filepath
                     )
 
     def plot_composition(

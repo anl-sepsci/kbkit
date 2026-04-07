@@ -98,7 +98,7 @@ class TestPipelineInitialization:
         assert pipeline.start_time == 10000
         assert pipeline.include_mode == "npt"
         assert pipeline.weight_type == "geometric"
-        assert pipeline.raise_on_convergence_error is True
+        assert pipeline.errors is 'warn'
         assert pipeline.force is False
 
     def test_init_with_all_parameters(self):
@@ -112,7 +112,7 @@ class TestPipelineInitialization:
             start_time=5000,
             include_mode="nvt",
             weight_type="u2",
-            raise_on_convergence_error=False,
+            errors='warn',
             force=True,
             activity_integration_type="polynomial",
             activity_polynomial_degree=7,
@@ -127,7 +127,7 @@ class TestPipelineInitialization:
         assert pipeline.start_time == 5000
         assert pipeline.include_mode == "nvt"
         assert pipeline.weight_type == "u2"
-        assert pipeline.raise_on_convergence_error is False
+        assert pipeline.errors is 'warn'
         assert pipeline.force is True
         assert pipeline.activity_integration_type == "polynomial"
         assert pipeline.activity_polynomial_degree == 7
@@ -189,12 +189,12 @@ class TestPipelineCalculatorProperty:
         mock_load.return_value = mock_system_collection
         mock_calc_class.return_value = mock_kbi_calculator
 
-        pipeline = Pipeline(weight_type="u1", raise_on_convergence_error=False, force=True)
+        pipeline = Pipeline(weight_type="u1", errors=False, force=True)
 
         result = pipeline.calculator
 
         mock_calc_class.assert_called_once_with(
-            systems=mock_system_collection, weight_type="u1", force=True, raise_on_convergence_error=False
+            systems=mock_system_collection, weight_type="u1", force=True, errors=False
         )
         assert result == mock_kbi_calculator
 

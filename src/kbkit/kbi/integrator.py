@@ -39,7 +39,7 @@ import scipy
 
 from kbkit.config.mplstyle import load_mplstyle
 from kbkit.io.rdf import RdfParser
-from kbkit.kbi.exceptions import KBIConvergenceError, LinearityError
+from kbkit.utils.exceptions import KBIConvergenceError, LinearityError, handle_error
 from kbkit.visualization.format import style_axes, style_legend
 
 if TYPE_CHECKING:
@@ -65,12 +65,10 @@ class KBIntegrator:
         Kronecker delta for RDF molecules.
     weight_type: str, optional
         Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
-    raise_on_convergence_error : bool, optional
-        Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
-        If True, raises KBIConvergenceError when convergence checks fail.
-        If False, returns NaN and prints warning. Default: True.
+    errors : Literal["raise", "warn", "ignore"], optional
+        Error mode for handling KBIConvergenceErrors. Only for ``weight_type='geometric'``.
     force: bool, optional
-        Only applied for ``weight_type='geometric'``. If KBIConvergenceError is raised, prints warning and returns KBI for ``weight_type='u2'``.
+        If KBIConvergenceError is raised, warns user and returns KBI for ``weight_type='u2'``. Only for ``weight_type='geometric'``.
     """
 
     def __init__(
@@ -81,7 +79,7 @@ class KBIntegrator:
         box_volume: float,
         delta: int,
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
-        raise_on_convergence_error: bool = True,
+        errors: Literal["raise", "warn", "ignore"] = "raise",
         force: bool = False,
     ) -> None:
         self.r = np.asarray(r)
@@ -91,7 +89,7 @@ class KBIntegrator:
         self.delta = int(delta)
         self.weight_type = weight_type.lower()
         self.rho_ref = self.n_ref / self.box_volume
-        self.raise_on_convergence_error = raise_on_convergence_error
+        self.errors = errors
         self.force = force
 
     @classmethod
@@ -100,7 +98,7 @@ class KBIntegrator:
         rdf_file: str | Path,
         system_properties: "SystemProperties",
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
-        raise_on_convergence_error: bool = True,
+        errors: Literal["raise", "warn", "ignore"] = "raise",
         force: bool = False,
     ) -> "KBIntegrator":
         """
@@ -116,12 +114,10 @@ class KBIntegrator:
             System properties containing volume and topology.
         weight_type: str, optional
             Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
-        raise_on_convergence_error : bool, optional
-            Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
-            If True, raises `KBIConvergenceError` when convergence checks fail.
-            If False, returns NaN and prints warning.
+        errors : Literal["raise", "warn", "ignore"], optional
+            Error mode for handling KBIConvergenceErrors. Only for ``weight_type='geometric'``.
         force: bool, optional
-            Only applied for ``weight_type='geometric'``. If `KBIConvergenceError` is raised, prints warning and returns KBI for ``weight_type='u2'``.
+            If KBIConvergenceError is raised, warns user and returns KBI for ``weight_type='u2'``. Only for ``weight_type='geometric'``.
 
         Returns
         -------
@@ -139,7 +135,7 @@ class KBIntegrator:
             box_volume=system_properties.get("volume", units="nm^3"),
             delta=int(rdf_mols[0] == rdf_mols[1]),
             weight_type=weight_type,
-            raise_on_convergence_error=raise_on_convergence_error,
+            errors=errors,
             force=force,
         )
 
@@ -348,12 +344,12 @@ class KBIntegrator:
         .. math::
             \begin{aligned}
             G^V(L) &= \int_0^L h(r) w(r) dr,  \\
-            &= G^\infty + \frac{1}{L}F^\infty + \mathcal{O}(L^{-2}), 
+            &= G^\infty + \frac{1}{L}F^\infty + \mathcal{O}(L^{-2}),
             \end{aligned}
 
         where:
             - :math:`L \equiv 6V/A` is the linear dimension of the system.
-            - :math:`F^\infty` being the surface term, related to surface effects of the subvolume 
+            - :math:`F^\infty` being the surface term, related to surface effects of the subvolume
             - :math:`h(r)` is the total correlation function.
 
         While the above equation provides an exact relation to :math:`G^\infty` it requires a linear region for extrapolation to the thermodynamic limit, which can be a disadvantage if a linear region is not identified.
@@ -388,7 +384,11 @@ class KBIntegrator:
     def compute_geometric_extrapolation(
         self,
         positions: tuple[float, float] | None = None,
-        maximize_r2: bool = False,
+        maximize_r2: bool = True,
+        r2_threshold: float = 0.99,
+        min_r_range: float = 1.0,
+        errors: Literal["raise", "warn", "ignore"] = "raise",
+        store: bool = True,
     ) -> dict:
         r"""
         Extrapolate KBI to the thermodynamic limit for ``weight_type='geometric'`` using linear regression [`Dawass, Krüger, et al. (2020) <https://doi.org/10.3390/nano10040771>`_].
@@ -399,8 +399,14 @@ class KBIntegrator:
             Range of `r` values to include for linear fit. Values outside this range will be excluded.
         maximize_r2: bool, optional
             Search through valid positions to find the `r` values that maximize :math:`R^2` with a `r` range greater than 1.0 nm, and that include the last 10% of data (this ensures some range in the beginning is not selected).
-        update: bool, optional
-            Update the ``key='geometric'`` value in `kbi_map`.
+        r2_threshold: float, optional
+            Set a :math:`R^2` threshold to satisfy `KBIConvergence`.
+        min_r_range: float, optional
+            Minimum range of `r` values to be required for `KBIConvergence` (Only for ``maximize_r2=True``).
+        errors : Literal["raise", "warn", "ignore"], optional
+            Error mode for handling KBIConvergenceErrors. Only for ``weight_type='geometric'``.
+        store: bool, optional
+            Decides if result will be stored in ``geometric_extrapolation_result``.
 
         Returns
         -------
@@ -415,13 +421,13 @@ class KBIntegrator:
         .. math::
             L G^V(L) = L G^\infty + F^\infty,
 
-        where convergence is met if a linear region greater than 1.0 is identified and :math:`R^2 > 0.99`.
+        where convergence is met if a linear region greater than ``min_r_range`` is identified and :math:`R^2 >` ``r2_threshold``.
         """
-        positions = positions or (min([1.0, self.r.max() - 1]), self.r.max())
-        rmin = min(positions)  # if all(positions) else min([1.0, (self.r.max() - 1)])
-        rmax = max(positions)  # if all(positions) else self.r.max()
+        positions = positions or (min([1.0, self.r.max() - min_r_range]), self.r.max())
+        rmin = min(positions)
+        rmax = max(positions)
 
-        rkbi = self.running_kbi_map["geometric"]  # this method is only for 1 type of rkbi
+        rkbi = self.running_kbi_map["geometric"]
 
         valid_mask = (self.r >= rmin) & (self.r <= rmax)
         valid_indices = np.where(valid_mask)[0]
@@ -430,57 +436,81 @@ class KBIntegrator:
             raise ValueError(f"No data points with r > {rmin}")
 
         if not maximize_r2:
-            slope, intercept, r_value, p_value, std_error = scipy.stats.linregress(
+            slope, intercept, r_val, p_val, std_err = scipy.stats.linregress(
                 self.r[valid_mask], self.r[valid_mask] * rkbi[valid_mask]
             )
-            return {
+
+            r2 = r_val**2
+            if r2 < r2_threshold:
+                handle_error(
+                    error_mode=errors,
+                    message=f"Could not find valid regression window with R^2 > {r2_threshold} (best R^2 = {r2:.4f}).",
+                    error_type=LinearityError,
+                )
+
+            result = {
                 "G": slope,
                 "F": intercept,
-                "r2": r_value**2,
-                "p_value": p_value,
-                "std_error": std_error,
+                "r2": r_val**2,
+                "p_value": p_val,
+                "std_error": std_err,
                 "index_list": valid_indices.tolist(),
                 "r_fit": self.r[valid_mask],
                 "r_rkbi_pred": slope * self.r[valid_mask] + intercept,
             }
+            if store:
+                self._result = result
+            return result
 
-        # Define the last 10% range
+        # Define the last 10% range constraint
         n_valid = len(valid_indices)
-        last_10_percent_start_idx = valid_indices[int(0.9 * n_valid)]
+        last_10_percent_idx = int(0.9 * n_valid)
+        end_indices = valid_indices[np.arange(last_10_percent_idx, n_valid)]
 
-        best_r2 = 0.0
+        # calculate stepsize based on boxlength
+        L = (self.box_volume) ** (1 / 3)
+        if L <= 4:
+            stepsize = 1
+        elif L >= 8:
+            stepsize = 12
+        else:
+            stepsize = round(2.75 * L - 10.5)
+
+        best_r2 = -np.inf
+        best_range = 0.0
         best_fit = None
 
-        # Sample starting points (e.g., every 5th point or adaptive sampling)
-        step = max(1, len(valid_indices) // 50)  # ~50 starting points max
-
-        for i in range(0, len(valid_indices), step):
-            start_idx = valid_indices[i]
-
-            # For each start, try a few strategic end points in the last 10%
-            end_candidates = valid_indices[valid_indices >= last_10_percent_start_idx][:: max(1, n_valid // 20)]
-
-            for end_idx in end_candidates:
-                if start_idx >= end_idx:
+        # Iterate over all possible starting points
+        for start_idx in valid_indices[::stepsize]:
+            # Only consider end points in the last 10%
+            for end_idx in end_indices[::stepsize]:
+                # Skip if end is before the last 10% or before start
+                if end_idx <= start_idx:
                     continue
 
+                # Get the range of indices
                 idx_range = valid_indices[(valid_indices >= start_idx) & (valid_indices <= end_idx)]
 
-                # Check if r range > 1.0
+                # Check if r range > 1.0 nm
                 r_range = self.r[idx_range[-1]] - self.r[idx_range[0]]
-                if r_range <= 1.0:
+                if r_range < min_r_range:
                     continue
 
+                # Need at least 3 points for meaningful regression
                 if len(idx_range) < 3:
                     continue
 
+                # Perform linear regression
                 slope, intercept, r_val, p_val, std_err = scipy.stats.linregress(
                     self.r[idx_range], self.r[idx_range] * rkbi[idx_range]
                 )
 
                 r2 = r_val**2
-                if np.abs(r2) > best_r2:
-                    best_r2 = np.abs(r2)
+
+                # Update best fit if R² is better or range is longer with similar R²
+                if r2 > best_r2 + 0.001 or (abs(r2 - best_r2) < 0.001 and r_range > best_range):
+                    best_r2 = r2
+                    best_range = r_range
                     best_fit = {
                         "G": slope,
                         "F": intercept,
@@ -493,25 +523,33 @@ class KBIntegrator:
                     }
 
         if best_fit is None:
-            raise LinearityError("Could not find valid regression window with range > 1.0.")
+            raise LinearityError(f"Could not find valid regression window with range > {min_r_range} nm.")
 
-        if best_r2 < 0.99:
-            raise LinearityError("Could not find valid regression window with R^2 > 0.99.")
+        if best_r2 < r2_threshold:
+            handle_error(
+                error_mode=errors,
+                message=f"Could not find valid regression window with R^2 > {r2_threshold} (best R^2 = {best_r2:.4f}).",
+                error_type=LinearityError,
+            )
 
+        if store:
+            self._result = best_fit
         return best_fit
 
     @cached_property
     def geometric_extrapolation_result(self) -> dict:
-        """dict: Returns the result of the linear extrapolation using ``maximize_r2=True``."""
-        return self.compute_geometric_extrapolation(maximize_r2=True)
+        """dict: By default, returns the result of the linear extrapolation using ``maximize_r2=True``. This can be updated by running ``compute_geometric_extrapolation`` with different arguments and setting ``store=True``."""
+        if not hasattr(self, "_result"):
+            self._result = self.compute_geometric_extrapolation(maximize_r2=True, errors="raise")
+        return self._result
 
-    def compute_kbi(
-        self,
-        weight_type: str,
-        raise_on_convergence_error: bool = True,
-        force: bool = False,
-    ) -> float:
+    def compute_kbi(self, weight_type: str) -> float:
         r"""Get KBI value in the thermodynamic limit according to ``weight_type``.
+
+        Parameters
+        ----------
+        weight_type: str
+            Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
 
         Returns
         -------
@@ -536,27 +574,28 @@ class KBIntegrator:
             try:
                 return self.geometric_extrapolation_result["G"]
             except KBIConvergenceError as e:
-                if force:
-                    warnings.warn(f"KBI convergence failed: {e}", RuntimeWarning, stacklevel=2)
-                    print("Falling back on KBI for `weight_type='u2'`.")
+                if self.force:
+                    warnings.warn(
+                        f"KBI convergence failed: {e} Falling back to weight_type='u2'.", RuntimeWarning, stacklevel=2
+                    )
                     return float(np.nanmean(self.running_kbi_map["u2"][mask]))
-                if raise_on_convergence_error:
+
+                # handle_error(self.errors, str(e), type(e))
+                if self.errors == "raise":
                     raise
-                else:
-                    warnings.warn(f"KBI convergence failed: {e}", RuntimeWarning, stacklevel=2)
-                    return np.nan
+                elif self.errors == "warn":
+                    warnings.warn(str(e), RuntimeWarning, stacklevel=2)
+                return np.nan
 
         # for all other types; just extract last values in running kbi
         return float(np.nanmean(self.running_kbi_map[weight_type.lower()][mask]))
 
     @cached_property
     def kbi(self) -> float:
-        """float: KBI value in the thermodynamic limit for class initialized: ``weight_type``, ``raise_on_convergence_error``, ``force``."""
-        return self.compute_kbi(
-            weight_type=self.weight_type, raise_on_convergence_error=self.raise_on_convergence_error, force=self.force
-        )
+        """float: KBI value in the thermodynamic limit for class initialized ``weight_type``."""
+        return self.compute_kbi(weight_type=self.weight_type)
 
-    def plotKBI(self, axhandle: plt.axes, weight_type: str, **kwargs) -> None:
+    def add_kbi(self, axhandle: plt.axes, weight_type: str, **kwargs) -> None:
         """Add KBI as a function of radial distance to axes.
 
         Parameters
@@ -568,7 +607,7 @@ class KBIntegrator:
         """
         axhandle.plot(self.r, self.running_kbi_map[weight_type], **kwargs)
 
-    def plotLKBI(self, axhandle: plt.axes, **kwargs) -> None:
+    def add_lkbi(self, axhandle: plt.axes, **kwargs) -> None:
         """Add scaled KBI as a function of radial distance to axes, for plotting geometric linear extrapolation.
 
         Parameters
@@ -578,7 +617,7 @@ class KBIntegrator:
         """
         axhandle.plot(self.r, self.r * self.running_kbi_map["geometric"], **kwargs)
 
-    def plotKBIFit(self, axhandle: plt.axes, result: dict | None = None, **kwargs) -> None:
+    def add_lkbi_fit(self, axhandle: plt.axes, result: dict | None = None, **kwargs) -> None:
         """Add fit results from  geometric linear extrapolation to axes.
 
         Parameters
@@ -593,7 +632,7 @@ class KBIntegrator:
         r_rkbi_pred = result["r_rkbi_pred"]
         axhandle.plot(rfit, r_rkbi_pred, **kwargs)
 
-    def plotKBIValue(self, axhandle: plt.axes, weight_type: str, **kwargs) -> None:
+    def add_kbi_value(self, axhandle: plt.axes, weight_type: str, **kwargs) -> None:
         """Add horizontal line for KBI in the thermodynamic limit for a given ``weight_type``.
 
         Parameters
@@ -603,7 +642,7 @@ class KBIntegrator:
         weight_type: str
             Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
         """
-        kbi = self.compute_kbi(weight_type, raise_on_convergence_error=False)
+        kbi = self.compute_kbi(weight_type)
         if all(x not in kwargs for x in ("ls", "linestyle")):
             kwargs.update({"ls": (0, (10, 5, 2, 5))})
         axhandle.axhline(kbi, **kwargs)
@@ -618,7 +657,7 @@ class KBIntegrator:
             "geometric": plt.colormaps["hsv"](np.linspace(0.12, 1, 5))[3],
         }
 
-    def get_colors(self, cmap: str | None = None) -> dict:
+    def _get_colors(self, cmap: str | None = None) -> dict:
         """dict: Get colors mapped to ``weight_type``."""
         if cmap is None:
             return self._colors_by_weight
@@ -626,11 +665,63 @@ class KBIntegrator:
             colors_from_cmap = plt.colormaps[cmap](np.linspace(0, 1, 5))
             return {weight: colors_from_cmap[i] for i, weight in enumerate(self._colors_by_weight)}
 
-    def plotKBICompare(
+    def plot_kbi(
         self,
-        weight_types: list[Literal["none", "u0", "u1", "u2", "geometric"]],
+        weight_type: str | None = None,
         cmap: str | None = None,
-        addKBIValue: bool = True,
+        add_kbi_value: bool = False,
+        filepath: str | None = None,
+        **kwargs,
+    ) -> None:
+        """Create figure for plotting single KBI for a given weight type.
+
+        Parameters
+        ----------
+        weight_types: str, optional
+            Weight function to plot. Options: ('none','u0','u1','u2','geometric'). Default will go to class initialized ``weight_type``.
+        cmap: str, optional
+            Matplotlib colormap name.
+        add_kbi_value: bool, optional
+            Add horizontal value for KBI with ``weight_type='geometric'``.
+        filepath: str, optional
+            Filepath to save figure as.
+        """
+        weight_type = weight_type or self.weight_type
+        colors_by_weight = self._get_colors(cmap)
+        fig, ax = plt.subplots()
+        style_axes(ax, minorxticks=np.arange(0, self.r.max(), 0.5))
+
+        label = r"G"
+        if weight_type.startswith("u"):
+            label += rf"$_{weight_type[1]}^\infty$"
+        elif weight_type == "geometric":
+            label += r"$^\text{V}$"
+
+        self.add_kbi(ax, weight_type=weight_type, color=colors_by_weight[weight_type], label=label, **kwargs)
+        if add_kbi_value:
+            try:
+                self.add_kbi_value(ax, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
+            except KBIConvergenceError as e:
+                warnings.warn(str(e), RuntimeWarning, stacklevel=2)
+
+        # Only add legend if labels exist
+        _, labels = plt.gca().get_legend_handles_labels()
+        if labels:
+            style_legend(ax)
+
+        ax.set_ylabel(rf"{label} (nm$^3$)", fontsize=16)
+        ax.set_xlabel(r"L (nm)", fontsize=16)
+        if filepath:
+            fig.savefig(filepath, dpi=100)
+            plt.close()
+        else:
+            plt.show()
+
+    def plot_kbi_compare(
+        self,
+        weight_types: list[str],
+        cmap: str | None = None,
+        add_kbi_value: bool = False,
         filepath: str | None = None,
     ) -> None:
         """Create figure for comparing KBI's from various correction methods.
@@ -641,26 +732,36 @@ class KBIntegrator:
             Weight functions to include in plot. Options: ('none','u0','u1','u2','geometric')
         cmap: str, optional
             Matplotlib colormap name.
-        addKBIValue: bool, optional
+        add_kbi_value: bool, optional
             Add horizontal value for KBI with ``weight_type='geometric'``.
         filepath: str, optional
             Filepath to save figure as.
         """
-        colors_by_weight = self.get_colors(cmap)
+        colors_by_weight = self._get_colors(cmap)
+        if isinstance(weight_types, str):
+            weight_types = [weight_types]
 
         fig, ax = plt.subplots()
         style_axes(ax, minorxticks=np.arange(0, self.r.max(), 0.5))
+
         for weight_type in weight_types:
             label = r"G"
             if weight_type.startswith("u"):
                 label += rf"$_{weight_type[1]}^\infty$"
             elif weight_type == "geometric":
                 label += r"$^\text{V}$"
-            self.plotKBI(ax, weight_type=weight_type, lw=1, color=colors_by_weight[weight_type], label=label)
-        if addKBIValue:
-            self.plotKBIValue(ax, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
+            self.add_kbi(ax, weight_type=weight_type, lw=1, color=colors_by_weight[weight_type], label=label)
+        if add_kbi_value:
+            try:
+                self.add_kbi_value(ax, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
+            except KBIConvergenceError as e:
+                warnings.warn(str(e), RuntimeWarning, stacklevel=2)
 
-        style_legend(ax)
+        # Only add legend if labels exist
+        _, labels = plt.gca().get_legend_handles_labels()
+        if labels:
+            style_legend(ax)
+
         ax.set_ylabel(r"G(L) (nm$^3$)", fontsize=16)
         ax.set_xlabel(r"L (nm)", fontsize=16)
         if filepath:
@@ -669,7 +770,7 @@ class KBIntegrator:
         else:
             plt.show()
 
-    def plotKBIExtrap(
+    def plot_kbi_extrapolation(
         self,
         result: dict | None = None,
         color: str = "turquoise",
@@ -698,15 +799,25 @@ class KBIntegrator:
         filepath: str, optional
             Filepath to save figure as.
         """
-        result = result or self.geometric_extrapolation_result
-        G = result["G"]
-        r2 = result["r2"]
-
         fig, ax = plt.subplots()
         style_axes(ax, minorxticks=np.arange(0, self.r.max(), 0.5))
-        self.plotLKBI(ax, c=color, lw=linewidth)
-        self.plotKBIFit(ax, result, c=fitcolor, lw=fitwidth, ls=fitstyle, label=rf"G$^\infty$={G:.4f} ($r^2$={r2:.4f})")
-        style_legend(ax, linewidth=1.5)
+
+        self.add_lkbi(ax, c=color, lw=linewidth)
+        try:
+            result = result or self.geometric_extrapolation_result
+            G = result["G"]
+            r2 = result["r2"]
+            self.add_lkbi_fit(
+                ax, result, c=fitcolor, lw=fitwidth, ls=fitstyle, label=rf"G$^\infty$={G:.4f} ($r^2$={r2:.4f})"
+            )
+        except KBIConvergenceError:
+            pass
+
+        # Only add legend if labels exist
+        _, labels = plt.gca().get_legend_handles_labels()
+        if labels:
+            style_legend(ax, linewidth=1.5)
+
         ax.set_xlabel(r"L")
         ax.set_ylabel(r"LG$^\text{V}$")
         if filepath:
@@ -715,11 +826,11 @@ class KBIntegrator:
         else:
             plt.show()
 
-    def plotKBICompareExtrap(
+    def plot_kbi_compare_extrapolation(
         self,
-        weight_types: list[Literal["none", "u0", "u1", "u2", "geometric"]],
+        weight_types: list[str],
         cmap: str | None = None,
-        addKBIValue: bool = True,
+        add_kbi_value: bool = False,
         filepath: str | None = None,
     ):
         """Combine KBI comparisons of ``weight_type`` and geometric extrapolation on a single plot.
@@ -730,12 +841,14 @@ class KBIntegrator:
             Weight functions to include in plot. Options: ('none','u0','u1','u2','geometric')
         cmap: str, optional
             Matplotlib colormap name.
-        addKBIValue: bool, optional
+        add_kbi_value: bool, optional
             Add horizontal value for KBI with ``weight_type='geometric'``.
         filepath: str, optional
             Filepath to save figure as.
         """
-        colors_by_weight = self.get_colors(cmap)
+        colors_by_weight = self._get_colors(cmap)
+        if isinstance(weight_types, str):
+            weight_types = [weight_types]
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), width_ratios=[2, 1])
         for weight_type in weight_types:
@@ -744,19 +857,29 @@ class KBIntegrator:
                 label += rf"$_{weight_type[1]}^\infty$"
             elif weight_type == "geometric":
                 label += r"$^\text{V}$"
-            self.plotKBI(ax1, weight_type=weight_type, lw=1, color=colors_by_weight[weight_type], label=label)
-        if addKBIValue:
-            self.plotKBIValue(ax1, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
+            self.add_kbi(ax1, weight_type=weight_type, lw=1, color=colors_by_weight[weight_type], label=label)
 
-        self.plotLKBI(ax2, color=colors_by_weight["geometric"], alpha=0.8, lw=1)
-        self.plotKBIFit(
-            ax2, color="k", ls=(0, (3, 2)), lw=2.5, label=rf"G$^\infty$={self.compute_kbi('geometric'):.2e}"
-        )
+        if add_kbi_value:
+            try:
+                self.add_kbi_value(ax1, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
+            except KBIConvergenceError as e:
+                warnings.warn(str(e), RuntimeWarning, stacklevel=2)
 
+        self.add_lkbi(ax2, color=colors_by_weight["geometric"], alpha=0.8, lw=1)
+        try:
+            self.add_lkbi_fit(
+                ax2, color="k", ls=(0, (3, 2)), lw=2.5, label=rf"G$^\infty$={self.compute_kbi('geometric'):.2e}"
+            )
+        except KBIConvergenceError:
+            pass
+
+        # Only add legend if labels exist
+        _, labels = plt.gca().get_legend_handles_labels()
+        if labels:
+            style_legend(ax1, ncol=2, linewidth=1.5, linelength=1.5)
+            style_legend(ax2, ncol=1, linewidth=1.5, linelength=1)
         style_axes(ax1, minorxticks=np.arange(0, self.r.max(), 0.5))
         style_axes(ax2, minorxticks=np.arange(0, self.r.max(), 1))
-        style_legend(ax1, ncol=2, linewidth=1.5, linelength=1.5)
-        style_legend(ax2, ncol=1, linewidth=1.5, linelength=1)
         ax1.set_xlabel("L (nm)")
         ax1.set_ylabel(r"G(L) (nm$^3$)")
         ax2.set_xlabel("L (nm)")

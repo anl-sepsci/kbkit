@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 
 from kbkit.io.rdf import RdfParser
-from kbkit.kbi.exceptions import KBIConvergenceError
 from kbkit.kbi.integrator import KBIntegrator
 from kbkit.schema.property_result import PropertyResult
+from kbkit.utils.exceptions import KBIConvergenceError, handle_error
 from kbkit.visualization.kbi import KBIAnalysisPlotter
 
 if TYPE_CHECKING:
@@ -29,24 +29,22 @@ class KBICalculator:
         SystemCollection object for set of systems.
     weight_type: str, optional
         Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
-    raise_on_convergence_error : bool, optional
-        Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
-        If True, raises `KBIConvergenceError` when convergence checks fail.
-        If False, returns NaN and prints warning.
+    errors : Literal["raise", "warn", "ignore"], optional
+        Error mode for handling KBIConvergenceErrors. Only for ``weight_type='geometric'``.
     force: bool, optional
-        Only applied for ``weight_type='geometric'``. If `KBIConvergenceError` is raised, prints warning and returns KBI for ``weight_type='u2'``.
+        If KBIConvergenceError is raised, warns user and returns KBI for ``weight_type='u2'``. Only for ``weight_type='geometric'``.
     """
 
     def __init__(
         self,
         systems: "SystemCollection",
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
-        raise_on_convergence_error: bool = True,
+        errors: Literal["raise", "warn", "ignore"] = "warn",
         force: bool = False,
     ) -> None:
         self.systems = systems
-        self.weight_type = weight_type.lower()
-        self.raise_on_convergence_error = raise_on_convergence_error
+        self.weight_type = weight_type
+        self.errors = errors
         self.force = force
 
         self._cache: dict[tuple, PropertyResult] = {}
@@ -113,22 +111,25 @@ class KBICalculator:
             rdf_files = [f for f in all_files if f.suffix in (".xvg", ".txt")]
 
             for fpath in rdf_files:
-                integrator = KBIntegrator.from_rdf(rdf_file=fpath, system_properties=meta.props)
+                integrator = KBIntegrator.from_rdf(
+                    rdf_file=fpath,
+                    system_properties=meta.props,
+                    weight_type=self.weight_type,
+                    errors=self.errors,
+                    force=self.force,
+                )
 
                 # get molecules present in RDF
                 rdf_molecules = RdfParser.extract_molecules(text=fpath.name, mol_list=meta.props.get("molecules"))
                 i, j = [list(self.systems.residue_molecules).index(mol) for mol in rdf_molecules]
 
-                try:
-                    kbis[s, i, j] = integrator.kbi
-                    kbis[s, j, i] = integrator.kbi
-                except KBIConvergenceError as e:
-                    if self.raise_on_convergence_error:
-                        raise
-                    else:
-                        print(
-                            f"WARNING! KBI convergence failed for system '{meta.name}' and pair {rdf_molecules}: {e}."
-                        )
+                kbis[s, i, j] = integrator.kbi
+                kbis[s, j, i] = integrator.kbi
+                handle_error(
+                    error_mode=self.errors,
+                    message=f"[WARNING!] KBI convergence failed for system '{meta.name}' and pair {rdf_molecules}",
+                    error_type=KBIConvergenceError,
+                )
 
                 # add integrator to dict
                 integrators.setdefault(meta.name, {})[tuple(rdf_molecules)] = integrator

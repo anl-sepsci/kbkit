@@ -127,7 +127,7 @@ def _stub_integrator(kbi_val=1.5, should_raise=False):
     """Return a mock KBIntegrator instance with sensible defaults."""
     integ = MagicMock()
     if should_raise:
-        from kbkit.kbi.exceptions import KBIConvergenceError
+        from kbkit.utils.exceptions import KBIConvergenceError
 
         integ.kbi = property(lambda self: (_ for _ in ()).throw(KBIConvergenceError("Test convergence error")))
     else:
@@ -204,7 +204,7 @@ class TestInit:
         calc = KBICalculator(two_component_systems)
         assert calc.systems is two_component_systems
         assert calc.weight_type == "geometric"
-        assert calc.raise_on_convergence_error is True
+        assert calc.errors is 'warn'
         assert calc.force is False
         assert calc._cache == {}
 
@@ -212,11 +212,11 @@ class TestInit:
         calc = KBICalculator(
             two_component_systems,
             weight_type="u2",
-            raise_on_convergence_error=False,
+            errors='raise',
             force=True,
         )
         assert calc.weight_type == "u2"
-        assert calc.raise_on_convergence_error is False
+        assert calc.errors is 'raise'
         assert calc.force is True
 
 
