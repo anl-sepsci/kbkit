@@ -107,23 +107,27 @@ See examples for a more complete example on the ethanol/water binary system.
 ### Calculating Kirkwood-Buff integrals on a single RDF
 
 ```python
-import os
+from pathlib import Path
 from kbkit.kbi import KBIntegrator
 from kbkit.systems import SystemProperties
-from kbkit.io import RdfParser
 
-syspath = "./examples/test_data/ethanol_water_26C/sys_405"
-rdf_path = os.path.join(syspath, "kbi_rdf_files", "rdf_ETHOL_SPCEW.xvg")
+syspath = Path("./examples/test_data/size_effects/sys_706")
+rdf_path = Path(system_path) / "kbi_rdf_files_50ns" / "rdf_ETHOL_ETHOL.xvg"
 
 # create integrator object from single RDF file
 integrator = KBIntegrator.from_rdf(
-    rdf_path=rdf_path,
+    rdf=rdf_path,
     system_properties=SystemProperties(syspath, start_time=10000),
 )
 
 # calculate KBI in thermodynamic limit
 kbi = integrator.kbi
+
+# visualize convergence
+integ.plot_kbi_compare_extrapolation(integ.weight_type)
 ```
+
+![KBI Analysis](./examples/figures/kbi_convergence_example.png)
 
 ### Run an automated pipeline for batch analysis
 
@@ -132,11 +136,17 @@ from kbkit.api import Pipeline
 
 # Set up and run the pipeline
 pipe = Pipeline(
-    base_path="./examples/test_data/ethanol_water_26C", 
-    pure_path="./examples/test_data/pure_components",   
-    pure_systems=["ETHOL_300", "SPCEW_300"],            
-    include_mode="npt",                                 
-    activity_integration_type="numerical",                 
+    pure_path="./test_data/pure_components",  # path to parent directory containing pure-component subdirectories
+    pure_systems=["ETHOL_300", "SPCEW_300"],  # pure-component subdirectories
+    base_path="./test_data/ethanol_water_26C",  # path to parent directory containing mixture subdirectories
+    rdf_dir="kbi_rdf_files",  # name for rdf-file subdirectory in each mixture directory (this needs to be the same in each system.)
+    start_time=10000,  # start time (ps) for calculating MD properties (from energy file)
+    include_mode="npt",  # string required in MD output files to be a 'valid' filename
+    errors="warn",  # prints ConvergenceError & returns NaN for non-converged values
+    molecule_map={
+        "ETHOL": "ethanol",
+        "SPCEW": "water",
+    },  # map molecule types in GROMACS files to molecule name for figures
 )
 
 # Access the properties in PropertyResults objects
@@ -147,7 +157,10 @@ res = pipe.results
 g_ex_res = res["g_ex"].to("kcal/mol")
 
 # make figures for KBI analysis and select thermodynamic properties
-pipe.make_figures(xmol="ETHOL")
+figpath = Path("./figures/kb_analysis")
+figpath.mkdir(exist_ok=True, parents=True)
+
+pipe.make_figures(xmol="ETHOL", savepath=figpath)
 ```
 
 ## Credits
