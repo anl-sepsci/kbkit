@@ -98,7 +98,7 @@ class TestPipelineInitialization:
         assert pipeline.start_time == 10000
         assert pipeline.include_mode == "npt"
         assert pipeline.weight_type == "geometric"
-        assert pipeline.errors is 'warn'
+        assert pipeline.errors == "warn"
         assert pipeline.force is False
 
     def test_init_with_all_parameters(self):
@@ -112,7 +112,7 @@ class TestPipelineInitialization:
             start_time=5000,
             include_mode="nvt",
             weight_type="u2",
-            errors='warn',
+            errors="warn",
             force=True,
             activity_integration_type="polynomial",
             activity_polynomial_degree=7,
@@ -127,7 +127,7 @@ class TestPipelineInitialization:
         assert pipeline.start_time == 5000
         assert pipeline.include_mode == "nvt"
         assert pipeline.weight_type == "u2"
-        assert pipeline.errors is 'warn'
+        assert pipeline.errors == "warn"
         assert pipeline.force is True
         assert pipeline.activity_integration_type == "polynomial"
         assert pipeline.activity_polynomial_degree == 7

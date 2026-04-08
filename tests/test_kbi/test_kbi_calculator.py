@@ -204,7 +204,7 @@ class TestInit:
         calc = KBICalculator(two_component_systems)
         assert calc.systems is two_component_systems
         assert calc.weight_type == "geometric"
-        assert calc.errors is 'warn'
+        assert calc.errors == "warn"
         assert calc.force is False
         assert calc._cache == {}
 
@@ -212,11 +212,11 @@ class TestInit:
         calc = KBICalculator(
             two_component_systems,
             weight_type="u2",
-            errors='raise',
+            errors="raise",
             force=True,
         )
         assert calc.weight_type == "u2"
-        assert calc.errors is 'raise'
+        assert calc.errors == "raise"
         assert calc.force is True
 
 
