@@ -37,7 +37,8 @@ class RdfParser:
         self,
         path: str | Path,
     ) -> None:
-        self.r, self.gr = self._read(path)
+        self.filepath = self._validate_file(path)
+        self.r, self.gr = self._read(self.filepath)
 
     @staticmethod
     def _validate_file(filepath: str | Path) -> Path:
@@ -57,14 +58,12 @@ class RdfParser:
             raise RuntimeError(f"Unexpected error reading '{filepath}': {e}") from e
         return filepath
 
-    def _read(self, path: str | Path) -> tuple[np.ndarray, np.ndarray]:
+    def _read(self, filepath: Path) -> tuple[np.ndarray, np.ndarray]:
         """Read RDF file and extracts radial distances (r) and g(r) values.
 
         The file is expected to have two columns: r and g(r).
         It filters out noise from the tail of the RDF curve.
         """
-        filepath = self._validate_file(path)
-
         if filepath.suffix in (".xvg", ".txt"):
             r, gr = np.loadtxt(filepath, comments=["@", "#", ";"], unpack=True)
         elif filepath.suffix in (".csv", ".xlsx"):

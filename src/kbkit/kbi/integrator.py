@@ -28,7 +28,6 @@ The ``'geometric'`` option triggers the default behavior described above.
     The other weight functions (``u0``-``u2``) serve as direct estimates of :math:`G^\infty` as demonstrated by `Krüger and Vlugt (2018) <https://doi.org/10.1103/PhysRevE.97.051301>`_.
 """
 
-import warnings
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -95,7 +94,7 @@ class KBIntegrator:
     @classmethod
     def from_rdf(
         cls,
-        rdf_file: str | Path,
+        rdf: str | Path | RdfParser,
         system_properties: "SystemProperties",
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
         errors: Literal["raise", "warn", "ignore"] = "raise",
@@ -108,8 +107,8 @@ class KBIntegrator:
 
         Parameters
         ----------
-        rdf_file: str | Path
-            File containing rdf data. Supported filetypes: ('.xvg','.txt','.csv','.xlsx')
+        rdf: str | Path | RdfParser
+            RdfParser object or file containing rdf data. Supported filetypes: ('.xvg','.txt','.csv','.xlsx')
         system_properties: SystemProperties
             System properties containing volume and topology.
         weight_type: str, optional
@@ -124,9 +123,14 @@ class KBIntegrator:
         KBI
             Initialized integrator.
         """
-        rdf = RdfParser(rdf_file)
+        if isinstance(rdf, (str, Path)):
+            rdf = RdfParser(rdf)
+        if not isinstance(rdf, RdfParser):
+            raise TypeError(
+                "'rdf' is not of type 'RdfParser' and could not create RdfParser object from 'rdf'. Check that 'rdf' is a valid RdfParser or filepath"
+            )
         molecule_count = system_properties.get("molecule_count")
-        rdf_mols = rdf.extract_molecules(text=Path(rdf_file).name, mol_list=molecule_count.keys())
+        rdf_mols = rdf.extract_molecules(text=rdf.filepath.name, mol_list=molecule_count.keys())
 
         return cls(
             r=rdf.r,
@@ -423,7 +427,11 @@ class KBIntegrator:
 
         where convergence is met if a linear region greater than ``min_r_range`` is identified and :math:`R^2 >` ``r2_threshold``.
         """
-        positions = positions or (min([1.0, self.r.max() - min_r_range]), self.r.max())
+        if not positions:
+            if maximize_r2:
+                positions = (min([1.0, self.r.max() - min_r_range]), self.r.max())
+            else:
+                positions = ((self.r.max() - min_r_range), self.r.max())
         rmin = min(positions)
         rmax = max(positions)
 
@@ -536,7 +544,7 @@ class KBIntegrator:
             self._result = best_fit
         return best_fit
 
-    @cached_property
+    @property
     def geometric_extrapolation_result(self) -> dict:
         """dict: By default, returns the result of the linear extrapolation using ``maximize_r2=True``. This can be updated by running ``compute_geometric_extrapolation`` with different arguments and setting ``store=True``."""
         if not hasattr(self, "_result"):
@@ -575,22 +583,20 @@ class KBIntegrator:
                 return self.geometric_extrapolation_result["G"]
             except KBIConvergenceError as e:
                 if self.force:
-                    warnings.warn(
-                        f"KBI convergence failed: {e} Falling back to weight_type='u2'.", RuntimeWarning, stacklevel=2
+                    handle_error(
+                        error_mode="warn" if self.errors != "ignore" else "ignore",
+                        message=f"KBI convergence failed: {e} Falling back to weight_type='u2'.",
+                        error_type=type(e),
                     )
                     return float(np.nanmean(self.running_kbi_map["u2"][mask]))
 
-                # handle_error(self.errors, str(e), type(e))
-                if self.errors == "raise":
-                    raise
-                elif self.errors == "warn":
-                    warnings.warn(str(e), RuntimeWarning, stacklevel=2)
+                handle_error(self.errors, str(e), type(e))
                 return np.nan
 
         # for all other types; just extract last values in running kbi
         return float(np.nanmean(self.running_kbi_map[weight_type.lower()][mask]))
 
-    @cached_property
+    @property
     def kbi(self) -> float:
         """float: KBI value in the thermodynamic limit for class initialized ``weight_type``."""
         return self.compute_kbi(weight_type=self.weight_type)
@@ -677,7 +683,7 @@ class KBIntegrator:
 
         Parameters
         ----------
-        weight_types: str, optional
+        weight_type: str, optional
             Weight function to plot. Options: ('none','u0','u1','u2','geometric'). Default will go to class initialized ``weight_type``.
         cmap: str, optional
             Matplotlib colormap name.
@@ -702,7 +708,7 @@ class KBIntegrator:
             try:
                 self.add_kbi_value(ax, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
             except KBIConvergenceError as e:
-                warnings.warn(str(e), RuntimeWarning, stacklevel=2)
+                handle_error(error_mode="warn", message=str(e), error_type=type(e))
 
         # Only add legend if labels exist
         _, labels = plt.gca().get_legend_handles_labels()
@@ -755,7 +761,7 @@ class KBIntegrator:
             try:
                 self.add_kbi_value(ax, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
             except KBIConvergenceError as e:
-                warnings.warn(str(e), RuntimeWarning, stacklevel=2)
+                handle_error(error_mode="warn", message=str(e), error_type=type(e))
 
         # Only add legend if labels exist
         _, labels = plt.gca().get_legend_handles_labels()
@@ -863,7 +869,7 @@ class KBIntegrator:
             try:
                 self.add_kbi_value(ax1, weight_type="geometric", color="k", lw=0.5, ls="-", label=r"G$^\infty$")
             except KBIConvergenceError as e:
-                warnings.warn(str(e), RuntimeWarning, stacklevel=2)
+                handle_error(error_mode="warn", message=str(e), error_type=type(e))
 
         self.add_lkbi(ax2, color=colors_by_weight["geometric"], alpha=0.8, lw=1)
         try:

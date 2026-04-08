@@ -112,7 +112,7 @@ class KBICalculator:
 
             for fpath in rdf_files:
                 integrator = KBIntegrator.from_rdf(
-                    rdf_file=fpath,
+                    rdf=fpath,
                     system_properties=meta.props,
                     weight_type=self.weight_type,
                     errors=self.errors,
