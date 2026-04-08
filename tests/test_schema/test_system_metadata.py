@@ -120,7 +120,7 @@ class TestHasRdfMethod:
 
         system = SystemMetadata(name="test", kind="pure", path=tmp_path, props=mock_system_properties, rdf_path=rdf_dir)
 
-        assert system.has_rdf() is False
+        assert system.has_rdf() is True
 
     def test_has_rdf_mixed_files(self, mock_system_properties, tmp_path):
         """Test has_rdf returns True when .xvg files exist among other files."""

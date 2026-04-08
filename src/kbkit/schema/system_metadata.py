@@ -43,14 +43,11 @@ class SystemMetadata:
         # Use str(self.rdf_path) == "." to detect the default empty Path()
         if not self.rdf_path or str(self.rdf_path) == ".":
             return False
-            
+
         if not self.rdf_path.is_dir():
             return False
-            
-        return any(
-            any(self.rdf_path.glob(pattern)) 
-            for pattern in ("*.xvg", "*.txt", "*.csv")
-        )
+
+        return any(any(self.rdf_path.glob(pattern)) for pattern in ("*.xvg", "*.txt", "*.csv"))
 
     def is_pure(self) -> bool:
         """Return True if ``kind`` is a pure molecule."""
