@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from kbkit.systems.properties import SystemProperties
@@ -39,8 +39,11 @@ class SystemMetadata:
     rdf_path: Path = field(default_factory=Path)
 
     def has_rdf(self) -> bool:
-        """Return True if an RDF path is defined and non-empty."""
-        return any(self.rdf_path.glob("*.xvg"))
+        """Return True if an RDF path is defined and contains RDF data files."""
+        return any(
+            self.rdf_path.glob(pattern)
+            for pattern in ("*.xvg", "*.txt", "*.csv")
+        )
 
     def is_pure(self) -> bool:
         """Return True if ``kind`` is a pure molecule."""

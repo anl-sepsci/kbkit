@@ -76,9 +76,26 @@ class SystemProperties:
         self.gro_paths = self.find_files(
             suffix=".gro", include=include, filepath=gro_path, system_path=self.system_path
         )
-        self.top_paths = self.find_files(
-            suffix=".top", include=include, filepath=top_path, system_path=self.system_path
-        )
+        # this is not required!
+        try:
+            self.top_paths = self.find_files(
+                suffix=".top", include=include, filepath=top_path, system_path=self.system_path
+            )
+        except ValueError:
+            if len(self.gro_paths) > 0:
+                self.top_paths = []
+            else:
+                raise
+
+        # update system-path if not defined and all files have same parent
+        if self.system_path is None:
+            e_parents = [f.parent for f in self.edr_paths]
+            g_parents = [f.parent for f in self.gro_paths]
+            t_parents = [f.parent for f in self.top_paths]
+            parents = np.unique([e_parents + g_parents + t_parents])
+            if len(parents) == 1:
+                self.system_path = parents[0]
+
 
     @staticmethod
     def find_files(
@@ -112,7 +129,8 @@ class SystemProperties:
         # validate filepath and parent directory
         if filepath:
             filepath = validate_path(filepath, suffix)
-            system_path = validate_path(filepath.parent)
+            if system_path is None:
+                system_path = validate_path(filepath.parent)
         elif system_path:
             system_path = validate_path(system_path)
         else:

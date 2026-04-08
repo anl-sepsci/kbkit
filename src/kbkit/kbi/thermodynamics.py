@@ -453,20 +453,20 @@ class KBThermo:
 
     @cached_property_value()
     def Gamma(self) -> np.ndarray:
-        r"""Calculates the thermodynamic factors, :math:`\Gamma_i`.
+        r"""Calculates the thermodynamic factors, :math:`\Gamma_i`, demonstrated by `Fingerhut et al. (2020) <https://doi.org/10.1080/00268976.2019.1643046>`_.
 
         The thermodynamic factor scales the composition dependence of the chemical potential.
 
         Returns
         -------
         np.ndarray
-            A 2D array of shape ``(n_sys, n_i)``.
+            A 3D array of shape ``(n_sys, n_i, n_i)``.
 
 
         .. math::
-            \Gamma_i = \frac{x_i}{RT} \left( \frac{\partial \mu_i}{\partial x_i} \right)_{T,P}
+            \Gamma_{ij} = \frac{x_i}{RT} \left( \frac{\partial \mu_i}{\partial x_j} \right)_{T,P}
         """
-        return (self.systems.x * self.dmu_dxi()) / self.RT()[:, np.newaxis]
+        return self._x_3d * self.M() / self.RT()[:, np.newaxis, np.newaxis]
 
     @cached_property_value()
     def dlngamma_dxi(self) -> np.ndarray:
