@@ -57,44 +57,6 @@ For a full list of available commands:
 make help
 ```
 
-## File Organization
-
-For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components.
-This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
-
-* NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
-
-An example of file structure:
-
-```python
-kbi_dir/
-├── project/
-│   └── system/
-│       ├── rdf_dir/
-│       │   ├── mol1_mol1.xvg
-│       │   ├── mol1_mol2.xvg
-│       │   └── mol1_mol2.xvg
-│       ├── system_npt.edr
-│       ├── system_npt.gro
-│       └── system.top
-└── pure_components/
-    └── molecule1/
-        ├── molecule1_npt.edr
-        └── molecule1.top
-```
-
-**Requirements:**
-
-* Each system to be analyzed must include:
-    * rdf_dir/ containing .xvg RDF files for all pairwise interactions
-        * Both molecule IDs in RDF calculation *MUST BE* in filename
-    * either .top topology file or .gro structure file (.gro is recommended)
-    * .edr energy file
-* Each pure component must include:
-    * either .top topology file or .gro structure file (.gro is recommended)
-    * .edr energy file
-    * all other files (optional)
-
 ## Documentation
 
 Thorough documentation of **KBKit** is located at [https://kbkit.readthedocs.io/en/latest/](https://kbkit.readthedocs.io/en/latest/).
@@ -102,7 +64,7 @@ Thorough documentation of **KBKit** is located at [https://kbkit.readthedocs.io/
 ## Examples
 
 Below are several examples on various ways to implement **KBKit**.
-See examples for a more complete example on the ethanol/water binary system.
+See [examples/](https://github.com/anl-sepsci/kbkit/tree/main/examples) for complete tutorials.
 
 ### Calculating Kirkwood-Buff integrals on a single RDF
 
@@ -162,6 +124,44 @@ figpath.mkdir(exist_ok=True, parents=True)
 
 pipe.make_figures(xmol="ETHOL", savepath=figpath)
 ```
+
+## File Organization
+
+For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components.
+This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
+
+* NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
+
+An example of file structure:
+
+```python
+kbi_dir/
+├── project/
+│   └── system/
+│       ├── rdf_dir/
+│       │   ├── mol1_mol1.xvg
+│       │   ├── mol1_mol2.xvg
+│       │   └── mol1_mol2.xvg
+│       ├── system_npt.edr
+│       ├── system_npt.gro
+│       └── system.top
+└── pure_components/
+    └── molecule1/
+        ├── molecule1_npt.edr
+        └── molecule1.top
+```
+
+**Requirements:**
+
+* Each system to be analyzed must include:
+    * rdf_dir/ containing .xvg RDF files for all pairwise interactions
+        * Both molecule IDs in RDF calculation *MUST BE* in filename
+    * either .top topology file or .gro structure file (.gro is recommended)
+    * .edr energy file
+* Each pure component must include:
+    * either .top topology file or .gro structure file (.gro is recommended)
+    * .edr energy file
+    * all other files (optional)
 
 ## Credits
 
