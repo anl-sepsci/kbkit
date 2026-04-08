@@ -96,7 +96,6 @@ class SystemProperties:
             if len(parents) == 1:
                 self.system_path = parents[0]
 
-
     @staticmethod
     def find_files(
         suffix: str,
@@ -131,6 +130,8 @@ class SystemProperties:
             filepath = validate_path(filepath, suffix)
             if system_path is None:
                 system_path = validate_path(filepath.parent)
+            else:
+                system_path = validate_path(system_path)
         elif system_path:
             system_path = validate_path(system_path)
         else:

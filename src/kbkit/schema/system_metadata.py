@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from kbkit.systems.properties import SystemProperties
@@ -40,8 +40,15 @@ class SystemMetadata:
 
     def has_rdf(self) -> bool:
         """Return True if an RDF path is defined and contains RDF data files."""
+        # Use str(self.rdf_path) == "." to detect the default empty Path()
+        if not self.rdf_path or str(self.rdf_path) == ".":
+            return False
+            
+        if not self.rdf_path.is_dir():
+            return False
+            
         return any(
-            self.rdf_path.glob(pattern)
+            any(self.rdf_path.glob(pattern)) 
             for pattern in ("*.xvg", "*.txt", "*.csv")
         )
 
