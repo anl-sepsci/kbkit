@@ -63,8 +63,8 @@ def conda_env_exists(env_name):
 
 # --- Publish to PyPI ---
 if PUBLISH:
-    if not conda_env_exists("kbkit-dev"):
-        print("Conda environment 'kbkit-dev' not found.", file=sys.stderr)
+    if not conda_env_exists("kbkit"):
+        print("Conda environment 'kbkit' not found.", file=sys.stderr)
         sys.exit(1)
 
     # Update meta.yaml version
@@ -79,7 +79,7 @@ if PUBLISH:
         print("Building source distribution...")
         try:
             subprocess.run(
-                f"conda run -n kbkit-dev python -m build --sdist --outdir {DIST_DIR}",
+                f"conda run -n kbkit python -m build --sdist --outdir {DIST_DIR}",
                 shell=True,
                 check=True,
             )
@@ -91,7 +91,7 @@ if PUBLISH:
         sys.exit(1)
 
     print(f"Uploading {dist_file.name} to PyPI...")
-    subprocess.run([f"conda run -n kbkit-dev python -m twine upload {dist_file!s}"], check=True, shell=True)
+    subprocess.run([f"conda run -n kbkit python -m twine upload {dist_file!s}"], check=True, shell=True)
 
     # Add a delay to allow PyPI to process the upload
     print("Waiting 10 seconds for PyPI to process the upload...")
