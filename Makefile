@@ -2,8 +2,8 @@
 
 # Create dev environment and install kbkit in editable mode
 dev-install:
-	conda env create --name kbkit-dev -f environment.yaml
-	conda run -n kbkit-dev pip install -e .
+	conda env create --name kbkit -f environment.yaml
+	conda run -n kbkit pip install -e .
 
 # One-liner for full dev setup: env + editable install + test
 setup-dev: dev-install test
@@ -15,7 +15,7 @@ setup-user:
 
 # Run tests using pytest
 test:
-	conda run -n kbkit-dev pytest tests
+	conda run -n kbkit pytest tests
 
 # Clean build artifacts
 clean:
