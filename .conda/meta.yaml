@@ -1,10 +1,10 @@
 package:
   name: kbkit
-version: "1.0.27"
+version: "1.0.28"
 
 source:
-  url: "https://files.pythonhosted.org/packages/source/k/kbkit/kbkit-1.0.27.tar.gz"
-  sha256: "f3e9bf918acdb1e13ae7fc7491fedd8b0f82002c157e7bce72a8116384bbffaf"
+  url: "https://files.pythonhosted.org/packages/source/k/kbkit/kbkit-1.0.28.tar.gz"
+  sha256: "102d40369ff6cc876f35ec2aeabc62d55f254e30085a74dbb9e6eb474e84d8b3"
 
 build:
   noarch: python
