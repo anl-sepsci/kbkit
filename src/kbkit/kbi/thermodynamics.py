@@ -490,7 +490,11 @@ class KBThermo:
             - :math:`x_i`: Mole fraction of molecule :math:`i`
         """
         with np.errstate(divide="ignore", invalid="ignore"):
-            return (1 / self.RT("kJ/mol"))[:, np.newaxis] * self.dmu_dxi("kJ/mol") - 1 / self.systems.x
+            dlngamma = (1 / self.RT("kJ/mol"))[:, np.newaxis] * self.dmu_dxi("kJ/mol") - 1 / self.systems.x
+
+        # replace values of reference state with 0.
+        return self._set_ref_to_zero(dlngamma, ref=1)
+
 
     def _get_ref_state(self, mol: str) -> float:
         """Return reference state for a molecule; 1: `pure component`, 0: `infinite dilution`."""
