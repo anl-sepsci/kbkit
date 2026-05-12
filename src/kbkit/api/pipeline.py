@@ -105,6 +105,8 @@ class Pipeline:
         Polynomial degree for fitting activity coefficient derivatives, if ``activity_integration_type`` is `polynomial`.
     molecule_map: dict[str, str], optional
         Dictionary mapping molecule names to desired molecule labels in figures.
+    charges: dict[str, int], optional
+        Optional charge dictionary for ions. Mapping residue names to their corresponding charge.
     """
 
     def __init__(
@@ -122,6 +124,7 @@ class Pipeline:
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
         activity_polynomial_degree: int = 5,
         molecule_map: dict[str, str] | None = None,
+        charges: dict[str, int] | None = None
     ) -> None:
         self.base_path = base_path
         self.base_systems = base_systems
@@ -136,6 +139,7 @@ class Pipeline:
         self.activity_integration_type = activity_integration_type
         self.activity_polynomial_degree = int(activity_polynomial_degree)
         self.molecule_map = molecule_map
+        self.charges = charges
 
     @cached_property
     def systems(self) -> SystemCollection:
@@ -148,6 +152,7 @@ class Pipeline:
             rdf_dir=self.rdf_dir,
             start_time=self.start_time,
             include_mode=self.include_mode,
+            charges=self.charges
         )
 
     @cached_property
