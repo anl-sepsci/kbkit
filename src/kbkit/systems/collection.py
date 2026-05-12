@@ -55,7 +55,8 @@ class SystemCollection:
         self._cache: dict[tuple, PropertyResult] = {}
         # user-provided charges; if None or empty -> neutral behavior
         self.charges: dict[str, int] = charges or {}
-
+        self.system_names = list(self._lookup.keys()) # just get list of system names--without iterating through objects
+ 
     def __getattr__(self, name: str) -> Any:
         """Get attributes from system metadata or SystemProperties object."""
         if not self._systems:
