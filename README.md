@@ -125,6 +125,14 @@ figpath.mkdir(exist_ok=True, parents=True)
 pipe.make_figures(xmol="ETHOL", savepath=figpath)
 ```
 
+## Validation
+
+To verify the consistency of the KBI values, this package was validated using the `rdf1.txt` RDF dataset. The results were compared against **kbkit** and **pykbi** to ensure parity.
+
+![Comparison of KBI values across tools](./examples/figures/kbkit_pykbi_validation.png)
+
+The figure above demonstrates that our implementation produces results consistent with established benchmarks, ensuring the validity of the calculations.
+
 ## File Organization
 
 For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components.
