@@ -1,4 +1,4 @@
-# KBKit: Kirkwood-Buff Analysis Toolkit
+![logo](./KBKitLogoHorizontal.svg)
 
 [![License](https://img.shields.io/github/license/anl-sepsci/kbkit)](https://github.com/anl-sepsci/kbkit/blob/master/LICENSE)
 [![PyPI version](https://img.shields.io/pypi/v/kbkit.svg)](https://pypi.org/project/kbkit/)
