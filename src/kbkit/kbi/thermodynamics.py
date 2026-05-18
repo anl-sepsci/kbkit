@@ -448,8 +448,7 @@ class KBThermo:
             dmui_product = self.systems.x[:, :-1] * dmui_dxi[:, :-1]
             dmui_dxi[:, -1] = dmui_product.sum(axis=1) / self.systems.x[:, -1]
 
-        # replace values of reference state with 0.
-        return self._set_ref_to_zero(dmui_dxi, ref=1)
+        return dmui_dxi
 
     @cached_property_value()
     def Gamma(self) -> np.ndarray:
@@ -493,8 +492,8 @@ class KBThermo:
             dlngamma = (1 / self.RT("kJ/mol"))[:, np.newaxis] * self.dmu_dxi("kJ/mol") - 1 / self.systems.x
 
         # replace values of reference state with 0.
+        # update later---to support different reference states.
         return self._set_ref_to_zero(dlngamma, ref=1)
-
 
     def _get_ref_state(self, mol: str) -> float:
         """Return reference state for a molecule; 1: `pure component`, 0: `infinite dilution`."""
