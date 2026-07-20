@@ -15,8 +15,8 @@ ENERGY_ALIASES: dict[str, set[str]] = {
     "pressure": {"pressure", "pres", "p"},
     "density": {"density", "mass_volume"},
     "potential": {"potential_energy", "potential", "pe", "U"},
-    "kinetic-en": {"kinetic_energy", "kinetic", "ke"},
-    "total-energy": {"total_energy", "etot", "total", "E"},
+    "kinetic en.": {"kinetic_energy", "kinetic", "ke"},
+    "total energy": {"total_energy", "etot", "total", "E"},
     "number-density": {"number_density", "rho", "num_rho", "molec_per_volume"},
     "molar-volume": {"molar_volume", "mol_vol", "partial_volume"},
 }

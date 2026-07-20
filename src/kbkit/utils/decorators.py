@@ -89,8 +89,9 @@ def cached_property_result(
             cache_key = (property_name, property_type, *(f"{k}={v}" for k, v in sorted(all_kwargs.items())))
 
             if cache_key in self._cache:
-                cached_result = self._cache[cache_key]
-                return cached_result.to(units) if units else cached_result
+                result = self._cache[cache_key]
+                if (units is not None) and (len(units) > 0):
+                    result = result.to(units)
 
             # Determine units to use for calculation
             calc_units = units or default_units
@@ -173,8 +174,9 @@ def cached_property_value(
                 cache_key = property_name
 
             if cache_key in self._cache:
-                cached_result = self._cache[cache_key]
-                result = cached_result.to(units) if units else cached_result
+                result = self._cache[cache_key]
+                if (units is not None) and (len(units) > 0):
+                    result = result.to(units)
 
             else:
                 # Determine units to use for calculation
