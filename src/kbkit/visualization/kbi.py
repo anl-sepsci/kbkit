@@ -28,36 +28,34 @@ class KBIAnalysisPlotter:
         self.result = kbi
         self.metadata = self.result.metadata
 
-    def plot_rkbis(self, savepath: str | Path | None = None):
+    def plot_rkbis(self, cmap: str | None = None, add_kbi_value: bool = True, savepath: str | Path | None = None):
         """Plot KBI analysis plots for all systems present.
 
         Parameters
         ----------
-        weight_types: list[str]
-            Weight functions to include in plot. Options: ('none','u0','u1','u2','geometric')
         cmap: str, optional
             Matplotlib colormap name.
-        addKBIValue: bool, optional
+        add_kbi_value: bool, optional
             Add horizontal value for KBI with ``weight_type='geometric'``.
         savepath: str | Path, optional
             Path to save figures to.
         """
         if savepath:
-            parent_path = Path(savepath) if Path(savepath).is_dir() else Path(savepath).parent
+            savepath = Path(savepath) if Path(savepath).is_dir() else Path(savepath).parent
 
         if self.metadata is None:
             return
 
         for sys, mol_dict in self.metadata.items():
             for mols, kbi_obj in mol_dict.items():
-                filepath = parent_path / f"{sys}_{'_'.join(mols)}.pdf"
+                filepath = savepath / f"{sys}_{'_'.join(mols)}.pdf" if savepath is not None else None
                 if kbi_obj.weight_type == "geometric":
                     kbi_obj.plot_kbi_compare_extrapolation(
-                        weight_types=[kbi_obj.weight_type], add_kbi_value=True, cmap=None, filepath=filepath
+                        weight_types=[kbi_obj.weight_type], add_kbi_value=add_kbi_value, cmap=cmap, filepath=filepath
                     )
                 else:
                     kbi_obj.plot_kbi_compare(
-                        weight_types=[kbi_obj.weight_type], add_kbi_value=True, cmap=None, filepath=filepath
+                        weight_types=[kbi_obj.weight_type], add_kbi_value=add_kbi_value, cmap=cmap, filepath=filepath
                     )
 
     def plot_composition(

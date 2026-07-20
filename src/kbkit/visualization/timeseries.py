@@ -28,18 +28,18 @@ class TimeseriesPlotter:
     ----------
     props: SystemProperties
         SystemProperties object for a given molecular dynamics system.
-    start_time: int
+    start: int
         Initial time for plotting.
     """
 
-    def __init__(self, props: "SystemProperties", start_time: int = 0) -> None:
+    def __init__(self, props: "SystemProperties", start: int = 0) -> None:
         # resets start time for plotting, but dont alter original
         self.props = copy.copy(props)
-        self.props.start_time = start_time
+        self.props.start = start
 
     @classmethod
     def from_collection(
-        cls, systems: "SystemCollection", system_name: str | int, start_time: int = 0
+        cls, systems: "SystemCollection", system_name: str | int, start: int = 0
     ) -> "TimeseriesPlotter":
         """Initialized `TimeseriesPlotter` from a :class:`~kbkit.systems.collection.SystemCollection` object.
 
@@ -49,7 +49,7 @@ class TimeseriesPlotter:
             SystemCollection object for a given set of systems.
         system: str | int
             Name or index of system in SystemCollection.
-        start_time: int
+        start: int
             Initial time for plotting.
 
         Returns
@@ -57,7 +57,7 @@ class TimeseriesPlotter:
         TimeseriesPlotter
             Initialized TimeseriesPlotter object.
         """
-        return cls(systems[system_name].props, start_time)
+        return cls(systems[system_name].props, start)
 
     def plot(
         self,
@@ -65,7 +65,7 @@ class TimeseriesPlotter:
         units: str | None = None,
         show_avg: bool = True,
         figsize: tuple = (9, 4),
-        xlabel: str = "Time (ns)",
+        xlabel: str | None = None,
         ylabel: str | None = None,
         title: str | None = None,
         ylim: tuple | None = None,
@@ -107,33 +107,41 @@ class TimeseriesPlotter:
         name = resolve_attr_key(name, ENERGY_ALIASES)
         units = units or self.props.energy[0].units[name]
 
-        time, values = self.props.get(name=name, units=units, avg=False, time_series=True)
-        time_ns = time / 1000
+        x_arr, values = self.props.get(name=name, units=units, avg=False, time_series=True)
+        if self.props.energy[0]._x_key == "time":
+            x_arr /= 1000  # convert from ps -> ns
+
+        if xlabel is None:
+            xlabel = "Time (ns)" if self.props.energy[0]._x_key == "time" else "Timestep"
 
         fig, ax = plt.subplots(figsize=figsize)
         style_axes(ax)
-        ax.plot(time_ns, values, **kwargs)
+        ax.plot(x_arr, values, **kwargs)
 
-        if show_avg and len(time) > 0 and len(values) > 0:
+        if show_avg and len(x_arr) > 0 and len(values) > 0:
             with np.errstate(divide="ignore", invalid="ignore"):
                 run_avg = [np.mean(values[:i]) for i in range(len(values))]
             last = run_avg[-1]
             label = f"{last:.3f} {format_unit_str(units)}" if last < 1 else f"{last:.0f} {format_unit_str(units)}"
-            ax.plot(time_ns, run_avg, c="k", ls="-", lw=1, label=label)
+            ax.plot(x_arr, run_avg, c="k", ls="-", lw=1, label=label)
             style_legend(ax, ncol=1)
 
         if xlabel:
             ax.set_xlabel(xlabel)
+
         if ylabel:
             ax.set_ylabel(ylabel)
         else:
             ax.set_ylabel(f"{name.capitalize()} ({format_unit_str(units)})")
+
         if title:
             ax.set_title(title)
+
         if xlim:
             ax.set_xlim(xlim)
         else:
-            ax.set_xlim(time_ns.min(), time_ns.max())
+            ax.set_xlim(x_arr.min(), x_arr.max())
+
         if ylim:
             ax.set_ylim(ylim)
 
