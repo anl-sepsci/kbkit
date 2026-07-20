@@ -30,3 +30,4 @@ pytest-cov
 stubs
 mdanalysis
 lammps_logfile
+periodictable
