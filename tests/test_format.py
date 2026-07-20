@@ -340,8 +340,8 @@ class TestEnergyAliases:
             "density",
             "enthalpy",
             "potential",
-            "kinetic-en",
-            "total-energy",
+            "kinetic en.",
+            "total energy",
         ]
 
         for key in expected_keys:

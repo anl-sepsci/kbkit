@@ -95,7 +95,7 @@ class TestPipelineInitialization:
         assert pipeline.pure_path is None
         assert pipeline.pure_systems is None
         assert pipeline.rdf_dir == ""
-        assert pipeline.start_time == 10000
+        assert pipeline.start == 10000
         assert pipeline.include_mode == "npt"
         assert pipeline.weight_type == "geometric"
         assert pipeline.errors == "warn"
@@ -109,7 +109,7 @@ class TestPipelineInitialization:
             pure_path="/path/to/pure",
             pure_systems=["pure1", "pure2"],
             rdf_dir="rdfs",
-            start_time=5000,
+            start=5000,
             include_mode="nvt",
             weight_type="u2",
             errors="warn",
@@ -124,7 +124,7 @@ class TestPipelineInitialization:
         assert pipeline.pure_path == "/path/to/pure"
         assert pipeline.pure_systems == ["pure1", "pure2"]
         assert pipeline.rdf_dir == "rdfs"
-        assert pipeline.start_time == 5000
+        assert pipeline.start == 5000
         assert pipeline.include_mode == "nvt"
         assert pipeline.weight_type == "u2"
         assert pipeline.errors == "warn"
@@ -318,7 +318,7 @@ class TestPipelineTimeseriesPlotter:
         mock_system_collection.timeseries_plotter.return_value = mock_plotter
 
         pipeline = Pipeline()
-        result = pipeline.timeseries_plotter("system_1", start_time=5000)
+        result = pipeline.timeseries_plotter("system_1", start=5000)
 
         mock_system_collection.timeseries_plotter.assert_called_once_with("system_1", 5000)
         assert result == mock_plotter
