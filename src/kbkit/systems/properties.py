@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from kbkit.config.unit_registry import load_unit_registry
-from kbkit.io import EdrParser, GroParser, TopParser
+from kbkit.io import EnergyParser, TopologyParser
 from kbkit.utils.format import ENERGY_ALIASES, resolve_attr_key
 from kbkit.utils.validation import validate_path
 from kbkit.visualization.timeseries import TimeseriesPlotter
@@ -28,23 +28,19 @@ class SystemProperties:
         Path to the system directory containing GROMACS files.
     include : str, optional
         String to include in file name for valid file. Only used if multiple files are found with the same suffix.
-    edr_path: str or Path, optional
-        Path for an energy (.edr) file.
-    top_path: str or Path, optional
-        Path for a topology (.top) file.
-    gro_path: str or Path, optional
-        Path for a structure (.gro) file.
-    start_time : int, optional
-        Default start time (in ps) for time-averaged properties.
+    energy: str or Path, optional
+        Path for an energy file. Supported filetypes: ".edr", ".log", ".lammps"
+    topology: str or Path, optional
+        Path for a topology file. Supported filetypes: ".top", ".gro", ".lmp"
+    start : int, optional
+        Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
 
     Attributes
     ----------
-    edr_paths: list[Path]
-        List of paths to GROMACS energy files.
-    top_paths: list[Path]
-        List of paths to GROMACS topology files.
-    gro_paths: list[Path]
-        List of paths to GROMACS structure files.
+    energy: list[Path]
+        List of paths to energy files.
+    topology: list[Path]
+        List of paths to topology files.
 
     .. note::
         - Defaults to looking at files/paths directly specified.
@@ -53,54 +49,106 @@ class SystemProperties:
 
     def __init__(
         self,
-        system_path: str | None = None,
+        path: str | None = None,
         include: str = "",
-        edr_path: str | None = None,
-        top_path: str | None = None,
-        gro_path: str | None = None,
-        start_time: float = 0.0,
+        energy: str | None = None,
+        topology: str | None = None,
+        start: int = 0,
     ) -> None:
-        self.start_time = float(start_time)
+        self.start = start
 
         # setup registry for unit conversions
         self.ureg = load_unit_registry()  # Load the unit registry for unit conversions
         self.Q_ = self.ureg.Quantity
 
         # validate system paths
-        self.system_path = validate_path(system_path) if system_path else system_path
+        self.parent = validate_path(path) if path is not None else None
 
-        # get files; first prioritize specified file; then search directory if files do not exist
-        self.edr_paths = self.find_files(
-            suffix=".edr", include=include, filepath=edr_path, system_path=self.system_path
+        # first try to resolve files if specified, otherwise search for files in path.
+        self.energy_files = self._get_files(
+            path=path, filename=energy, suffixes=[".edr", ".lammps", ".log"], include=include
         )
-        self.gro_paths = self.find_files(
-            suffix=".gro", include=include, filepath=gro_path, system_path=self.system_path
+
+        self.topology_files = self._get_files(
+            path=path, filename=topology, suffixes=[".gro", ".top", ".lmp"], include=include
         )
-        # this is not required!
-        try:
-            self.top_paths = self.find_files(
-                suffix=".top", include=include, filepath=top_path, system_path=self.system_path
-            )
-        except ValueError:
-            if len(self.gro_paths) > 0:
-                self.top_paths = []
-            else:
-                raise
 
         # update system-path if not defined and all files have same parent
-        if self.system_path is None:
-            e_parents = [f.parent for f in self.edr_paths]
-            g_parents = [f.parent for f in self.gro_paths]
-            t_parents = [f.parent for f in self.top_paths]
-            parents = np.unique([e_parents + g_parents + t_parents])
+        if self.parent is None:
+            energy_parents = [f.parent for f in self.energy_files]
+            topo_parents = [f.parent for f in self.topology_files]
+            parents = np.unique([energy_parents + topo_parents])
             if len(parents) == 1:
-                self.system_path = parents[0]
+                self.parent = parents[0]
 
     @staticmethod
-    def find_files(
+    def _get_abspath(path: str, filename: str) -> Path:
+        """
+        Get absolute filepath.
+
+        Parameters
+        ----------
+        path: str
+            Parent path containing files.
+        filename: str
+            Path to file.
+
+        Returns
+        -------
+        Path
+            Path object to valid file.
+        """
+        filepath = Path(filename).resolve()
+        if filepath.is_file():
+            return filepath
+
+        if path is not None:
+            abspath = Path(f"{path}/{filename}").resolve()
+            if abspath.is_file():
+                return abspath
+
+        raise FileNotFoundError("File does not exist!")
+
+    @staticmethod
+    def _get_files(path: str, filename: str, suffixes: list[str], include: str) -> list[Path]:
+        """Get files for a suffix, priorty given in the order of suffixes.
+
+        Parameters
+        ----------
+        path: str
+            Parent path containing files.
+        filename: str
+            Path to file.
+        suffixes: str
+            File types to iterate through and search for. (i.e., `.edr`, `.gro`, `.top`)
+        include: str, optional
+            String to filter files by. Will only incorporate if more than one file of the desired suffix is found.
+
+        Returns
+        -------
+        list[Path]
+            List of path objects containing files of a valid suffix.
+        """
+        if filename is not None:
+            try:
+                return [SystemProperties._get_abspath(path, filename)]
+            except FileNotFoundError:
+                pass
+
+        if path is None:
+            raise ValueError("path is required to find unspecified files!")
+
+        for suffix in suffixes:
+            files = SystemProperties._find_files_in_path(suffix=suffix, include=include, path=path)
+            if len(files) > 0:
+                return files
+
+        raise FileNotFoundError(f"No files found with any of the suffixes: {suffixes} in path: {path}.")
+
+    @staticmethod
+    def _find_files_in_path(
         suffix: str,
-        filepath: str | Path | None = None,
-        system_path: str | Path | None = None,
+        path: str | Path | None = None,
         include: str = "",
         exclude: list[str] | None = None,
     ) -> list[Path]:
@@ -111,10 +159,8 @@ class SystemProperties:
         ----------
         suffix: str
             File type to search for. (i.e., `.edr`, `.gro`, `.top`)
-        filepath: str, optional
-            Optional filepath to validate. Optional if ``system_path`` is included.
-        system_path: str, optional
-            Parent path containing files. Optional if ``filepath`` is included.
+        path: str, optional
+            Parent path containing files.
         include: str, optional
             String to filter files by. Will only incorporate if more than one file of the desired suffix is found.
         exclude: list[str], optional
@@ -126,19 +172,13 @@ class SystemProperties:
             List of path objects containing files of desired suffix.
         """
         # validate filepath and parent directory
-        if filepath:
-            filepath = validate_path(filepath, suffix)
-            if system_path is None:
-                system_path = validate_path(filepath.parent)
-            else:
-                system_path = validate_path(system_path)
-        elif system_path:
-            system_path = validate_path(system_path)
+        if path:
+            path = validate_path(path)
         else:
             raise ValueError("A valid 'filepath' or 'system_path' is required!")
 
         # get files
-        files = [filepath] if filepath else sorted(system_path.glob(f"*.{suffix.strip('.')}"))
+        files = sorted(path.glob(f"*.{suffix.strip('.')}"))
 
         if len(files) == 1:
             return files
@@ -154,27 +194,14 @@ class SystemProperties:
         return files_filtered if not files_filtered_again else files_filtered_again
 
     @cached_property
-    def energy(self) -> list[EdrParser]:
-        """list[EdrParser]: Setup EDR file parsers for all files in ``edr_paths``."""
-        if len(self.edr_paths) == 0:
-            raise FileNotFoundError("Energy file(s) do not exist!")
-
-        return [EdrParser(Path(fpath)) for fpath in self.edr_paths]
+    def energy(self) -> list[EnergyParser]:
+        """list[EnergyParser]: Setup Energy file parsers for all files in ``energy_files``."""
+        return [EnergyParser(Path(fpath)) for fpath in self.energy_files]
 
     @cached_property
-    def topology(self) -> GroParser | TopParser:
-        """GroParser | TopParser: Setup Gro/Top parser."""
-        # prioritize GRO files -- they contain electron info as well
-        if len(self.gro_paths) > 0:
-            for file in self.gro_paths:
-                gro = GroParser(file)
-                if any(len(mol) > 1 for mol in gro.molecules):
-                    return gro
-        # if gro file(s) are invalid; use topology file
-        if len(self.top_paths) > 0:
-            for file in self.top_paths:
-                return TopParser(file)
-        raise FileNotFoundError(f"No topology or structure file found in '{self.system_path}'")
+    def topology(self) -> TopologyParser:
+        """TopologyParser: Setup Topology parser."""
+        return TopologyParser(path=self.topology_files[0])
 
     @property
     def topology_properties(self) -> list[str]:
@@ -219,31 +246,30 @@ class SystemProperties:
         # resolves common property names for all EDR properties
         prop = resolve_attr_key(name, ENERGY_ALIASES).lower()
 
-        # now compute properties from edr-files
-
-        times: list[float] = []
+        x_key = self.energy[0]._x_key
+        x_arr: list[float] = []
         values = []
         value: float | np.ndarray
 
-        for _i, edr in enumerate(self.energy):
+        for _i, parser in enumerate(self.energy):
             if prop == "cp":
-                value = edr.cp(
-                    nmol=self.topology.total_molecules, volume=box_volume, start_time=self.start_time, units=units
+                value = parser.heat_capacity_cp(
+                    nmol=self.topology.total_molecules, volume=box_volume, start=self.start, units=units
                 )
             elif prop == "cv":
-                value = edr.cv(nmol=self.topology.total_molecules, start_time=self.start_time, units=units)
+                value = parser.heat_capacity_cv(nmol=self.topology.total_molecules, start=self.start, units=units)
             elif prop == "enthalpy":
-                value = edr.molar_enthalpy(
-                    nmol=self.topology.total_molecules, volume=box_volume, start_time=self.start_time, units=units
+                value = parser.molar_enthalpy(
+                    nmol=self.topology.total_molecules, volume=box_volume, start=self.start, units=units
                 )
             elif prop == "isothermal-compressibility":
-                value = edr.isothermal_compressibility(start_time=self.start_time, units=units)
+                value = parser.isothermal_compressibility(start=self.start, units=units)
             elif prop in ("number-density", "molar-volume"):
                 # get molar volume and convert to number density if desired
-                units = units or edr.units["molar-volume"]
+                units = units or parser.units["molar-volume"]
                 units = units if prop == "molar-volume" else f"{units.split('/')[1]}/{units.split('/')[0]}"
-                Vi = edr.molar_volume(
-                    nmol=self.topology.total_molecules, volume=box_volume, start_time=self.start_time, units=units
+                Vi = parser.molar_volume(
+                    nmol=self.topology.total_molecules, volume=box_volume, start=self.start, units=units
                 )
 
                 if prop == "number-density":
@@ -252,17 +278,17 @@ class SystemProperties:
                     value = Vi
 
             else:
-                value = edr.get(prop, start_time=self.start_time, units=units)
+                value = parser.get(prop, start=self.start, units=units)
 
             # now average values if desired
-            if avg or prop in EdrParser.FLUCT_PROPS:
+            if avg or prop in EnergyParser.FLUCT_PROPS:
                 values.append(np.mean(value))
             elif isinstance(value, (list | np.ndarray)):
                 values.extend(value)
-                times.extend(edr.get("time", start_time=self.start_time))
+                x_arr.extend(parser.get(x_key, start=self.start))
 
         # return desired values
-        if avg or prop in EdrParser.FLUCT_PROPS:
+        if avg or prop in EnergyParser.FLUCT_PROPS:
             # Add check before computing mean
             if len(values) > 0:
                 return float(np.mean(values))
@@ -270,9 +296,9 @@ class SystemProperties:
                 return np.nan
         else:
             # place into pd.DataFrame and sort by times; if any duplicates are found--remove them
-            df = pd.DataFrame({"times": times, "values": values})
-            df.sort_values("times", inplace=True)
-            df.drop_duplicates(subset=["times"], keep="first", inplace=True)
+            df = pd.DataFrame({x_key: x_arr, "values": values})
+            df.sort_values(x_key, inplace=True)
+            df.drop_duplicates(subset=[x_key], keep="first", inplace=True)
             arr = df.to_numpy()
             # return times and values if desired
             if time_series:
@@ -280,13 +306,13 @@ class SystemProperties:
             else:
                 return arr[:, 1]
 
-    def timeseries_plotter(self, start_time: int = 0) -> TimeseriesPlotter:
+    def timeseries_plotter(self, start: int = 0) -> TimeseriesPlotter:
         """
         Create a TimeseriesPlotter for visualizing time series data for a given system.
 
         Parameters
         ----------
-        start_time: int
+        start: int
             Initial time for plotting.
 
         Returns
@@ -294,4 +320,4 @@ class SystemProperties:
         TimeseriesPlotter
             Plotter instance for computing simulation energy properties.
         """
-        return TimeseriesPlotter(self, start_time=start_time)
+        return TimeseriesPlotter(self, start=start)

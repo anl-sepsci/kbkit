@@ -1,56 +1,83 @@
-"""Parser for GROMACS energy (.edr) files."""
+"""Parser for GROMACS (.edr) and LAMMPS (.log, .lammps) energy files."""
 
-import re
-import subprocess
-import tempfile
+from enum import Enum, auto
 from functools import cached_property
 from pathlib import Path
 from typing import ClassVar
 
+import MDAnalysis as mda
 import numpy as np
+import pandas as pd
+from lammps_logfile import read_log
 
 from kbkit.config.unit_registry import load_unit_registry
 from kbkit.utils.format import ENERGY_ALIASES, resolve_attr_key
 from kbkit.utils.validation import validate_path
 
 
-class EdrParser:
-    """
-    Interface for extracting energy properties from GROMACS .edr files.
+class EnergyFormat(Enum):
+    """Formatting for various energy types."""
 
-    Wraps `gmx energy` to provide access to available properties in .edr file.
+    LAMMPS = auto()
+    GROMACS = auto()
+
+
+class EnergyParser:
+    """
+    Interface for extracting energy properties from GROMACS .edr and LAMMPS .log/.lammps files.
+
+    Wraps MDAnalysis to provide access to available properties in .edr file.
+    Extracts data from .lammps via lammps_logfile and .log via pandas.
     Supports additional properties, `configurational_enthalpy` and `fluctuation properties` (heat capacity and isothermal compressibility).
     Note that the fluctuation properties return a float object rather than a timeseries.
-
-    Parameters
-    ----------
-    edr_path : str or list[str]
-        Path to an .edr file.
     """
 
-    # Standard GROMACS Unit Mapping
-    # Energies: kJ/mol, Temp: K, Press: bar, Density: kg/m^3
+    LAMMPS_to_GMX: ClassVar = {
+        "Step": "step",
+        "Temp": "temperature",
+        "Press": "pressure",
+        "Density": "density",
+        "Volume": "volume",
+        "PotEng": "potential",
+        "KinEng": "kinetic en.",
+        "TotEng": "total energy",
+    }
+
     GROMACS_UNITS: ClassVar = {
+        "step": "",
         "time": "ps",
         "temperature": "K",
         "pressure": "bar",
         "density": "kg/m^3",
         "volume": "nm^3",
         "potential": "kJ/mol",
-        "kinetic-en": "kJ/mol",
-        "total-energy": "kJ/mol",
+        "kinetic en.": "kJ/mol",
+        "total energy": "kJ/mol",
         "enthalpy": "kJ/mol",
     }
 
+    LAMMPS_UNITS: ClassVar = {
+        "step": "",
+        "time": "ps",
+        "temperature": "K",
+        "pressure": "atm",
+        "density": "g/cm^3",
+        "volume": "angstrom^3",
+        "potential": "kcal/mol",
+        "total energy": "kcal/mol",
+        "enthalpy": "kcal/mol",
+    }
+
     DEFAULT_UNITS: ClassVar = {
+        "step": "",
         "time": "ps",
         "temperature": "K",
         "pressure": "kPa",
         "density": "kg/m^3",
         "volume": "nm^3",
         "potential": "kJ/mol",
-        "kinetic-en": "kJ/mol",
-        "total-energy": "kJ/mol",
+        "kinetic en.": "kJ/mol",
+        "total energy": "kJ/mol",
         "enthalpy": "kJ/mol",
         "cp": "kJ/mol/K",
         "cv": "kJ/mol/K",
@@ -62,142 +89,60 @@ class EdrParser:
     FLUCT_PROPS: ClassVar = ("cp", "cv", "isothermal-compressibility")
 
     def __init__(self, path: str | Path) -> None:
-        # validate edr_path
-        self.edr_path = validate_path(path, suffix=".edr")
+        # validate filepath
+        self.filepath = validate_path(path, suffix=Path(path).suffix)
         # setup unit registry
         self.ureg = load_unit_registry()
         self.Q_ = self.ureg.Quantity
+
+    @property
+    def _energy_format(self) -> EnergyFormat:
+        """Returns energy format for file."""
+        if self.filepath.suffix.lower() in (".edr"):
+            return EnergyFormat.GROMACS
+        elif self.filepath.suffix.lower() in (".log", ".lammps"):
+            return EnergyFormat.LAMMPS
+        else:
+            raise ValueError(
+                f'Energy file with suffix: {self.filepath.suffix} not recognized. Acceptable forms include: ".edr, .log, .lammps".'
+            )
+
+    @property
+    def _md_units(self) -> dict[str, str]:
+        """Returns dictionary of unit mapping for MD engine."""
+        unitmap = {EnergyFormat.GROMACS: self.GROMACS_UNITS, EnergyFormat.LAMMPS: self.LAMMPS_UNITS}
+        return unitmap[self._energy_format]
 
     @cached_property
     def units(self) -> dict[str, str]:
         """Returns a dictionary mapping properties to their units."""
         return self.DEFAULT_UNITS
 
-    def get_gmx_property(self, name: str, avg: bool = False, **kwargs) -> tuple | float:
-        """Extract gromacs property from energy file.
-
-        Parameters
-        ----------
-        name: str
-            Name of property to extract using gmx energy.
-        kwargs: dict[str, str]
-            Dictionary of optional inputs to gmx energy command (e.g., {"-b": 10000})
-
-        Returns
-        -------
-        tuple
-            Tuple of property time series (time, values).
-        """
-        prop_input = name.lower() + "\n\n"
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".xvg", delete=False) as tmp:
-            tmpfile = tmp.name
-
-        try:
-            # first build input list
-            cmd = ["gmx", "energy", "-f", str(self.edr_path), "-o", tmpfile]
-            for k, v in kwargs.items():
-                cmd.extend([str(k), str(v)])
-
-            subprocess.run(
-                cmd,
-                input=prop_input,
-                text=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True,
-            )
-
-            time, values = np.loadtxt(tmpfile, comments=["@", "#"], unpack=True)
-
-        finally:
-            Path(tmpfile).unlink(missing_ok=True)
-
-        return (time, values) if not avg else values.mean()
-
     @cached_property
     def data(self) -> dict[str, np.ndarray]:
-        """Extract energy data from EDR file."""
-        names = set(self._get_property_names())
-        subset = ["time"]
-        subset.extend([prop for prop in self.GROMACS_UNITS.keys() if prop in names])
+        """Extract energy data."""
+        if self.filepath.suffix in (".log", ".lammps"):
+            # get data in pd.DataFrame
+            if self.filepath.suffix == ".log":
+                d = pd.read_csv(self.filepath, sep=r"\s+", skiprows=2).to_dict(orient="list")
+            else:
+                d = read_log(self.filepath)
+            # convert each object to dictionary of arrays
+            d_arr = {}
+            for k, v in d.items():
+                if k in self.LAMMPS_to_GMX:
+                    d_arr[self.LAMMPS_to_GMX[k]] = np.array(v)
+            return d_arr
 
-        if not subset:
-            return {}
+        elif self.filepath.suffix == ".edr":
+            aux = mda.auxiliary.EDR.EDRReader(self.filepath)
+            d = aux.data_dict
+            return {k.lower(): v for k, v in d.items()}
 
-        prop_input = "\n".join(subset) + "\n\n"
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".xvg", delete=False) as tmp:
-            tmpfile = tmp.name
-
-        try:
-            subprocess.run(
-                ["gmx", "energy", "-f", str(self.edr_path), "-o", tmpfile],
-                input=prop_input,
-                text=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True,
+        else:
+            raise ValueError(
+                f'Energy file with suffix: "{self.filepath.suffix}", is not supported. Supported filetypes: ".edr, .log, .lammps".'
             )
-
-            # Parse XVG header to get column order (excluding time)
-            column_names = []
-            with open(tmpfile, "r") as f:
-                for line in f:
-                    if line.startswith("@ s") and "legend" in line:
-                        name = line.split('"')[1]
-                        column_names.append(name)
-
-            # Load data
-            raw_data = np.loadtxt(tmpfile, comments=["@", "#"], unpack=True)
-
-            # Build dictionary: column 0 is time, columns 1+ are the legend entries
-            data = {"time": raw_data[0]}
-
-            for i, col_name in enumerate(column_names):
-                # i corresponds to legend index (s0, s1, s2...)
-                # but data column is i+1 (because column 0 is time)
-                data_column_index = i + 1
-
-                # Normalize XVG name to match your property naming convention
-                # "Kinetic En." -> "Kinetic-En", "Total Energy" -> "Total-Energy"
-                normalized_name = col_name.replace(" ", "-").replace(".", "")
-
-                data[normalized_name.lower()] = raw_data[data_column_index]
-
-        finally:
-            Path(tmpfile).unlink(missing_ok=True)
-
-        return data
-
-    def _get_property_names(self) -> list[str]:
-        """Captures the full list of property names from the GMX menu, handling names with internal spaces or special characters."""
-        process = subprocess.run(
-            ["gmx", "energy", "-f", str(self.edr_path)], check=False, input="\n", capture_output=True, text=True
-        )
-
-        names = []
-        # We look for lines that start with an index number.
-        # Example line: "  1  Bond             2  Angle          3  Proper-Dih."
-        # Note: GMX usually uses a fixed-width format for this menu.
-
-        for line in process.stderr.splitlines():
-            # Only process lines that actually look like the menu
-            if not re.search(r"^\s*\d+\s+", line):
-                continue
-
-            # Split the line into chunks based on the pattern " (number) "
-            # This captures the text between the numbers
-            parts = re.split(r"\s*(\d+)\s+", line)
-
-            # re.split with a capture group returns: ['', '1', 'Name1', '2', 'Name2'...]
-            # We want the elements at indices 2, 4, 6...
-            for i in range(2, len(parts), 2):
-                prop_name = parts[i].strip()
-                if prop_name and not prop_name.isdigit():
-                    names.append(prop_name.lower().replace(".", ""))
-
-        return names
 
     def available_properties(self) -> list[str]:
         """
@@ -210,7 +155,13 @@ class EdrParser:
         """
         return list(dict.fromkeys(self.data))
 
-    def get(self, name: str, start_time: float = 0, units: str | None = None) -> np.ndarray:
+    @property
+    def _x_key(self) -> str:
+        """Return the data key for x-variable depending on format type."""
+        keymap = {EnergyFormat.GROMACS: "time", EnergyFormat.LAMMPS: "step"}
+        return keymap[self._energy_format]
+
+    def get(self, name: str, start: int = 0, units: str | None = None) -> np.ndarray:
         r"""
         Extract time series data for a given property.
 
@@ -218,8 +169,8 @@ class EdrParser:
         ----------
         name : str
             Property name to extract (e.g., "potential", "temperature").
-        start_time : float, optional
-            time (in ps) after which data should be included.
+        start : int, optional
+            Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
         units: str, optional
             Returns property in desired units. If empty, used default values (See :meth:`units`).
 
@@ -244,16 +195,16 @@ class EdrParser:
                 raise KeyError(f"Property {prop_key} is not available.") from e
 
         # get default units from GROMACS
-        gmx_units = self.GROMACS_UNITS.get(prop_key)
+        md_units = self._md_units.get(prop_key)
         units = units or self.units.get(prop_key)
 
         # get values from EDR parser
-        values = all_values[self.data["time"] > start_time]
+        values = all_values[self.data[self._x_key] > start]
         # convert to desired units
-        return self.Q_(values, gmx_units).to(units).magnitude
+        return self.Q_(values, md_units).to(units).magnitude
 
     def molar_volume(
-        self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None
+        self, nmol: int, volume: float = 0, start: int = 0, units: str | None = None
     ) -> np.ndarray | float:
         r"""
         Calculate molar volume of a simulation.
@@ -266,8 +217,8 @@ class EdrParser:
             Number of total molecules in system.
         volume: float, optional
             Simulation box volume.
-        start_time: float, optional
-            Start time for enthalpy calculation.
+        start : int, optional
+            Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).
 
@@ -279,30 +230,30 @@ class EdrParser:
         units = units or self.units.get("molar-volume")
 
         try:
-            V = self.get("volume", start_time=start_time, units="nm^3")
+            V = self.get("volume", start=start, units="nm^3")
         except KeyError:
-            print(f"Warning! 'Volume' not found in '{self.edr_path}'. Falling back on box volume.")
+            print(f"Warning! 'Volume' not found in '{self.filepath}'. Falling back on box volume.")
             V = np.asarray(volume)
 
         molar_vol = V / nmol
         return self.Q_(molar_vol, "nm^3/molecule").to(units).magnitude
 
     def configurational_enthalpy(
-        self, volume: float = 0, start_time: float = 0, units: str | None = None
+        self, volume: float | None = None, start: int = 0, units: str | None = None
     ) -> np.ndarray:
         r"""
-        Calculate enthalpy from potential energy.
+        Calculate configurational enthalpy from potential energy. Not normalized to molecule number in simulation.
 
         If ensemble is NVT, i.e., `volume` is not accessible in .edr file, an input volume is required (i.e., read from bottom of .gro file in :class:`~kbkit.systems.properties.SystemProperties`).
 
         Parameters
         ----------
         volume: float, optional
-            Simulation box volume.
-        start_time: float, optional
-            Start time for enthalpy calculation.
+            Simulation box volume (units: nm:math:`^3`).
+        start : int, optional
+            Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
         units: str, optional
-            Desired output units. Defaults to ``pyedr`` units (kJ/mol).
+            Desired output units. (default: kJ/mol).
 
         Returns
         -------
@@ -322,34 +273,34 @@ class EdrParser:
         """
         units = units or self.units.get("enthalpy")
 
-        U = self.get("potential", start_time=start_time, units="kJ/mol")
-        P = self.get("pressure", start_time=start_time, units="kPa")
+        U = self.get("potential", start=start, units="kJ/mol")
+        P = self.get("pressure", start=start, units="kPa")
         try:
-            V = self.get("volume", start_time=start_time, units="nm^3")
+            V = self.get("volume", start=start, units="nm^3")
         except KeyError:
-            print(f"Warning! 'Volume' not found in '{self.edr_path}'. Falling back on box volume.")
+            print(f"Warning! 'Volume' not found in '{self.filepath}'. Falling back on box volume.")
+            if volume is None:
+                raise ValueError("Volume cannot be Nonetype!") from None
             V = np.asarray(volume)
         V = self.Q_(V, "nm^3").to("m^3").magnitude
 
         H = U + P * V
         return self.Q_(H, "kJ/mol").to(units).magnitude
 
-    def molar_enthalpy(
-        self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None
-    ) -> np.ndarray:
+    def molar_enthalpy(self, nmol: int, volume: float = 0, start: int = 0, units: str | None = None) -> np.ndarray:
         r"""
-        Calculate molar enthalpy.
+        Calculate molar enthalpy. Configurational enthalpy is normalized to the total molecule number in simulation.
 
         Parameters
         ----------
         nmol: int
             Number of total molecules in system.
         volume: float, optional
-            Simulation box volume.
-        start_time: float, optional
-            Start time for enthalpy calculation.
+            Simulation box volume (units: nm:math:`^3`).
+        start : int, optional
+            Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
         units: str, optional
-            Desired output units. Defaults to ``pyedr`` units (kJ/mol).
+            Desired output units. (default: kJ/mol).
 
         Returns
         -------
@@ -363,23 +314,25 @@ class EdrParser:
         # get desired units
         units = units or self.units.get("enthalpy")
 
-        H = self.configurational_enthalpy(volume=volume, start_time=start_time, units=units)
+        H = self.configurational_enthalpy(volume=volume, start=start, units=units)
         return H / nmol
 
-    def cp(self, nmol: int, volume: float = 0, start_time: float = 0, units: str | None = None) -> float:
+    def heat_capacity_cp(
+        self, nmol: int, volume: float | None = None, start: int = 0, units: str | None = None
+    ) -> float:
         r"""
-        Calculate constant pressure heat capacity from :meth:`configurational_enthalpy`.
+        Calculate molar constant pressure heat capacity from :meth:`configurational_enthalpy`. Heat capacity is normalized to the total number of molecules in simulation.
 
         Parameters
         ----------
         nmol: int
             Number of total molecules in system.
         volume: float, optional
-            Simulation box volume.
-        start_time: float, optional
-            Start time for enthalpy calculation.
+            Simulation box volume (units: nm:math:`^3`).
+        start : int, optional
+            Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
         units: str, optional
-            Desired output units. Defaults to ``pyedr`` units (kJ/mol).
+            Desired output units. (default: kJ/mol).
 
         Returns
         -------
@@ -405,8 +358,8 @@ class EdrParser:
         units = units or self.units.get("cp")
 
         # get enthalpy from potential energy
-        H = self.configurational_enthalpy(volume=volume, start_time=start_time, units="kJ/mol")
-        T = self.get("temperature", start_time=start_time)
+        H = self.configurational_enthalpy(volume=volume, start=start, units="kJ/mol")
+        T = self.get("temperature", start=start)
         T_avg = T.mean()
         R = self.ureg("R").to("kJ/mol/K").magnitude
 
@@ -414,16 +367,16 @@ class EdrParser:
         cp = H.var(ddof=1) / nmol / (R * T_avg**2)
         return self.Q_(cp, "kJ/mol/K").to(units).magnitude
 
-    def cv(self, nmol: int, start_time: float = 0, units: str | None = None) -> float:
+    def heat_capacity_cv(self, nmol: int, start: int = 0, units: str | None = None) -> float:
         r"""
-        Calculate constant volume heat capacity.
+        Calculate molar constant volume heat capacity. Heat capacity is normalized to the total number of molecules in simulation.
 
         Parameters
         ----------
         nmol: int
             Number of total molecules in system.
-        start_time: float, optional
-            Start time for enthalpy calculation.
+        start : int, optional
+            Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).
 
@@ -451,8 +404,8 @@ class EdrParser:
         units = units or self.units.get("cv")
 
         # get energy properties from potential energy
-        U = self.get("potential", start_time=start_time, units="kJ/mol")
-        T = self.get("temperature", start_time=start_time)
+        U = self.get("potential", start=start, units="kJ/mol")
+        T = self.get("temperature", start=start)
         T_avg = T.mean()
         R = self.ureg("R").to("kJ/mol/K").magnitude
 
@@ -460,14 +413,14 @@ class EdrParser:
         cv = U.var(ddof=1) / nmol / (R * T_avg**2)
         return self.Q_(cv, "kJ/mol/K").to(units).magnitude
 
-    def isothermal_compressibility(self, start_time: float = 0, units: str | None = None) -> float:
+    def isothermal_compressibility(self, start: int = 0, units: str | None = None) -> float:
         r"""
         Isothermal compressibility.
 
         Parameters
         ----------
-        start_time: float, optional
-            Start time for enthalpy calculation.
+        start : int, optional
+            Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
         units: str, optional
             Desired output units. Defaults to ``pyedr`` units (kJ/mol).
 
@@ -477,7 +430,7 @@ class EdrParser:
             Isothermal compressibility.
         """
         try:
-            V = self.get("volume", start_time=start_time, units="m^3")
+            V = self.get("volume", start=start, units="m^3")
         except KeyError as e:
             raise KeyError("Isothermal Compressibility cannot be calculated from constant volume simulation!") from e
 
@@ -485,6 +438,6 @@ class EdrParser:
 
         R = self.ureg("R").to("kJ/mol/K").magnitude
         N_A = self.ureg("N_A").to("1/mol").magnitude
-        T = self.get("Temperature", start_time=start_time)
+        T = self.get("Temperature", start=start)
         kT = N_A * V.var(ddof=1) / (V.mean() * R * T.mean())
         return self.Q_(kT, "1/kPa").to(units).magnitude

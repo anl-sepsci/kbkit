@@ -39,19 +39,6 @@ Properties in this category include:
     - structure factors,
     - any quantity derived directly from the KBI matrix that doesn't rely on activity coefficients or excess Gibbs energy contributions.
 
-Requirements for automated thermodynamic analysis
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- A composition series with one simulation directory per composition point.
-- Each directory must contain:
-    * a structure file (.gro),
-    * an energy file (.edr),
-    * a subdirectory containing RDF files (.xvg) for each pairwise interaction.
-- Pure-component simulations are required for:
-    * mixing enthalpy,
-    * excess molar volume,
-    * decoupling enthalpic and entropic contributions.
-
-
 The pipeline stores all intermediate objects for reproducibility and supports high-throughput mixture sweeps and automated KB analysis.
 """
 
@@ -87,8 +74,8 @@ class Pipeline:
         Explicit list of system names to include.
     rdf_dir: str, optional
         Explicit directory name that contains rdf files.
-    start_time : int, optional
-        Start time for time-averaged properties.
+    start : int, optional
+        Starting point for when data should be used. GROMACS: time (ps), LAMMPS: timestep (i.e., for 1 fs steps, start=1000--start at 1 ps).
     include_mode: str, optional
         Optional string to filter files (.edr, .gro, .top) if multiple are found of a given type.
     weight_type: str, optional
@@ -116,7 +103,7 @@ class Pipeline:
         pure_path: str | None = None,
         pure_systems: list[str] | None = None,
         rdf_dir: str = "",
-        start_time: int = 10000,
+        start: int = 10000,
         include_mode: str = "npt",
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
         errors: Literal["raise", "warn", "ignore"] = "warn",
@@ -124,14 +111,14 @@ class Pipeline:
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
         activity_polynomial_degree: int = 5,
         molecule_map: dict[str, str] | None = None,
-        charges: dict[str, int] | None = None
+        charges: dict[str, int] | None = None,
     ) -> None:
         self.base_path = base_path
         self.base_systems = base_systems
         self.pure_path = pure_path
         self.pure_systems = pure_systems
         self.rdf_dir = rdf_dir
-        self.start_time = start_time
+        self.start = start
         self.include_mode = include_mode
         self.weight_type = weight_type
         self.errors = errors
@@ -150,9 +137,9 @@ class Pipeline:
             pure_path=self.pure_path,
             pure_systems=self.pure_systems,
             rdf_dir=self.rdf_dir,
-            start_time=self.start_time,
+            start=self.start,
             include_mode=self.include_mode,
-            charges=self.charges
+            charges=self.charges,
         )
 
     @cached_property
@@ -188,14 +175,14 @@ class Pipeline:
         res_dict.update(self.thermo.results)
         return res_dict
 
-    def timeseries_plotter(self, system: str, start_time: int = 0) -> "TimeseriesPlotter":
+    def timeseries_plotter(self, system: str, start: int = 0) -> "TimeseriesPlotter":
         """Plotter for visualizing property timeseries.
 
         Returns
         -------
         TimeseriesPlotter
         """
-        return self.systems.timeseries_plotter(system, start_time)
+        return self.systems.timeseries_plotter(system, start)
 
     @property
     def kbi_plotter(self) -> "KBIAnalysisPlotter":

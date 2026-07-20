@@ -189,8 +189,11 @@ class KBICalculator:
         if cache_key in self._cache:
             return self._cache[cache_key].to(units)
 
-        kbis = self.residue_kbi(units=units).value
-        residues = self.systems.residue_molecules
+        kbi_res = self.residue_kbi(units=units)
+        kbis = kbi_res.value
+        metadata = kbi_res.metadata
+
+        residues = list(self.systems.residue_molecules)
         new_molecules = self.systems.electrolyte_molecules
         nmol_new = len(new_molecules)
         MAX_SALT = 2
@@ -256,11 +259,7 @@ class KBICalculator:
             new_kbis[:, j, k] = value
             new_kbis[:, k, j] = value
 
-        result = PropertyResult(
-            name="electrolyte_kbi",
-            value=new_kbis,
-            units=units,
-        )
+        result = PropertyResult(name="electrolyte_kbi", value=new_kbis, units=units, metadata=metadata)
 
         self._cache[cache_key] = result
         return result

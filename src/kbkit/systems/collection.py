@@ -8,8 +8,6 @@ The purpose of `SystemCollection` is to load a set of systems and access :class:
 """
 
 import itertools
-import os
-import re
 from collections import defaultdict
 from functools import cached_property
 from pathlib import Path
@@ -17,9 +15,6 @@ from typing import Any, Literal
 
 import numpy as np
 
-from kbkit.io import EdrParser
-
-# if TYPE_CHECKING:
 from kbkit.schema.property_result import PropertyResult
 from kbkit.schema.system_metadata import SystemMetadata
 from kbkit.systems.properties import SystemProperties
@@ -49,13 +44,15 @@ class SystemCollection:
     def __init__(
         self, systems: list["SystemMetadata"], molecules: list[str], charges: dict[str, int] | None = None
     ) -> None:
-        self._systems = systems
+        self._systems = self._sort_systems(systems=systems, molecules=molecules)
         self._residue_molecules = molecules  # Global unique molecules used for sorting
-        self._lookup = {s.name: s for s in systems}
+        self._lookup = {s.name: s for s in self._systems}
         self._cache: dict[tuple, PropertyResult] = {}
         # user-provided charges; if None or empty -> neutral behavior
         self.charges: dict[str, int] = charges or {}
-        self.system_names = list(self._lookup.keys()) # just get list of system names--without iterating through objects
+        self.system_names = list(
+            self._lookup.keys()
+        )  # just get list of system names, without iterating through objects
 
     def __getattr__(self, name: str) -> Any:
         """Get attributes from system metadata or SystemProperties object."""
@@ -103,7 +100,7 @@ class SystemCollection:
         pure_path: str | None = None,
         pure_systems: list[str] | None = None,
         rdf_dir: str = "",
-        start_time: int = 10000,
+        start: int = 10000,
         include_mode: str = "npt",
         charges: dict[str, int] | None = None,
     ) -> "SystemCollection":
@@ -122,10 +119,10 @@ class SystemCollection:
             Explicit list of system names to include.
         rdf_dir: str, optional
             Explicit directory name that contains rdf files.
-        start_time : int, optional
+        start : int, optional
             Start time for time-averaged properties.
         include_mode: str, optional
-            Optional string to filter files (.edr, .gro, .top) if multiple are found of a given type.
+            Optional string to filter energy and topology files, if multiple are found of a given type.
         charges: dict[str, int], optional
             Optional charge dictionary for ions.
 
@@ -134,140 +131,50 @@ class SystemCollection:
         SystemCollection
             Registry object containing global molecules and list of :class:`~kbkit.schema.system_metadata.SystemMetadata`.
         """
-        valid_base_path = validate_path(base_path or os.getcwd())
+        # validate paths
+        valid_base_path = validate_path(base_path or Path(".").resolve())
+        valid_pure_path = validate_path(pure_path or Path(".").resolve())
 
-        # 1. Resolve Mixture (Base) Systems
-        if base_systems:
+        # Resolve Mixture (Base) Systems
+        if base_systems is not None:
             mixture_dirs = [valid_base_path / s for s in base_systems if cls._is_valid(valid_base_path / s)]
         else:
             mixture_dirs = [f for f in valid_base_path.iterdir() if cls._is_valid(f)]
 
-        # 2. RESOLVE MOLECULES FROM INSIDE MIXTURE FILES
-        # This replaces the failing folder-name logic
-        detected_molecules = set()
-        for d in mixture_dirs:
-            detected_molecules.update(cls._peek_molecules(d))
-
-        # Consistent ordering (alphabetical) for the mol_fraction vector
-        ordered_mols = sorted(detected_molecules)
-
-        # 3. Resolve Pure Reference Path
-        valid_pure_root = validate_path(pure_path) if pure_path else cls._find_reference_dir(valid_base_path)
-
+        # Now repeat for pure systems
         pure_dirs = []
-        if pure_systems:
+        if pure_systems is not None:
             for name in pure_systems:
                 match = (
-                    next((f for f in valid_pure_root.iterdir() if f.name == name), None) if valid_pure_root else None
+                    next((f for f in valid_pure_path.iterdir() if f.name == name), None) if valid_pure_path else None
                 ) or next((f for f in mixture_dirs if f.name == name), None)
                 if match:
                     pure_dirs.append(match)
-        elif valid_pure_root and ordered_mols:
-            # Use detected molecule names to find pure references
-            temp = cls._extract_temp(mixture_dirs[0])
-            pure_map = cls._find_pure_systems(valid_pure_root, ordered_mols, temp)
-            pure_dirs = list({p for p in pure_map.values() if p is not None})
 
-        # 4. Build Metadata (Finding RDF path before instantiation)
+        # Build Metadata (Finding RDF path before instantiation)
         meta_objects = []
         found_pure_paths = {p.resolve() for p in pure_dirs}
 
         # Create Pure Metadata
         for p in pure_dirs:
             r_path = cls._resolve_rdf_path(p, rdf_dir, is_pure=True)
-            meta_objects.append(
-                cls._make_meta(p, kind="pure", rdf_path=r_path, start_time=start_time, include=include_mode)
-            )
+            meta_objects.append(cls._make_meta(p, kind="pure", rdf_path=r_path, start=start, include=include_mode))
 
         # Create Mixture Metadata
+        ordered_mols = set()
         for p in mixture_dirs:
             if p.resolve() not in found_pure_paths:
                 r_path = cls._resolve_rdf_path(p, rdf_dir, is_pure=False)
-                meta_objects.append(
-                    cls._make_meta(p, kind="mixture", rdf_path=r_path, start_time=start_time, include=include_mode)
-                )
+                meta_p = cls._make_meta(p, kind="mixture", rdf_path=r_path, start=start, include=include_mode)
+                meta_objects.append(meta_p)
 
-        # 5. Final Sort
-        sorted_meta = cls._sort_systems(meta_objects, ordered_mols)
-        return cls(sorted_meta, ordered_mols, charges=charges)
+                mols_present = meta_p.props.topology.molecules
+                for mol in mols_present:
+                    ordered_mols.add(mol)
+
+        return cls(meta_objects, ordered_mols, charges=charges)
 
     # --- Setting up files/systems for system metadata ---
-
-    @staticmethod
-    def _peek_molecules(path: Path) -> set:
-        """Quickly extracts residue/molecule names from .top or .gro without full parsing."""
-        mols = set()
-        # Try .top first (cleanest)
-        top_file = next(path.glob("*.top"), None)
-        if top_file:
-            with open(top_file, "r") as f:
-                for line in f:
-                    if "[ molecules ]" in line.lower():
-                        for m_line in f:
-                            p = m_line.split()
-                            if p and not p[0].startswith(";"):
-                                mols.add(p[0])
-                        break
-        # Fallback to .gro header peek
-        if not mols:
-            gro_file = next(path.glob("*.gro"), None)
-            GRO_LIMIT = 10
-            if gro_file:
-                with open(gro_file, "r") as f:
-                    for _ in range(100):
-                        line = f.readline()
-                        if len(line) < GRO_LIMIT:
-                            continue
-                        res = line[5:10].strip()
-                        if res and not res.isdigit():
-                            mols.add(res)
-        return mols
-
-    @staticmethod
-    def _find_pure_systems(pure_base_path: Path, mixture_molecules: list[str], target_temp: float):
-        """Search for pure component systems in a desired path, matching molecules present at a given temperature."""
-        pure_subdirs = [p for p in pure_base_path.iterdir() if p.is_dir()]
-        TEMP_THRESHOLD = 2.0
-        results = {}
-        for mol in mixture_molecules:
-            potential_dirs = []
-            for d in pure_subdirs:
-                # Reference folder names usually DO contain the molecule name
-                if mol.lower() in d.name.lower():
-                    t = SystemCollection._extract_temp(d)
-                    if t and abs(t - target_temp) <= TEMP_THRESHOLD:
-                        potential_dirs.append(d)
-            if potential_dirs:
-
-                def score_dir(folder):
-                    return sum(1 for m in mixture_molecules if m.lower() in folder.name.lower())
-
-                results[mol] = max(potential_dirs, key=score_dir)
-        return results
-
-    @staticmethod
-    def _extract_temp(input: str | Path) -> float:
-        """Extract temperature from a string or file."""
-        path = Path(input)
-        # first try to match temp from filename
-        match = re.search(r"(\d{3}(?:\.\d+)?)", path.name)
-        if match:
-            return float(match.group(1))
-        # then get it from edr file
-        if path.is_file() and path.suffix == ".edr":
-            edr = EdrParser(str(path))
-        # if its directory;
-        elif path.is_dir():
-            edr_files = SystemProperties.find_files(suffix=".edr", system_path=input)
-            edr = EdrParser(str(edr_files[0]))
-        # if all has failed raise
-        else:
-            raise ValueError("Temperature is not in pathname and can not be extracted from .edr file!")
-
-        temp = edr.get_gmx_property("temperature", avg=True)
-        if isinstance(temp, float):
-            return temp
-        raise TypeError(f"Expected float, {type(temp)} observed.")
 
     @staticmethod
     def _is_valid(path: Path, deep: bool = False) -> bool:
@@ -275,21 +182,14 @@ class SystemCollection:
         pattern = "**/*" if deep else "*"
         return (
             path.is_dir()
-            and any(path.glob(f"{pattern}.edr"))
-            and (any(path.glob(f"{pattern}.gro")) or any(path.glob(f"{pattern}.top")))
-        )
-
-    @staticmethod
-    def _find_reference_dir(start_path: Path) -> Path:
-        """Search upwards from the ``start_path`` to find pure component parent directory."""
-        keywords = ["pure", "single", "ref", "neat"]
-        for parent in [start_path, *list(start_path.parents)]:
-            for word in keywords:
-                for candidate in parent.glob(f"*{word}*"):
-                    if SystemCollection._is_valid(candidate, deep=True):
-                        return candidate
-        raise FileNotFoundError(
-            f"No parent directories for pure-components were found containing keywords: {keywords}."
+            and (
+                any(path.glob(f"{pattern}.edr"))
+                or any(path.glob(f"{pattern}.log"))
+                or any(path.glob(f"{pattern}.lammps"))
+            )
+            and (
+                any(path.glob(f"{pattern}.gro")) or any(path.glob(f"{pattern}.top")) or any(path.glob(f"{pattern}.lmp"))
+            )
         )
 
     @staticmethod
@@ -370,8 +270,8 @@ class SystemCollection:
 
         for i, (cat, an) in enumerate(salt_pairs):
             try:
-                cat_idx = self._residue_molecules.index(cat)
-                an_idx = self._residue_molecules.index(an)
+                cat_idx = list(self._residue_molecules).index(cat)
+                an_idx = list(self._residue_molecules).index(an)
             except ValueError as e:
                 raise ValueError(f"Salt component '{cat}' or '{an}' not found in residue_molecules.") from e
 
@@ -401,8 +301,8 @@ class SystemCollection:
         """Build canonical salt names like: - Na.Cl - Ca.Cl2."""
         names: list[str] = []
         for col_idx, (c, a) in enumerate(salt_pairs):
-            c_idx = self._residue_molecules.index(c)
-            a_idx = self._residue_molecules.index(a)
+            c_idx = list(self._residue_molecules).index(c)
+            a_idx = list(self._residue_molecules).index(a)
             n_c = int(nu[c_idx, col_idx])
             n_a = int(nu[a_idx, col_idx])
             # we encode stoichiometry on anion side: Ca.Cl2, Na.Cl
@@ -421,7 +321,14 @@ class SystemCollection:
     @cached_property
     def residue_counts(self) -> np.ndarray:
         """np.ndarray: (N_systems, N_residues) mole fractions in residue basis."""
-        return self.x * self.total_molecules[:, np.newaxis]
+        # return self.x * self.total_molecules[:, np.newaxis]
+        data = []
+        for s in self._systems:
+            counts = s.props.topology.molecule_count
+            total = s.props.topology.total_molecules
+            row = [counts.get(m, 0) if total > 0 else 0.0 for m in self._residue_molecules]
+            data.append(row)
+        return np.array(data)
 
     @cached_property
     def residue_x(self) -> np.ndarray:
@@ -470,7 +377,7 @@ class SystemCollection:
             raise ValueError("At least one system has total count zero after salt reconstruction.")
         new_x = new_N / totals
 
-        neutral_names = list(np.array(self._residue_molecules)[neutral_mask])
+        neutral_names = list(np.array(list(self._residue_molecules))[neutral_mask])
         salt_names = list(self._canonical_salt_names(salt_pairs, nu))
         new_molecules = neutral_names + salt_names
 
@@ -639,7 +546,13 @@ class SystemCollection:
         units = units or self.get_units(name)
 
         pure_dict = self._build_pure_lookup(name, units, avg)
-        return np.array([pure_dict[mol] for mol in self.molecules])
+        values = np.full(len(self.molecules), fill_value=np.nan)
+        for i, mol in enumerate(self.molecules):
+            try:
+                values[i] = pure_dict[mol]
+            except KeyError:
+                continue
+        return values
 
     @cached_property_value()
     def ideal_property(
@@ -772,7 +685,7 @@ class SystemCollection:
             "x": PropertyResult(name="x", value=self.x),
         }
         for prop, units in self.units.items():
-            if "time" in prop.lower():
+            if ("time" in prop.lower()) or ("step" in prop.lower()):
                 continue
             results.update(add_property(prop, units))
 
@@ -836,7 +749,7 @@ class SystemCollection:
 
         return pure_lookup
 
-    def timeseries_plotter(self, system: str, start_time: int = 0) -> TimeseriesPlotter:
+    def timeseries_plotter(self, system: str, start: int = 0) -> TimeseriesPlotter:
         """
         Create a TimeseriesPlotter for visualizing time series data for a given system.
 
@@ -844,7 +757,7 @@ class SystemCollection:
         ----------
         system: str
             System to use for visualizing timeseries.
-        start_time: int
+        start: int
             Initial time for plotting.
 
         Returns
@@ -852,4 +765,4 @@ class SystemCollection:
         TimeseriesPlotter
             Plotter instance for computing simulation energy properties.
         """
-        return TimeseriesPlotter.from_collection(self, system_name=system, start_time=start_time)
+        return TimeseriesPlotter.from_collection(self, system_name=system, start=start)
