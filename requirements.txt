@@ -31,3 +31,4 @@ stubs
 mdanalysis
 lammps_logfile
 periodictable
+openpyxl
