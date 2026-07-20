@@ -83,6 +83,9 @@ ignore = [
     "PLR2004", # Magic value
     "E501", # Line too long
     "D401", # First line of docstring should be in imperative mood
+    "RUF043", # use a raw string or 're.escape()' to make intention explicit
+    "PLW0108", # lambda fn may be unnecarry, consider inner fn
+    "N813", # camelcase imported as lowercase
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -130,6 +133,7 @@ ignore = [
     "E741",
     "F601",
     "N816",
+    "RUF059",
 ]
 
 [tool.ruff.lint.pydocstyle]
