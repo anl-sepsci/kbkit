@@ -48,7 +48,7 @@ class KBIAnalysisPlotter:
 
         for sys, mol_dict in self.metadata.items():
             for mols, kbi_obj in mol_dict.items():
-                filepath = savepath / f"{sys}_{'_'.join(mols)}.pdf" if savepath is not None else None
+                filepath = (Path(savepath) / f"{sys}_{'_'.join(mols)}.pdf") if savepath else None
                 if kbi_obj.weight_type == "geometric":
                     kbi_obj.plot_kbi_compare_extrapolation(
                         weight_types=[kbi_obj.weight_type], add_kbi_value=add_kbi_value, cmap=cmap, filepath=filepath

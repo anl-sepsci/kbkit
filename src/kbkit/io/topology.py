@@ -216,9 +216,10 @@ class TopologyParser:
         indices = np.searchsorted(self._element_masses, unique_masses)
         n_known = len(self._element_masses)
 
-        unique_electrons = np.full(len(unique_masses), -1, dtype=np.int32)
+        unique_electrons: np.ndarray = np.full(len(unique_masses), -1, dtype=np.int32)
 
-        for i, (mass, idx) in enumerate(zip(unique_masses, indices, strict=False)):
+        # type: ignore[call-overload]  # numpy scalar is iterable at runtime, mypy stubs are overly strict
+        for i, (mass, idx) in enumerate(zip(unique_masses, indices, strict=False)): # type: ignore[call-overload]
             best_delta = tolerance
             best_electrons = -1
 

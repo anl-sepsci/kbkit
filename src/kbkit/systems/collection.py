@@ -172,7 +172,7 @@ class SystemCollection:
                 for mol in mols_present:
                     ordered_mols.add(mol)
 
-        return cls(meta_objects, ordered_mols, charges=charges)
+        return cls(meta_objects, list(ordered_mols), charges=charges)
 
     # --- Setting up files/systems for system metadata ---
 
