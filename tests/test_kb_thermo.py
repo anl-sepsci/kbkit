@@ -77,15 +77,15 @@ def kb_thermo(mock_system_collection, mock_kbi_result):
 
     # Fix: Make sure all lambda functions accept both name and units
     mock_system_collection.simulated_property = Mock(
-        side_effect=lambda name, units=None: np.array([298.15, 298.15, 298.15])
-        if "temp" in name.lower()
-        else np.array([0.033, 0.033, 0.033])  # number density
+        side_effect=lambda name, units=None: (
+            np.array([298.15, 298.15, 298.15]) if "temp" in name.lower() else np.array([0.033, 0.033, 0.033])
+        )  # number density
     )
 
     mock_system_collection.ideal_property = Mock(
-        side_effect=lambda name, units=None: np.array([18.0, 18.0, 18.0])
-        if "volume" in name.lower()
-        else np.array([9.2, 9.0, 8.8])  # electron count (weighted by composition)
+        side_effect=lambda name, units=None: (
+            np.array([18.0, 18.0, 18.0]) if "volume" in name.lower() else np.array([9.2, 9.0, 8.8])
+        )  # electron count (weighted by composition)
     )
 
     mock_system_collection.pure_property = Mock(side_effect=lambda name=None: np.array([10, 8]))

@@ -642,10 +642,10 @@ class KBThermo:
             lng_sorted = cumulative_trapezoid(dlng_sorted, xi_sorted, initial=0)
             lng_sorted -= lng_sorted[ref_idx]  # Set lng(x_ref) = 0
         else:
-            # Insert reference point
-            xi_with_ref: np.ndarray = np.insert(xi_sorted, ref_idx, x_ref)
-            dlng_with_ref: np.ndarray = np.insert(dlng_sorted, ref_idx, 0.0)
-            lng_sorted = cumulative_trapezoid(dlng_with_ref, xi_with_ref, initial=0)
+            # Insert reference point & sort in descending order for integration
+            xi_with_ref: np.ndarray = np.insert(xi_sorted, ref_idx, x_ref)[::-1]
+            dlng_with_ref: np.ndarray = np.insert(dlng_sorted, ref_idx, 0.0)[::-1]
+            lng_sorted = cumulative_trapezoid(dlng_with_ref, xi_with_ref, initial=0)[::-1]
             lng_sorted = np.delete(lng_sorted, ref_idx)  # Remove inserted point
 
         # Unsort to match original order

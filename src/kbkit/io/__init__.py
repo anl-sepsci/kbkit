@@ -1,8 +1,7 @@
-"""File format parsers for GROMACS outputs."""
+"""File format parsers for MD outputs."""
 
-from kbkit.io.edr import EdrParser
-from kbkit.io.gro import GroParser
+from kbkit.io.energy import EnergyFormat, EnergyParser
 from kbkit.io.rdf import RdfParser
-from kbkit.io.top import TopParser
+from kbkit.io.topology import TopologyFormat, TopologyParser
 
-__all__ = ["EdrParser", "GroParser", "RdfParser", "TopParser"]
+__all__ = ["EnergyFormat", "EnergyParser", "RdfParser", "TopologyFormat", "TopologyParser"]

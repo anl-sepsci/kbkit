@@ -79,7 +79,7 @@ rdf_path = Path(system_path) / "kbi_rdf_files_50ns" / "rdf_ETHOL_ETHOL.xvg"
 # create integrator object from single RDF file
 integrator = KBIntegrator.from_rdf(
     rdf=rdf_path,
-    system_properties=SystemProperties(syspath, start_time=10000),
+    system_properties=SystemProperties(syspath, start=10000),
 )
 
 # calculate KBI in thermodynamic limit
@@ -102,7 +102,7 @@ pipe = Pipeline(
     pure_systems=["ETHOL_300", "SPCEW_300"],  # pure-component subdirectories
     base_path="./test_data/ethanol_water_26C",  # path to parent directory containing mixture subdirectories
     rdf_dir="kbi_rdf_files",  # name for rdf-file subdirectory in each mixture directory (this needs to be the same in each system.)
-    start_time=10000,  # start time (ps) for calculating MD properties (from energy file)
+    start=10000,  # start time (ps) for calculating MD properties (from energy file)
     include_mode="npt",  # string required in MD output files to be a 'valid' filename
     errors="warn",  # prints ConvergenceError & returns NaN for non-converged values
     molecule_map={
@@ -135,28 +135,26 @@ The figure above demonstrates that our implementation produces results consisten
 
 ## File Organization
 
-For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that separates mixed systems from pure components.
+For running `kbkit.Pipeline` or its dependencies, the following file structure is required: a structured directory layout that contains a subfolder containing RDF files, an individual file for each pairwise molecule interaction.
 This organization enables automated parsing, reproducible KB integrals, and scalable analysis across chemical systems.
 
-* NOTE: **KBKit** currently only supports parsing for *GROMACS* files.
+* NOTE: **KBKit** currently supports parsing for *GROMACS* and *LAMMPS* files.
 
-An example of file structure:
+An example of file structure (for a *GROMACS* simulation):
 
 ```python
-kbi_dir/
-├── project/
-│   └── system/
-│       ├── rdf_dir/
-│       │   ├── mol1_mol1.xvg
-│       │   ├── mol1_mol2.xvg
-│       │   └── mol1_mol2.xvg
-│       ├── system_npt.edr
-│       ├── system_npt.gro
-│       └── system.top
-└── pure_components/
-    └── molecule1/
-        ├── molecule1_npt.edr
-        └── molecule1.top
+project/
+├── system/
+│   ├── rdf_dir/
+│   │   ├── mol1_mol1.xvg
+│   │   ├── mol1_mol2.xvg
+│   │   └── mol1_mol2.xvg
+│   ├── system_npt.edr
+│   ├── system_npt.gro
+│   └── system.top
+└── molecule1/
+    ├── molecule1_npt.edr
+    └── molecule1.top
 ```
 
 **Requirements:**
@@ -164,12 +162,46 @@ kbi_dir/
 * Each system to be analyzed must include:
     * rdf_dir/ containing .xvg RDF files for all pairwise interactions
         * Both molecule IDs in RDF calculation *MUST BE* in filename
-    * either .top topology file or .gro structure file (.gro is recommended)
-    * .edr energy file
-* Each pure component must include:
-    * either .top topology file or .gro structure file (.gro is recommended)
-    * .edr energy file
-    * all other files (optional)
+    * Topology file: .gro, .top, .lmp
+    * Energy file: .edr, .log, .lammps
+
+* NOTE: for pure components, just Topology and Energy files are required, RDF files are optional and used only for KBI's, not for thermodynamic analysis.
+
+## Citations & References
+
+### Cite the Software (JCIM Paper)
+
+If you use this Python package in your research, please cite our peer-reviewed paper in the *Journal of Chemical Information and Modeling*:
+
+```bibtex
+@article{peroutka2026jcim,
+  author  = {Allison A. Peroutka and G. Brian Stephenson and Michael J. Servis},
+  title   = {KBKit: A Python Toolkit for Kirkwood–Buff Theory from Molecular Dynamics},
+  journal = {Journal of Chemical Information and Modeling},
+  volume  = {66},
+  issue   = {12},
+  pages   = {6821-6828},
+  year    = {2026},
+  doi     = {10.1021/acs.jcim.6c00344}
+}
+```
+
+### Applied Research
+
+Examples of how this package has been applied:
+
+```bibtex
+@article{peroutka2026chemsci,
+  author  = {Allison A. Peroutka and G. Brian Stephenson and Michael J. Servis},
+  title   = {From Molecular to Macroscopic: Predicting Liquid-Liquid Phase Equilibria and Small-Angle Scattering of Mixtures of Organic Liquids from Atomistic Simulation using Kirkwood-Buff Theory },
+  journal = {Chemical Science},
+  volume  = {17},
+  issue   = {21},
+  pages   = {10411-10421},
+  year    = {2026},
+  doi     = {10.1039/d6sc03294j}
+}
+```
 
 ## Credits
 

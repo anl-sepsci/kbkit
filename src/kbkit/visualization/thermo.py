@@ -417,7 +417,7 @@ class ThermoPlotter:
         ax.plot(xi, self.thermo.g_ex(), label=r"$G^{EX}$", **kwargs)
         ax.plot(
             xi,
-            -self.thermo.temperature() * self.thermo.g_id() / self.thermo.temperature(),
+            self.thermo.g_id(),
             label=r"$-TS^{id}$",
             **kwargs,
         )

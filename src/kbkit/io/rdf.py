@@ -108,6 +108,10 @@ class RdfParser:
 
         # find matches of pattern in filename
         matches = re.findall(pattern, text)
+        if len(matches) != 2:
+            raise ValueError(
+                f"Unable to find both molecules for RDF present in input text, result={matches}. Check that name of rdf file contains both selected and reference molecule name, corresponding to `molecule` type in topology."
+            )
         return matches
 
     def plotRDF(self, axhandle, **kwargs) -> None:
