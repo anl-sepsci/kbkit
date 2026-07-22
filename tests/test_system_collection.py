@@ -1,31 +1,33 @@
 """Unit tests for SystemCollection class."""
 
-import pytest
-import numpy as np
-from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
 import warnings
-warnings.filterwarnings('ignore')
+from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, patch
+
+import numpy as np
+import pytest
+
+warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------------------------
 # Module path — adjust if layout changes
 # ---------------------------------------------------------------------------
 _MODULE = "kbkit.systems.collection"
 
-_VALIDATE_PATH    = f"{_MODULE}.validate_path"
-_SYSTEM_PROPS     = f"{_MODULE}.SystemProperties"
-_SYSTEM_META      = f"{_MODULE}.SystemMetadata"
-_TIMESERIES       = f"{_MODULE}.TimeseriesPlotter"
-_RESOLVE_KEY      = f"{_MODULE}.resolve_attr_key"
+_VALIDATE_PATH = f"{_MODULE}.validate_path"
+_SYSTEM_PROPS = f"{_MODULE}.SystemProperties"
+_SYSTEM_META = f"{_MODULE}.SystemMetadata"
+_TIMESERIES = f"{_MODULE}.TimeseriesPlotter"
+_RESOLVE_KEY = f"{_MODULE}.resolve_attr_key"
 
-from kbkit.systems.collection import SystemCollection
-from kbkit.schema.system_metadata import SystemMetadata
 from kbkit.schema.property_result import PropertyResult
-
+from kbkit.schema.system_metadata import SystemMetadata
+from kbkit.systems.collection import SystemCollection
 
 # ===========================================================================
 # Helpers / Factories
 # ===========================================================================
+
 
 def _make_mock_topology(
     molecule_count: dict,
@@ -103,6 +105,7 @@ def _make_binary_collection(
 # 1. __init__ and basic dunder methods
 # ===========================================================================
 
+
 class TestInit:
     """Tests for SystemCollection.__init__ and dunder methods."""
 
@@ -152,6 +155,7 @@ class TestInit:
 # 2. _sort_systems
 # ===========================================================================
 
+
 class TestSortSystems:
     """Tests for SystemCollection._sort_systems."""
 
@@ -159,12 +163,11 @@ class TestSortSystems:
         """Systems should be ordered by increasing mole fraction of first molecule."""
         systems = [
             _make_meta("high_A", molecule_count={"A": 90, "B": 10}),
-            _make_meta("low_A",  molecule_count={"A": 10, "B": 90}),
-            _make_meta("mid_A",  molecule_count={"A": 50, "B": 50}),
+            _make_meta("low_A", molecule_count={"A": 10, "B": 90}),
+            _make_meta("mid_A", molecule_count={"A": 50, "B": 50}),
         ]
         sorted_sys = SystemCollection._sort_systems(systems, molecules=["A", "B"])
-        fracs = [s.props.topology.molecule_count["A"] / s.props.topology.total_molecules
-                 for s in sorted_sys]
+        fracs = [s.props.topology.molecule_count["A"] / s.props.topology.total_molecules for s in sorted_sys]
         assert fracs == sorted(fracs)
 
     def test_zero_total_molecules_handled(self):
@@ -183,6 +186,7 @@ class TestSortSystems:
 # ===========================================================================
 # 3. _is_valid
 # ===========================================================================
+
 
 class TestIsValid:
     """Tests for SystemCollection._is_valid (static method)."""
@@ -222,6 +226,7 @@ class TestIsValid:
 # ===========================================================================
 # 4. _resolve_rdf_path
 # ===========================================================================
+
 
 class TestResolveRdfPath:
     """Tests for SystemCollection._resolve_rdf_path (static method)."""
@@ -267,6 +272,7 @@ class TestResolveRdfPath:
 # ===========================================================================
 # 5. Basis accessors: residue_x, residue_counts, molecules, x
 # ===========================================================================
+
 
 class TestBasisAccessors:
     """Tests for mole fraction and count accessors."""
@@ -321,6 +327,7 @@ class TestBasisAccessors:
 # 6. pures / mixtures
 # ===========================================================================
 
+
 class TestPuresMixtures:
     """Tests for pures and mixtures properties."""
 
@@ -355,6 +362,7 @@ class TestPuresMixtures:
 # ===========================================================================
 # 7. get() and units
 # ===========================================================================
+
 
 class TestGet:
     """Tests for SystemCollection.get()."""
@@ -406,6 +414,7 @@ class TestGet:
 # 8. simulated_property / ideal_property / excess_property
 # ===========================================================================
 
+
 class TestDerivedProperties:
     """Tests for simulated, ideal, and excess property calculations."""
 
@@ -413,9 +422,9 @@ class TestDerivedProperties:
         """
         Build a collection with 2 pure systems and 1 mixture (50/50).
         """
-        pure_a = _make_meta("A", kind="pure",    molecule_count={"A": 100, "B": 0},   get_return=pure_val_a)
-        pure_b = _make_meta("B", kind="pure",    molecule_count={"A": 0,   "B": 100}, get_return=pure_val_b)
-        mix    = _make_meta("M", kind="mixture", molecule_count={"A": 50,  "B": 50},  get_return=3.5)
+        pure_a = _make_meta("A", kind="pure", molecule_count={"A": 100, "B": 0}, get_return=pure_val_a)
+        pure_b = _make_meta("B", kind="pure", molecule_count={"A": 0, "B": 100}, get_return=pure_val_b)
+        mix = _make_meta("M", kind="mixture", molecule_count={"A": 50, "B": 50}, get_return=3.5)
 
         # topology.molecule_count must not include zero-count molecules for pure lookup
         pure_a.props.topology.molecule_count = {"A": 100}
@@ -453,9 +462,9 @@ class TestDerivedProperties:
 
     def test_excess_property_is_simulated_minus_ideal(self):
         sc = self._sc_with_pures(pure_val_a=2.0, pure_val_b=4.0)
-        sim   = sc.simulated_property(name="density", units="kg/m^3")
-        ideal = sc.ideal_property(name="density",    units="kg/m^3", mixing_rule="linear")
-        excess = sc.excess_property(name="density",  units="kg/m^3", mixing_rule="linear")
+        sim = sc.simulated_property(name="density", units="kg/m^3")
+        ideal = sc.ideal_property(name="density", units="kg/m^3", mixing_rule="linear")
+        excess = sc.excess_property(name="density", units="kg/m^3", mixing_rule="linear")
         np.testing.assert_allclose(excess, sim - ideal, atol=1e-10)
 
     def test_pure_property_returns_nan_for_missing_component(self):
@@ -466,7 +475,7 @@ class TestDerivedProperties:
         sc = SystemCollection(systems=[pure_a, mix], molecules=["A", "B"])
         sc.__dict__["units"] = {"density": "kg/m^3"}
         result = sc.pure_property(name="density", units="kg/m^3")
-        assert np.isnan(result[1])   # B has no pure system → nan
+        assert np.isnan(result[1])  # B has no pure system → nan
         assert result[0] == pytest.approx(5.0)
 
 
@@ -474,14 +483,15 @@ class TestDerivedProperties:
 # 9. Electrolyte basis
 # ===========================================================================
 
+
 class TestElectrolyteBasis:
     """Tests for electrolyte basis construction."""
 
     def _sc_electrolyte(self) -> SystemCollection:
         """Na-Cl binary with charges."""
-        pure_na = _make_meta("Na", kind="pure",    molecule_count={"Na": 100, "Cl": 0})
-        pure_cl = _make_meta("Cl", kind="pure",    molecule_count={"Na": 0,   "Cl": 100})
-        mix     = _make_meta("M",  kind="mixture", molecule_count={"Na": 50,  "Cl": 50})
+        pure_na = _make_meta("Na", kind="pure", molecule_count={"Na": 100, "Cl": 0})
+        pure_cl = _make_meta("Cl", kind="pure", molecule_count={"Na": 0, "Cl": 100})
+        mix = _make_meta("M", kind="mixture", molecule_count={"Na": 50, "Cl": 50})
         pure_na.props.topology.molecule_count = {"Na": 100}
         pure_cl.props.topology.molecule_count = {"Cl": 100}
         return SystemCollection(
@@ -531,9 +541,7 @@ class TestElectrolyteBasis:
             sc._validate_charges()
 
     def test_build_salt_pairs_returns_correct_pairs(self):
-        sc = _make_binary_collection(
-            mol_a="Na", mol_b="Cl", charges={"Na": 1, "Cl": -1}
-        )
+        sc = _make_binary_collection(mol_a="Na", mol_b="Cl", charges={"Na": 1, "Cl": -1})
         pairs = sc._build_salt_pairs()
         assert ("Na", "Cl") in pairs
 
@@ -543,26 +551,24 @@ class TestElectrolyteBasis:
         assert pairs == []
 
     def test_canonical_salt_names_nacl(self):
-        sc = _make_binary_collection(
-            mol_a="Na", mol_b="Cl", charges={"Na": 1, "Cl": -1}
-        )
+        sc = _make_binary_collection(mol_a="Na", mol_b="Cl", charges={"Na": 1, "Cl": -1})
         pairs = [("Na", "Cl")]
         nu = sc._build_nu_matrix(pairs)
         names = sc._canonical_salt_names(pairs, nu)
         assert names == ["Na.Cl"]
 
     def test_build_nu_matrix_shape(self):
-        sc = _make_binary_collection(
-            mol_a="Na", mol_b="Cl", charges={"Na": 1, "Cl": -1}
-        )
+        sc = _make_binary_collection(mol_a="Na", mol_b="Cl", charges={"Na": 1, "Cl": -1})
         pairs = sc._build_salt_pairs()
         nu = sc._build_nu_matrix(pairs)
-        assert nu.shape == (2, 1)   # 2 residues, 1 salt pair
+        assert nu.shape == (2, 1)  # 2 residues, 1 salt pair
 
     def test_build_nu_matrix_raises_for_wrong_charges(self):
         """Passing a cation with negative charge should raise."""
         sc = _make_binary_collection(
-            mol_a="Na", mol_b="Cl", charges={"Na": -1, "Cl": 1}  # intentionally swapped
+            mol_a="Na",
+            mol_b="Cl",
+            charges={"Na": -1, "Cl": 1},  # intentionally swapped
         )
         pairs = [("Na", "Cl")]
         with pytest.raises(ValueError, match="Inconsistent charges"):
@@ -572,6 +578,7 @@ class TestElectrolyteBasis:
 # ===========================================================================
 # 10. __getattr__ delegation
 # ===========================================================================
+
 
 class TestGetattr:
     """Tests for __getattr__ delegation to SystemMetadata / SystemProperties."""
@@ -601,6 +608,7 @@ class TestGetattr:
 # 11. timeseries_plotter
 # ===========================================================================
 
+
 class TestTimeseriesPlotter:
     """Tests for SystemCollection.timeseries_plotter."""
 
@@ -626,17 +634,18 @@ class TestTimeseriesPlotter:
 # 12. results cached_property
 # ===========================================================================
 
+
 class TestResults:
     """Tests for SystemCollection.results cached property."""
 
     def _sc_for_results(self) -> SystemCollection:
-        pure_a = _make_meta("A", kind="pure",    molecule_count={"A": 100}, get_return=2.0)
-        pure_b = _make_meta("B", kind="pure",    molecule_count={"B": 100}, get_return=4.0)
-        mix    = _make_meta("M", kind="mixture", molecule_count={"A": 50, "B": 50}, get_return=3.0)
+        pure_a = _make_meta("A", kind="pure", molecule_count={"A": 100}, get_return=2.0)
+        pure_b = _make_meta("B", kind="pure", molecule_count={"B": 100}, get_return=4.0)
+        mix = _make_meta("M", kind="mixture", molecule_count={"A": 50, "B": 50}, get_return=3.0)
         pure_a.props.topology.molecule_count = {"A": 100}
         pure_b.props.topology.molecule_count = {"B": 100}
         sc = SystemCollection(systems=[pure_a, pure_b, mix], molecules=["A", "B"])
-        sc.__dict__["units"] = {}   # skip energy property loop
+        sc.__dict__["units"] = {}  # skip energy property loop
         return sc
 
     def test_results_returns_dict(self):
@@ -666,6 +675,7 @@ class TestResults:
 # ===========================================================================
 # 13. _build_pure_lookup
 # ===========================================================================
+
 
 class TestBuildPureLookup:
     """Tests for SystemCollection._build_pure_lookup."""

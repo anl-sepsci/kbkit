@@ -219,7 +219,7 @@ class TopologyParser:
         unique_electrons: np.ndarray = np.full(len(unique_masses), -1, dtype=np.int32)
 
         # type: ignore[call-overload]  # numpy scalar is iterable at runtime, mypy stubs are overly strict
-        for i, (mass, idx) in enumerate(zip(unique_masses, indices, strict=False)): # type: ignore[call-overload]
+        for i, (mass, idx) in enumerate(zip(unique_masses, indices, strict=False)):  # type: ignore[call-overload]
             best_delta = tolerance
             best_electrons = -1
 
@@ -259,7 +259,9 @@ class TopologyParser:
             if np.all(masses == 0.0):
                 raise ValueError("All masses are zero")
         except ValueError as e:
-            raise ValueError(f"Cannot resolve masses from universe: {e}\nEnsure your .data file has a Masses section.") from e
+            raise ValueError(
+                f"Cannot resolve masses from universe: {e}\nEnsure your .data file has a Masses section."
+            ) from e
 
         # ── Mass → electrons (vectorized, unique-first) ───────────────────────
         electrons = self._masses_to_electrons_vectorized(masses, tolerance)
@@ -336,7 +338,9 @@ class TopologyParser:
             GENERIC_NAMES = {"MOL", "UNK", "RES", "SYSTEM", "DEFAULT", ""}
 
             # Process the molecular splits
-            for mol_elec, mol_rnums, mol_rnames in zip(mol_electrons_split, mol_resnums_split, mol_resnames_split, strict=False):
+            for mol_elec, mol_rnums, mol_rnames in zip(
+                mol_electrons_split, mol_resnums_split, mol_resnames_split, strict=False
+            ):
                 rname = str(mol_rnames[0])
                 rnum = int(mol_rnums[0])
                 mol_total_electrons = np.sum(mol_elec)

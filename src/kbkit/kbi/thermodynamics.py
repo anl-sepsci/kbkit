@@ -18,9 +18,9 @@ It supports multiple strategies for integrating activity coefficient derivatives
     * Designed for automated workflows within the KBKit analysis pipeline.
 """
 
+from copy import copy
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal
-from copy import copy
 
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
@@ -61,7 +61,7 @@ class KBThermo:
         kbi: PropertyResult,
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
         activity_polynomial_degree: int = 5,
-        reference_states: dict[str, int] | None = None
+        reference_states: dict[str, int] | None = None,
     ) -> None:
         self.systems = systems
         self.kbi_res = kbi
@@ -552,16 +552,16 @@ class KBThermo:
         for i, mol in enumerate(self.systems.molecules):
             xi = self.systems.x[:, i]
             dlng = dlng_dxs[:, i]
-            x_ref = self.reference_states.get(mol, 1) # default to pure component reference
+            x_ref = self.reference_states.get(mol, 1)  # default to pure component reference
 
             # Filter valid data
             valid = (~np.isnan(xi)) & (~np.isnan(dlng))
             if not valid.any():
                 raise ValueError(f"No valid data for molecule {mol}")
             xi, dlng = xi[valid], dlng[valid]
-            
+
             # add reference state
-            sort_idx = np.argsort(np.abs(xi-x_ref))
+            sort_idx = np.argsort(np.abs(xi - x_ref))
             xi, dlng = xi[sort_idx], dlng[sort_idx]
 
             ref_added = False
@@ -569,8 +569,8 @@ class KBThermo:
                 xi = np.insert(xi, 0, x_ref)
                 dlng = np.insert(dlng, 0, x_ref)
                 ref_added = True
-            elif np.all(dlng[xi==x_ref] != 0):
-                dlng[xi==x_ref] = 0
+            elif np.all(dlng[xi == x_ref] != 0):
+                dlng[xi == x_ref] = 0
 
             # Integrate
             if self.activity_integration_type == "polynomial":

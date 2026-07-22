@@ -1,19 +1,21 @@
 """Unit tests for KBIntegrator class."""
 
-import pytest
-import numpy as np
-from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
 import warnings
-warnings.filterwarnings('ignore')
+from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, patch
+
+import numpy as np
+import pytest
+
+warnings.filterwarnings("ignore")
 
 _MODULE = "kbkit.kbi.integrator"
-_RDF_PARSER   = f"{_MODULE}.RdfParser"
-_LOAD_STYLE   = f"{_MODULE}.load_mplstyle"
+_RDF_PARSER = f"{_MODULE}.RdfParser"
+_LOAD_STYLE = f"{_MODULE}.load_mplstyle"
 _HANDLE_ERROR = f"{_MODULE}.handle_error"
 
-from kbkit.kbi.integrator import KBIntegrator
 from kbkit.io.rdf import RdfParser
+from kbkit.kbi.integrator import KBIntegrator
 from kbkit.utils.exceptions import KBIConvergenceError, LinearityError
 
 
@@ -35,6 +37,7 @@ def _make_rdf(
     gr = 1.0 + amplitude * np.exp(-decay * r) * np.cos(2 * np.pi * r)
     gr = np.clip(gr, 0.0, None)
     return r, gr
+
 
 def _make_converged_rdf(
     n: int = 500,
@@ -70,7 +73,7 @@ def _make_converged_rdf(
     decay : float
         Exponential decay rate (nm⁻¹). Higher = faster convergence.
     """
-    r  = np.linspace(0.05, r_max, n)
+    r = np.linspace(0.05, r_max, n)
     gr = 1.0 + 3.0 * np.exp(-decay * r)
     gr = np.clip(gr, 0.0, None)
     return r, gr
@@ -80,7 +83,7 @@ def _make_kbi(
     n: int = 200,
     r_max: float = 4.0,
     n_ref: int = 500,
-    box_volume: float = 216.0,   # 6³ nm³ — large box reduces vdV correction
+    box_volume: float = 216.0,  # 6³ nm³ — large box reduces vdV correction
     delta: int = 0,
     weight_type: str = "geometric",
     errors: str = "raise",
@@ -102,7 +105,6 @@ def _make_kbi(
         errors=errors,
         force=force,
     )
-
 
 
 def _make_mock_rdf_parser(
@@ -133,15 +135,14 @@ def _make_mock_system_props(
     """Return a MagicMock mimicking SystemProperties."""
     molecule_count = molecule_count or {"A": 500, "B": 300}
     props = MagicMock()
-    props.get.side_effect = lambda name, **kwargs: (
-        molecule_count if name == "molecule_count" else volume
-    )
+    props.get.side_effect = lambda name, **kwargs: molecule_count if name == "molecule_count" else volume
     return props
 
 
 # ===========================================================================
 # 1. __init__
 # ===========================================================================
+
 
 class TestInit:
     """Tests for KBIntegrator.__init__."""
@@ -186,7 +187,7 @@ class TestInit:
         assert kbi.force is True
 
     def test_list_inputs_converted_to_ndarray(self):
-        r  = [0.1, 0.2, 0.3]
+        r = [0.1, 0.2, 0.3]
         gr = [0.0, 0.5, 1.0]
         kbi = KBIntegrator(r=r, gr=gr, n_ref=100, box_volume=10.0, delta=0)
         assert isinstance(kbi.r, np.ndarray)
@@ -197,33 +198,34 @@ class TestInit:
 # 2. from_rdf classmethod
 # ===========================================================================
 
+
 class TestFromRdf:
     """Tests for KBIntegrator.from_rdf."""
 
     def test_creates_instance_from_rdf_parser(self):
         # spec=RdfParser is required so isinstance(mock, RdfParser) passes
-        mock_rdf   = _make_mock_rdf_parser(mol_list=["A", "B"])
+        mock_rdf = _make_mock_rdf_parser(mol_list=["A", "B"])
         mock_props = _make_mock_system_props(molecule_count={"A": 500, "B": 300})
         kbi = KBIntegrator.from_rdf(rdf=mock_rdf, system_properties=mock_props)
         assert isinstance(kbi, KBIntegrator)
 
     def test_n_ref_set_from_second_molecule(self):
         """n_ref should be the count of the second molecule in the RDF pair."""
-        mock_rdf   = _make_mock_rdf_parser(mol_list=["A", "B"])
+        mock_rdf = _make_mock_rdf_parser(mol_list=["A", "B"])
         mock_props = _make_mock_system_props(molecule_count={"A": 500, "B": 300})
         kbi = KBIntegrator.from_rdf(rdf=mock_rdf, system_properties=mock_props)
         assert kbi.n_ref == 300
 
     def test_delta_one_for_self_rdf(self):
         """When both molecules are the same, delta should be 1."""
-        mock_rdf   = _make_mock_rdf_parser(mol_list=["A", "A"])
+        mock_rdf = _make_mock_rdf_parser(mol_list=["A", "A"])
         mock_props = _make_mock_system_props(molecule_count={"A": 500})
         kbi = KBIntegrator.from_rdf(rdf=mock_rdf, system_properties=mock_props)
         assert kbi.delta == 1
 
     def test_delta_zero_for_cross_rdf(self):
         """When molecules differ, delta should be 0."""
-        mock_rdf   = _make_mock_rdf_parser(mol_list=["A", "B"])
+        mock_rdf = _make_mock_rdf_parser(mol_list=["A", "B"])
         mock_props = _make_mock_system_props(molecule_count={"A": 500, "B": 300})
         kbi = KBIntegrator.from_rdf(rdf=mock_rdf, system_properties=mock_props)
         assert kbi.delta == 0
@@ -234,33 +236,28 @@ class TestFromRdf:
             KBIntegrator.from_rdf(rdf=42, system_properties=mock_props)
 
     def test_weight_type_forwarded(self):
-        mock_rdf   = _make_mock_rdf_parser(mol_list=["A", "B"])
+        mock_rdf = _make_mock_rdf_parser(mol_list=["A", "B"])
         mock_props = _make_mock_system_props(molecule_count={"A": 500, "B": 300})
-        kbi = KBIntegrator.from_rdf(
-            rdf=mock_rdf, system_properties=mock_props, weight_type="u2"
-        )
+        kbi = KBIntegrator.from_rdf(rdf=mock_rdf, system_properties=mock_props, weight_type="u2")
         assert kbi.weight_type == "u2"
 
     def test_errors_forwarded(self):
-        mock_rdf   = _make_mock_rdf_parser(mol_list=["A", "B"])
+        mock_rdf = _make_mock_rdf_parser(mol_list=["A", "B"])
         mock_props = _make_mock_system_props(molecule_count={"A": 500, "B": 300})
-        kbi = KBIntegrator.from_rdf(
-            rdf=mock_rdf, system_properties=mock_props, errors="warn"
-        )
+        kbi = KBIntegrator.from_rdf(rdf=mock_rdf, system_properties=mock_props, errors="warn")
         assert kbi.errors == "warn"
 
     def test_force_forwarded(self):
-        mock_rdf   = _make_mock_rdf_parser(mol_list=["A", "B"])
+        mock_rdf = _make_mock_rdf_parser(mol_list=["A", "B"])
         mock_props = _make_mock_system_props(molecule_count={"A": 500, "B": 300})
-        kbi = KBIntegrator.from_rdf(
-            rdf=mock_rdf, system_properties=mock_props, force=True
-        )
+        kbi = KBIntegrator.from_rdf(rdf=mock_rdf, system_properties=mock_props, force=True)
         assert kbi.force is True
 
 
 # ===========================================================================
 # 3. gr_vdv (cached_property)
 # ===========================================================================
+
 
 class TestGrVdv:
     """Tests for KBIntegrator.gr_vdv."""
@@ -286,12 +283,12 @@ class TestGrVdv:
     def test_delta_one_shifts_correction(self):
         """Self-RDF (delta=1) should produce a different correction than cross-RDF."""
         kbi_cross = _make_kbi(delta=0)
-        kbi_self  = _make_kbi(delta=1)
+        kbi_self = _make_kbi(delta=1)
         assert not np.allclose(kbi_cross.gr_vdv, kbi_self.gr_vdv)
 
     def test_is_cached(self):
         kbi = _make_kbi()
-        first  = kbi.gr_vdv
+        first = kbi.gr_vdv
         second = kbi.gr_vdv
         assert first is second
 
@@ -299,6 +296,7 @@ class TestGrVdv:
 # ===========================================================================
 # 4. compute_hr / hr
 # ===========================================================================
+
 
 class TestComputeHr:
     """Tests for KBIntegrator.compute_hr and hr property."""
@@ -332,10 +330,11 @@ class TestComputeHr:
 # 5. Weight functions
 # ===========================================================================
 
+
 class TestWeightFunctions:
     """Tests for geometric_weight, u0_weight, u1_weight, u2_weight."""
 
-    @pytest.fixture()
+    @pytest.fixture
     def kbi(self):
         return _make_kbi(n=100, r_max=3.0)
 
@@ -396,10 +395,11 @@ class TestWeightFunctions:
 # 6. compute_running_kbi / running_kbi_map / rkbi
 # ===========================================================================
 
+
 class TestRunningKbi:
     """Tests for compute_running_kbi, running_kbi_map, and rkbi."""
 
-    @pytest.fixture()
+    @pytest.fixture
     def kbi(self):
         return _make_kbi(n=100, r_max=3.0)
 
@@ -423,7 +423,7 @@ class TestRunningKbi:
         np.testing.assert_array_equal(kbi.rkbi, kbi.running_kbi_map[kbi.weight_type])
 
     def test_running_kbi_map_is_cached(self, kbi):
-        first  = kbi.running_kbi_map
+        first = kbi.running_kbi_map
         second = kbi.running_kbi_map
         assert first is second
 
@@ -442,7 +442,7 @@ class TestRunningKbi:
         r, gr = _make_rdf(n=100, r_max=3.0)
         kbi = KBIntegrator(r=r, gr=gr, n_ref=500, box_volume=10.0, delta=0)
         rkbi_none = kbi.compute_running_kbi("none")
-        rkbi_u0   = kbi.compute_running_kbi("u0")
+        rkbi_u0 = kbi.compute_running_kbi("u0")
         assert not np.allclose(rkbi_none, rkbi_u0)
 
 
@@ -450,13 +450,16 @@ class TestRunningKbi:
 # 7. compute_geometric_extrapolation
 # ===========================================================================
 
-class TestComputeGeometricExtrapolation:
 
-    @pytest.fixture()
+class TestComputeGeometricExtrapolation:
+    @pytest.fixture
     def kbi(self):
         return _make_kbi(
-            n=500, r_max=6.0, box_volume=216.0,
-            use_converged_rdf=True, errors="ignore",
+            n=500,
+            r_max=6.0,
+            box_volume=216.0,
+            use_converged_rdf=True,
+            errors="ignore",
         )
 
     def test_returns_dict(self, kbi):
@@ -465,8 +468,7 @@ class TestComputeGeometricExtrapolation:
 
     def test_result_contains_required_keys(self, kbi):
         result = kbi.compute_geometric_extrapolation(maximize_r2=False, errors="ignore")
-        for key in ("G", "F", "r2", "p_value", "std_error",
-                    "index_list", "r_fit", "r_rkbi_pred"):
+        for key in ("G", "F", "r2", "p_value", "std_error", "index_list", "r_fit", "r_rkbi_pred"):
             assert key in result, f"Missing key: {key}"
 
     def test_r2_between_zero_and_one(self, kbi):
@@ -488,17 +490,13 @@ class TestComputeGeometricExtrapolation:
         assert hasattr(kbi, "_result")
 
     def test_explicit_positions_respected(self, kbi):
-        result = kbi.compute_geometric_extrapolation(
-            positions=(2.0, 6.0), maximize_r2=False, errors="ignore"
-        )
+        result = kbi.compute_geometric_extrapolation(positions=(2.0, 6.0), maximize_r2=False, errors="ignore")
         assert result["r_fit"].min() >= 2.0 - 1e-10
         assert result["r_fit"].max() <= 6.0 + 1e-10
 
     def test_raises_value_error_for_empty_range(self, kbi):
         with pytest.raises(ValueError, match="No data points"):
-            kbi.compute_geometric_extrapolation(
-                positions=(100.0, 200.0), maximize_r2=False, errors="raise"
-            )
+            kbi.compute_geometric_extrapolation(positions=(100.0, 200.0), maximize_r2=False, errors="raise")
 
     def test_maximize_r2_returns_dict(self, kbi):
         result = kbi.compute_geometric_extrapolation(maximize_r2=True, errors="ignore")
@@ -511,13 +509,15 @@ class TestComputeGeometricExtrapolation:
 
     def test_linearity_error_raised_when_r2_below_threshold(self):
         rng = np.random.default_rng(0)
-        r   = np.linspace(0.1, 4.0, 200)
-        gr  = 1.0 + rng.uniform(-2.0, 2.0, size=r.size)
-        gr  = np.clip(gr, 0.0, None)
+        r = np.linspace(0.1, 4.0, 200)
+        gr = 1.0 + rng.uniform(-2.0, 2.0, size=r.size)
+        gr = np.clip(gr, 0.0, None)
         kbi = KBIntegrator(r=r, gr=gr, n_ref=500, box_volume=64.0, delta=0)
         with pytest.raises((LinearityError, Exception)):
             kbi.compute_geometric_extrapolation(
-                maximize_r2=False, r2_threshold=0.9999, errors="raise",
+                maximize_r2=False,
+                r2_threshold=0.9999,
+                errors="raise",
             )
 
     def test_high_r2_for_well_behaved_rdf(self, kbi):
@@ -527,12 +527,14 @@ class TestComputeGeometricExtrapolation:
 
 
 class TestGeometricExtrapolationResult:
-
-    @pytest.fixture()
+    @pytest.fixture
     def kbi(self):
         return _make_kbi(
-            n=500, r_max=6.0, box_volume=216.0,
-            use_converged_rdf=True, errors="raise",
+            n=500,
+            r_max=6.0,
+            box_volume=216.0,
+            use_converged_rdf=True,
+            errors="raise",
         )
 
     def test_returns_dict_on_first_access(self, kbi):
@@ -551,7 +553,6 @@ class TestGeometricExtrapolationResult:
 
 
 class TestComputeKbi:
-
     @pytest.mark.parametrize("wt", ["none", "u0", "u1", "u2"])
     def test_non_geometric_returns_float(self, wt):
         kbi = _make_kbi(weight_type=wt, n=200, r_max=4.0)
@@ -564,8 +565,11 @@ class TestComputeKbi:
 
     def test_geometric_returns_float(self):
         kbi = _make_kbi(
-            weight_type="geometric", n=500, r_max=6.0,
-            box_volume=216.0, use_converged_rdf=True,
+            weight_type="geometric",
+            n=500,
+            r_max=6.0,
+            box_volume=216.0,
+            use_converged_rdf=True,
         )
         assert isinstance(kbi.compute_kbi("geometric"), float)
 
@@ -577,7 +581,8 @@ class TestComputeKbi:
     def test_force_fallback_to_u2_on_convergence_error(self):
         kbi = _make_kbi(weight_type="geometric", force=True, errors="ignore")
         with patch.object(
-            type(kbi), "geometric_extrapolation_result",
+            type(kbi),
+            "geometric_extrapolation_result",
             new_callable=PropertyMock,
             side_effect=KBIConvergenceError("test failure"),
         ):
@@ -587,7 +592,8 @@ class TestComputeKbi:
     def test_returns_nan_on_convergence_error_without_force(self):
         kbi = _make_kbi(weight_type="geometric", force=False, errors="ignore")
         with patch.object(
-            type(kbi), "geometric_extrapolation_result",
+            type(kbi),
+            "geometric_extrapolation_result",
             new_callable=PropertyMock,
             side_effect=KBIConvergenceError("test failure"),
         ):
@@ -599,7 +605,7 @@ class TestComputeKbi:
         assert isinstance(kbi.compute_kbi("U2"), float)
 
     def test_kbi_flat_gr_is_zero(self):
-        r  = np.linspace(0.1, 4.0, 200)
+        r = np.linspace(0.1, 4.0, 200)
         gr = np.ones_like(r)
         kbi = KBIntegrator(r=r, gr=gr, n_ref=500, box_volume=64.0, delta=0)
         for wt in ("none", "u0", "u1", "u2"):
@@ -607,37 +613,44 @@ class TestComputeKbi:
 
 
 class TestPlottingMethods:
-
     @pytest.fixture(autouse=True)
     def use_agg_backend(self):
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+
         yield
         plt.close("all")
 
-    @pytest.fixture()
+    @pytest.fixture
     def kbi(self):
         # converged RDF so geometric extrapolation succeeds inside plot methods
         return _make_kbi(
-            n=500, r_max=6.0, box_volume=216.0,
-            use_converged_rdf=True, errors="ignore",
+            n=500,
+            r_max=6.0,
+            box_volume=216.0,
+            use_converged_rdf=True,
+            errors="ignore",
         )
 
     def test_add_kbi_adds_line_to_axes(self, kbi):
         import matplotlib.pyplot as plt
+
         _, ax = plt.subplots()
         kbi.add_kbi(ax, weight_type="u2")
         assert len(ax.lines) == 1
 
     def test_add_lkbi_adds_line_to_axes(self, kbi):
         import matplotlib.pyplot as plt
+
         _, ax = plt.subplots()
         kbi.add_lkbi(ax)
         assert len(ax.lines) == 1
 
     def test_add_lkbi_fit_adds_line_to_axes(self, kbi):
         import matplotlib.pyplot as plt
+
         _, ax = plt.subplots()
         result = kbi.compute_geometric_extrapolation(maximize_r2=False, errors="ignore")
         kbi.add_lkbi_fit(ax, result=result)
@@ -645,6 +658,7 @@ class TestPlottingMethods:
 
     def test_add_kbi_value_adds_hline(self, kbi):
         import matplotlib.pyplot as plt
+
         _, ax = plt.subplots()
         kbi.add_kbi_value(ax, weight_type="u2")
         assert len(ax.lines) == 1
@@ -666,9 +680,7 @@ class TestPlottingMethods:
 
     def test_plot_kbi_compare_extrapolation_saves_file(self, kbi, tmp_path):
         filepath = str(tmp_path / "compare_extrap.png")
-        kbi.plot_kbi_compare_extrapolation(
-            weight_types=["u1", "u2", "geometric"], filepath=filepath
-        )
+        kbi.plot_kbi_compare_extrapolation(weight_types=["u1", "u2", "geometric"], filepath=filepath)
         assert Path(filepath).exists()
 
     def test_get_colors_default_returns_dict(self, kbi):
@@ -689,12 +701,13 @@ class TestPlottingMethods:
 # 11. Edge cases and numerical correctness
 # ===========================================================================
 
+
 class TestEdgeCases:
     """Edge cases and numerical sanity checks."""
 
     def test_flat_gr_gives_zero_kbi(self):
         """g(r) = 1 everywhere → h(r) = 0 → KBI = 0."""
-        r  = np.linspace(0.1, 4.0, 200)
+        r = np.linspace(0.1, 4.0, 200)
         gr = np.ones_like(r)
         kbi = KBIntegrator(r=r, gr=gr, n_ref=500, box_volume=64.0, delta=0)
         for wt in ("none", "u0", "u1", "u2"):
@@ -706,10 +719,9 @@ class TestEdgeCases:
         Use weight_type='none' with gr > 1 everywhere so h(r) > 0 and
         the vdV correction is bypassed — guarantees monotone integral.
         """
-        r  = np.linspace(0.1, 4.0, 200)
-        gr = np.full_like(r, 2.0)   # h(r) = 1 > 0 everywhere
-        kbi = KBIntegrator(r=r, gr=gr, n_ref=500, box_volume=64.0, delta=0,
-                           weight_type="none")
+        r = np.linspace(0.1, 4.0, 200)
+        gr = np.full_like(r, 2.0)  # h(r) = 1 > 0 everywhere
+        kbi = KBIntegrator(r=r, gr=gr, n_ref=500, box_volume=64.0, delta=0, weight_type="none")
         rkbi = kbi.compute_running_kbi("none")
         diffs = np.diff(rkbi)
         assert np.all(diffs >= -1e-10)

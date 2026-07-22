@@ -1,13 +1,15 @@
 """Unit tests for EnergyParser class."""
-from unittest.mock import MagicMock, patch, PropertyMock
-import pytest
+
+import warnings
+from unittest.mock import MagicMock, PropertyMock, patch
+
 import numpy as np
 import pandas as pd
-import warnings
-warnings.filterwarnings('ignore')
+import pytest
 
-from kbkit.io.energy import EnergyParser, EnergyFormat
+warnings.filterwarnings("ignore")
 
+from kbkit.io.energy import EnergyFormat, EnergyParser
 
 # ---------------------------------------------------------------------------
 # Helpers / shared constants
@@ -41,12 +43,14 @@ NMOL = 100
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_edr_parser(tmp_path):
     fake_edr = tmp_path / "md.edr"
     fake_edr.touch()
 
     from unittest.mock import patch
+
     with patch("kbkit.io.energy.validate_path", return_value=fake_edr):
         parser = EnergyParser(fake_edr)
 
@@ -60,6 +64,7 @@ def mock_lammps_parser(tmp_path):
     fake_lammps.touch()
 
     from unittest.mock import patch
+
     with patch("kbkit.io.energy.validate_path", return_value=fake_lammps):
         parser = EnergyParser(fake_lammps)
 
@@ -73,6 +78,7 @@ def mock_log_parser(tmp_path):
     fake_log.touch()
 
     from unittest.mock import patch
+
     with patch("kbkit.io.energy.validate_path", return_value=fake_log):
         parser = EnergyParser(fake_log)
 
@@ -83,6 +89,7 @@ def mock_log_parser(tmp_path):
 # ---------------------------------------------------------------------------
 # 1. Initialisation & format detection
 # ---------------------------------------------------------------------------
+
 
 class TestEnergyFormat:
     """Tests for _energy_format property."""
@@ -112,6 +119,7 @@ class TestEnergyFormat:
 # 2. Unit maps
 # ---------------------------------------------------------------------------
 
+
 class TestUnitMaps:
     """Tests for _md_units and units properties."""
 
@@ -130,8 +138,15 @@ class TestUnitMaps:
     def test_default_units_keys(self, mock_edr_parser):
         """All expected keys must be present in the default unit map."""
         required = {
-            "temperature", "pressure", "density", "volume",
-            "potential", "total energy", "enthalpy", "cp", "cv",
+            "temperature",
+            "pressure",
+            "density",
+            "volume",
+            "potential",
+            "total energy",
+            "enthalpy",
+            "cp",
+            "cv",
             "isothermal-compressibility",
         }
         assert required.issubset(mock_edr_parser.units.keys())
@@ -140,6 +155,7 @@ class TestUnitMaps:
 # ---------------------------------------------------------------------------
 # 3. available_properties
 # ---------------------------------------------------------------------------
+
 
 class TestAvailableProperties:
     """Tests for available_properties()."""
@@ -162,6 +178,7 @@ class TestAvailableProperties:
 # ---------------------------------------------------------------------------
 # 4. get()
 # ---------------------------------------------------------------------------
+
 
 class TestGet:
     """Tests for the get() method."""
@@ -202,9 +219,11 @@ class TestGet:
         result_direct = mock_edr_parser.get("temperature")
         np.testing.assert_array_equal(result_alias, result_direct)
 
+
 # ---------------------------------------------------------------------------
 # 5. molar_volume()
 # ---------------------------------------------------------------------------
+
 
 class TestMolarVolume:
     """Tests for molar_volume()."""
@@ -241,6 +260,7 @@ class TestMolarVolume:
 # ---------------------------------------------------------------------------
 # 6. configurational_enthalpy()
 # ---------------------------------------------------------------------------
+
 
 class TestConfigurationalEnthalpy:
     """Tests for configurational_enthalpy()."""
@@ -281,6 +301,7 @@ class TestConfigurationalEnthalpy:
 # 7. molar_enthalpy()
 # ---------------------------------------------------------------------------
 
+
 class TestMolarEnthalpy:
     """Tests for molar_enthalpy()."""
 
@@ -296,6 +317,7 @@ class TestMolarEnthalpy:
 # ---------------------------------------------------------------------------
 # 8. heat_capacity_cp()
 # ---------------------------------------------------------------------------
+
 
 class TestHeatCapacityCp:
     """Tests for heat_capacity_cp()."""
@@ -333,6 +355,7 @@ class TestHeatCapacityCp:
 # 9. heat_capacity_cv()
 # ---------------------------------------------------------------------------
 
+
 class TestHeatCapacityCv:
     """Tests for heat_capacity_cv()."""
 
@@ -358,6 +381,7 @@ class TestHeatCapacityCv:
 # ---------------------------------------------------------------------------
 # 10. isothermal_compressibility()
 # ---------------------------------------------------------------------------
+
 
 class TestIsothermalCompressibility:
     """Tests for isothermal_compressibility()."""
@@ -388,6 +412,7 @@ class TestIsothermalCompressibility:
 # ---------------------------------------------------------------------------
 # 11. data loading paths (LAMMPS .log and .lammps)
 # ---------------------------------------------------------------------------
+
 
 class TestDataLoading:
     """Integration-style tests for the data cached property."""
@@ -436,16 +461,18 @@ class TestDataLoading:
         fake = tmp_path / "md.log"
         fake.touch()
 
-        mock_df = pd.DataFrame({
-            "Step": range(100),
-            "Temp": [300.0] * 100,
-            "PotEng": [-1200.0] * 100,
-            "TotEng": [-1000.0] * 100,
-            "Press": [1.0] * 100,
-            "Density": [0.997] * 100,
-            "Volume": [25000.0] * 100,
-            "KinEng": [200.0] * 100,
-        })
+        mock_df = pd.DataFrame(
+            {
+                "Step": range(100),
+                "Temp": [300.0] * 100,
+                "PotEng": [-1200.0] * 100,
+                "TotEng": [-1000.0] * 100,
+                "Press": [1.0] * 100,
+                "Density": [0.997] * 100,
+                "Volume": [25000.0] * 100,
+                "KinEng": [200.0] * 100,
+            }
+        )
         mock_read_csv.return_value = mock_df
 
         with patch("kbkit.io.energy.validate_path", return_value=fake):
@@ -458,6 +485,7 @@ class TestDataLoading:
 # ---------------------------------------------------------------------------
 # 12. Edge cases & boundary conditions
 # ---------------------------------------------------------------------------
+
 
 class TestEdgeCases:
     """Boundary and edge-case tests."""

@@ -1,11 +1,13 @@
 """Unit tests for SystemProperties class."""
 
-import pytest
-import numpy as np
-from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
 import warnings
-warnings.filterwarnings('ignore')
+from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, patch
+
+import numpy as np
+import pytest
+
+warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------------------------
 # Correct module path — adjust this single constant if your layout changes
@@ -13,21 +15,21 @@ warnings.filterwarnings('ignore')
 _MODULE = "kbkit.systems.properties"
 
 # Patch targets: patch where the name is USED (imported into), not where defined
-_VALIDATE_PATH  = f"{_MODULE}.validate_path"
-_ENERGY_PARSER  = f"{_MODULE}.EnergyParser"
-_TOPO_PARSER    = f"{_MODULE}.TopologyParser"
-_LOAD_UREG      = f"{_MODULE}.load_unit_registry"
-_TIMESERIES     = f"{_MODULE}.TimeseriesPlotter"
-_RESOLVE_KEY    = f"{_MODULE}.resolve_attr_key"
+_VALIDATE_PATH = f"{_MODULE}.validate_path"
+_ENERGY_PARSER = f"{_MODULE}.EnergyParser"
+_TOPO_PARSER = f"{_MODULE}.TopologyParser"
+_LOAD_UREG = f"{_MODULE}.load_unit_registry"
+_TIMESERIES = f"{_MODULE}.TimeseriesPlotter"
+_RESOLVE_KEY = f"{_MODULE}.resolve_attr_key"
 
 # Import the class under test AFTER defining patch targets
-from kbkit.systems.properties import SystemProperties
 from kbkit.io import EnergyParser  # needed for FLUCT_PROPS reference
-
+from kbkit.systems.properties import SystemProperties
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_energy_parser(
     units=None,
@@ -43,9 +45,7 @@ def _make_mock_energy_parser(
     parser = MagicMock(spec=EnergyParser)
     parser._x_key = x_key
     parser.units = units or {"molar-volume": "L/mol", "temperature": "K"}
-    parser.get.return_value = (
-        get_return if get_return is not None else np.array([300.0, 301.0, 299.0])
-    )
+    parser.get.return_value = get_return if get_return is not None else np.array([300.0, 301.0, 299.0])
     parser.heat_capacity_cp.return_value = heat_capacity_cp
     parser.heat_capacity_cv.return_value = heat_capacity_cv
     parser.molar_enthalpy.return_value = molar_enthalpy
@@ -89,7 +89,8 @@ def _inject_sp(mock_topo, mock_energy_list, start=0):
 # Fixtures
 # ---------------------------------------------------------------------------
 
-@pytest.fixture()
+
+@pytest.fixture
 def tmp_system(tmp_path):
     """Create a minimal fake GROMACS system directory."""
     (tmp_path / "system.edr").touch()
@@ -97,17 +98,17 @@ def tmp_system(tmp_path):
     return tmp_path
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_energy_parser():
     return _make_mock_energy_parser()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_topology_parser():
     return _make_mock_topology_parser()
 
 
-@pytest.fixture()
+@pytest.fixture
 def fluct_props_empty():
     """Patch EnergyParser.FLUCT_PROPS to an empty list for all energy-branch tests."""
     with patch.object(EnergyParser, "FLUCT_PROPS", new_callable=lambda: property(lambda self: [])):
@@ -117,6 +118,7 @@ def fluct_props_empty():
 # ===========================================================================
 # 1. _get_abspath
 # ===========================================================================
+
 
 class TestGetAbspath:
     """Tests for SystemProperties._get_abspath (static method)."""
@@ -152,6 +154,7 @@ class TestGetAbspath:
 # ===========================================================================
 # 2. _find_files_in_path
 # ===========================================================================
+
 
 class TestFindFilesInPath:
     """Tests for SystemProperties._find_files_in_path (static method)."""
@@ -216,57 +219,47 @@ class TestFindFilesInPath:
 # 3. _get_files
 # ===========================================================================
 
+
 class TestGetFiles:
     """Tests for SystemProperties._get_files (static method)."""
 
     def test_raises_when_no_path_and_no_filename(self):
         with pytest.raises(ValueError, match="path is required"):
-            SystemProperties._get_files(
-                path=None, filename=None, suffixes=[".edr"], include=""
-            )
+            SystemProperties._get_files(path=None, filename=None, suffixes=[".edr"], include="")
 
     def test_returns_file_when_filename_given_and_exists(self, tmp_path):
         f = tmp_path / "run.edr"
         f.touch()
-        result = SystemProperties._get_files(
-            path=str(tmp_path), filename="run.edr", suffixes=[".edr"], include=""
-        )
+        result = SystemProperties._get_files(path=str(tmp_path), filename="run.edr", suffixes=[".edr"], include="")
         assert result == [f.resolve()]
 
     def test_falls_back_to_path_search_when_filename_not_found(self, tmp_path):
         (tmp_path / "run.edr").touch()
-        result = SystemProperties._get_files(
-            path=str(tmp_path), filename="missing.edr", suffixes=[".edr"], include=""
-        )
+        result = SystemProperties._get_files(path=str(tmp_path), filename="missing.edr", suffixes=[".edr"], include="")
         assert len(result) == 1
 
     def test_raises_when_no_files_found_for_any_suffix(self, tmp_path):
         with pytest.raises(FileNotFoundError, match="No files found"):
-            SystemProperties._get_files(
-                path=str(tmp_path), filename=None, suffixes=[".edr", ".lammps"], include=""
-            )
+            SystemProperties._get_files(path=str(tmp_path), filename=None, suffixes=[".edr", ".lammps"], include="")
 
     def test_priority_order_of_suffixes(self, tmp_path):
         """First matching suffix wins."""
         (tmp_path / "run.edr").touch()
         (tmp_path / "run.log").touch()
-        result = SystemProperties._get_files(
-            path=str(tmp_path), filename=None, suffixes=[".edr", ".log"], include=""
-        )
+        result = SystemProperties._get_files(path=str(tmp_path), filename=None, suffixes=[".edr", ".log"], include="")
         assert all(f.suffix == ".edr" for f in result)
 
     def test_returns_path_object(self, tmp_path):
         f = tmp_path / "run.edr"
         f.touch()
-        result = SystemProperties._get_files(
-            path=str(tmp_path), filename="run.edr", suffixes=[".edr"], include=""
-        )
+        result = SystemProperties._get_files(path=str(tmp_path), filename="run.edr", suffixes=[".edr"], include="")
         assert isinstance(result, list)
 
 
 # ===========================================================================
 # 4. __init__
 # ===========================================================================
+
 
 class TestInit:
     """Tests for SystemProperties.__init__."""
@@ -330,6 +323,7 @@ class TestInit:
 # 5. cached_property: energy / topology
 # ===========================================================================
 
+
 class TestCachedProperties:
     """Tests for the `energy` and `topology` cached properties."""
 
@@ -376,6 +370,7 @@ class TestCachedProperties:
 # 6. topology_properties
 # ===========================================================================
 
+
 class TestTopologyProperties:
     """Tests for the topology_properties property."""
 
@@ -395,6 +390,7 @@ class TestTopologyProperties:
 # 7. get() — topology branch
 # ===========================================================================
 
+
 class TestGetTopologyBranch:
     """Tests for SystemProperties.get() when the property lives in topology."""
 
@@ -403,33 +399,32 @@ class TestGetTopologyBranch:
         sp = _inject_sp(mock_topology_parser, [mock_energy_parser])
         # make 'box_volume' appear in topology_properties
         with patch.object(
-            type(sp), "topology_properties",
+            type(sp),
+            "topology_properties",
             new_callable=PropertyMock,
             return_value=["box_volume"],
         ):
             result = sp.get("box_volume")
         assert result == 42.0
 
-    def test_electron_count_returned_for_elec_alias(
-        self, mock_topology_parser, mock_energy_parser
-    ):
+    def test_electron_count_returned_for_elec_alias(self, mock_topology_parser, mock_energy_parser):
         mock_topology_parser.electron_count = 88
         sp = _inject_sp(mock_topology_parser, [mock_energy_parser])
         with patch.object(
-            type(sp), "topology_properties",
+            type(sp),
+            "topology_properties",
             new_callable=PropertyMock,
             return_value=[],
         ):
             result = sp.get("elec_count")
         assert result == 88
 
-    def test_electron_count_returned_for_z_prefix(
-        self, mock_topology_parser, mock_energy_parser
-    ):
+    def test_electron_count_returned_for_z_prefix(self, mock_topology_parser, mock_energy_parser):
         mock_topology_parser.electron_count = 77
         sp = _inject_sp(mock_topology_parser, [mock_energy_parser])
         with patch.object(
-            type(sp), "topology_properties",
+            type(sp),
+            "topology_properties",
             new_callable=PropertyMock,
             return_value=[],
         ):
@@ -441,12 +436,14 @@ class TestGetTopologyBranch:
 # 8. get() — energy branch (generic property)
 # ===========================================================================
 
+
 class TestGetEnergyBranch:
     """Tests for SystemProperties.get() when the property comes from EnergyParser."""
 
     def _patch_topo_props(self, sp, props=None):
         return patch.object(
-            type(sp), "topology_properties",
+            type(sp),
+            "topology_properties",
             new_callable=PropertyMock,
             return_value=props or [],
         )
@@ -474,12 +471,10 @@ class TestGetEnergyBranch:
     # --- time series ---
 
     def test_get_time_series_returns_tuple(self, mock_topology_parser, mock_energy_parser):
-        times  = np.array([0.0, 1.0, 2.0])
+        times = np.array([0.0, 1.0, 2.0])
         values = np.array([10.0, 20.0, 30.0])
         mock_energy_parser._x_key = "Time"
-        mock_energy_parser.get.side_effect = (
-            lambda key, start=0, units=None: times if key == "Time" else values
-        )
+        mock_energy_parser.get.side_effect = lambda key, start=0, units=None: times if key == "Time" else values
         sp = _inject_sp(mock_topology_parser, [mock_energy_parser])
         with self._patch_topo_props(sp):
             with patch.object(EnergyParser, "FLUCT_PROPS", new=[]):
@@ -490,12 +485,10 @@ class TestGetEnergyBranch:
     # --- array (no time series) ---
 
     def test_get_array_returns_ndarray(self, mock_topology_parser, mock_energy_parser):
-        times  = np.array([0.0, 1.0, 2.0])
+        times = np.array([0.0, 1.0, 2.0])
         values = np.array([10.0, 20.0, 30.0])
         mock_energy_parser._x_key = "Time"
-        mock_energy_parser.get.side_effect = (
-            lambda key, start=0, units=None: times if key == "Time" else values
-        )
+        mock_energy_parser.get.side_effect = lambda key, start=0, units=None: times if key == "Time" else values
         sp = _inject_sp(mock_topology_parser, [mock_energy_parser])
         with self._patch_topo_props(sp):
             with patch.object(EnergyParser, "FLUCT_PROPS", new=[]):
@@ -510,7 +503,8 @@ class TestGetEnergyBranch:
         p2 = _make_mock_energy_parser(get_return=np.array([200.0]))
         sp = _inject_sp(mock_topology_parser, [p1, p2])
         with patch.object(
-            type(sp), "topology_properties",
+            type(sp),
+            "topology_properties",
             new_callable=PropertyMock,
             return_value=[],
         ):
@@ -538,12 +532,14 @@ class TestGetEnergyBranch:
 # 9. get() — derived thermodynamic properties
 # ===========================================================================
 
+
 class TestGetDerivedProperties:
     """Tests for Cp, Cv, enthalpy, compressibility, molar-volume, number-density."""
 
     def _call(self, sp, resolved_key, prop_key="dummy", **kwargs):
         with patch.object(
-            type(sp), "topology_properties",
+            type(sp),
+            "topology_properties",
             new_callable=PropertyMock,
             return_value=[],
         ):
@@ -599,6 +595,7 @@ class TestGetDerivedProperties:
 # 10. timeseries_plotter
 # ===========================================================================
 
+
 class TestTimeseriesPlotter:
     """Tests for SystemProperties.timeseries_plotter."""
 
@@ -623,24 +620,24 @@ class TestTimeseriesPlotter:
 # 11. Edge cases
 # ===========================================================================
 
+
 class TestEdgeCases:
     """Miscellaneous edge-case and regression tests."""
 
     def test_duplicate_times_removed_in_array_output(self, mock_topology_parser):
         """Duplicate time entries must be deduplicated in array output."""
-        times  = np.array([0.0, 0.0, 1.0, 2.0])   # duplicate at t=0
+        times = np.array([0.0, 0.0, 1.0, 2.0])  # duplicate at t=0
         values = np.array([10.0, 99.0, 20.0, 30.0])
 
         parser = _make_mock_energy_parser()
         parser._x_key = "Time"
-        parser.get.side_effect = (
-            lambda key, start=0, units=None: times if key == "Time" else values
-        )
+        parser.get.side_effect = lambda key, start=0, units=None: times if key == "Time" else values
 
         sp = _inject_sp(mock_topology_parser, [parser])
 
         with patch.object(
-            type(sp), "topology_properties",
+            type(sp),
+            "topology_properties",
             new_callable=PropertyMock,
             return_value=[],
         ):

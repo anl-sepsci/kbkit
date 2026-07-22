@@ -169,7 +169,7 @@ class Pipeline:
             kbi=self.kbi_res,
             activity_integration_type=self.activity_integration_type,
             activity_polynomial_degree=self.activity_polynomial_degree,
-            reference_states=self.reference_states
+            reference_states=self.reference_states,
         )
 
     @cached_property

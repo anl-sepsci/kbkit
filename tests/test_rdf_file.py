@@ -5,10 +5,10 @@ import warnings
 # Suppress NumPy/SciPy compatibility warning (harmless with NumPy 2.x + SciPy 1.16+)
 warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
 
+import os
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
-import tempfile
-import os
 
 import numpy as np
 import pandas as pd
@@ -69,7 +69,7 @@ def sample_csv_file(tmp_path):
     g = 1.0 + 0.5 * np.exp(-2 * r)
 
     # Create DataFrame and save as CSV
-    df = pd.DataFrame({'r': r, 'g': g})
+    df = pd.DataFrame({"r": r, "g": g})
     df.to_csv(rdf_file, index=False)
     return str(rdf_file)
 
@@ -82,7 +82,7 @@ def sample_xlsx_file(tmp_path):
     g = 1.0 + 0.3 * np.sin(3 * r)
 
     # Create DataFrame and save as Excel
-    df = pd.DataFrame({'r': r, 'g': g})
+    df = pd.DataFrame({"r": r, "g": g})
     df.to_excel(rdf_file, index=False)
     return str(rdf_file)
 
@@ -121,7 +121,7 @@ class TestRdfParserInitialization:
 
         assert isinstance(parser.r, np.ndarray)
         assert isinstance(parser.gr, np.ndarray)
-        assert hasattr(parser, 'filepath')
+        assert hasattr(parser, "filepath")
         assert parser.filepath.name == "rdf_test.xvg"
 
     def test_initialization_with_path_object(self, sample_rdf_file, mock_mplstyle):
@@ -143,7 +143,7 @@ class TestRdfParserInitialization:
         # Create a file but make it unreadable (if possible on the system)
         unreadable_file = tmp_path / "unreadable.xvg"
         unreadable_file.write_text("test")
-        
+
         # Mock open to raise IOError
         with patch("builtins.open", side_effect=IOError("Permission denied")):
             with pytest.raises(IOError, match="Error reading file"):
@@ -196,13 +196,13 @@ class TestRdfParserReadMethod:
         xlsx_file = tmp_path / "test.xlsx"
         r = np.linspace(0.1, 2.5, 40)
         g = 1.0 + 0.3 * np.sin(3 * r)
-        df = pd.DataFrame({'r': r, 'g': g})
+        df = pd.DataFrame({"r": r, "g": g})
         df.to_excel(xlsx_file, index=False)
 
         # Mock the validation to skip the text reading check
-        with patch.object(RdfParser, '_validate_file', return_value=xlsx_file):
+        with patch.object(RdfParser, "_validate_file", return_value=xlsx_file):
             parser = RdfParser(str(xlsx_file))
-            
+
             assert len(parser.r) > 0
             assert len(parser.gr) > 0
             assert len(parser.r) == len(parser.gr)
@@ -359,6 +359,7 @@ class TestExtractMolecules:
 
     def test_extract_unconvertible_input(self, mock_mplstyle):
         """Test extraction with unconvertible input."""
+
         # Object that can't be converted to string properly
         class BadObject:
             def __str__(self):
@@ -431,9 +432,7 @@ class TestPlotRDF:
         parser.plotRDF(mock_ax, label="test", color="red", linewidth=2)
 
         # Verify plot was called with kwargs
-        mock_ax.plot.assert_called_once_with(
-            parser.r, parser.gr, label="test", color="red", linewidth=2
-        )
+        mock_ax.plot.assert_called_once_with(parser.r, parser.gr, label="test", color="red", linewidth=2)
 
     def test_plot_rdf_multiple_calls(self, sample_rdf_file, mock_mplstyle):
         """Test multiple plotting calls."""
@@ -535,17 +534,17 @@ class TestRdfParserIntegration:
         """Test with realistic RDF data format."""
         # Create file with realistic water RDF data
         rdf_file = tmp_path / "water_water.xvg"
-        
+
         # Simulate water-water RDF with first peak around 2.8 Å
         r = np.linspace(0.1, 10.0, 200)
         g = np.ones_like(r)
-        
+
         # Add first hydration shell peak
         for i, r_val in enumerate(r):
             if 2.5 <= r_val <= 3.2:
-                g[i] = 1.0 + 2.0 * np.exp(-((r_val - 2.8) / 0.2) ** 2)
+                g[i] = 1.0 + 2.0 * np.exp(-(((r_val - 2.8) / 0.2) ** 2))
             elif 4.0 <= r_val <= 5.0:
-                g[i] = 1.0 + 0.5 * np.exp(-((r_val - 4.5) / 0.3) ** 2)
+                g[i] = 1.0 + 0.5 * np.exp(-(((r_val - 4.5) / 0.3) ** 2))
             else:
                 g[i] = 1.0 + 0.05 * np.random.normal()
 
@@ -553,11 +552,11 @@ class TestRdfParserIntegration:
         content += "@ title 'Water-Water Radial Distribution Function'\n"
         for r_val, g_val in zip(r, g):
             content += f"{r_val:.6f}    {g_val:.6f}\n"
-        
+
         rdf_file.write_text(content)
-        
+
         parser = RdfParser(str(rdf_file))
-        
+
         # Verify realistic properties
         assert len(parser.r) == 199  # 200 - 1 (tail filtering)
         assert parser.r[0] == 0.1
@@ -575,7 +574,7 @@ class TestRdfParserEdgeCases:
         small_file.write_text(content)
 
         parser = RdfParser(str(small_file))
-        
+
         # Should have 1 point after tail filtering
         assert len(parser.r) == 1
         assert len(parser.gr) == 1
@@ -614,8 +613,8 @@ class TestRdfParserEdgeCases:
         csv_file = tmp_path / "with_header.csv"
         r = np.array([0.1, 0.2, 0.3])
         g = np.array([1.0, 1.1, 1.2])
-        
-        df = pd.DataFrame({'distance': r, 'rdf': g})
+
+        df = pd.DataFrame({"distance": r, "rdf": g})
         df.to_csv(csv_file, index=False)
 
         parser = RdfParser(str(csv_file))
@@ -630,30 +629,30 @@ class TestRdfParserValidation:
         """Test file validation with pathlib.Path input."""
         path_obj = Path(sample_rdf_file)
         validated_path = RdfParser._validate_file(path_obj)
-        
+
         assert isinstance(validated_path, Path)
         assert validated_path == path_obj
 
     def test_validate_file_with_string(self, sample_rdf_file, mock_mplstyle):
         """Test file validation with string input."""
         validated_path = RdfParser._validate_file(sample_rdf_file)
-        
+
         assert isinstance(validated_path, Path)
         assert str(validated_path) == sample_rdf_file
 
     def test_validate_file_preserves_suffix(self, sample_rdf_file, mock_mplstyle):
         """Test that file validation preserves the original suffix."""
         validated_path = RdfParser._validate_file(sample_rdf_file)
-        
+
         assert validated_path.suffix == ".xvg"
 
     @patch("kbkit.io.rdf.validate_path")
     def test_validate_file_calls_validation(self, mock_validate, sample_rdf_file, mock_mplstyle):
         """Test that _validate_file calls the validation utility."""
         mock_validate.return_value = Path(sample_rdf_file)
-        
+
         RdfParser._validate_file(sample_rdf_file)
-        
+
         mock_validate.assert_called_once()
 
 

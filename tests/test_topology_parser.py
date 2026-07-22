@@ -1,28 +1,30 @@
 """Unit tests for TopologyParser class."""
 
 import re
-import pytest
-import numpy as np
-from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock, call
-from functools import cached_property
 import warnings
-warnings.filterwarnings('ignore')
+from functools import cached_property
+from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, call, patch
+
+import numpy as np
+import pytest
+
+warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------------------------
 # Module path
 # ---------------------------------------------------------------------------
-_MODULE = "kbkit.io.topology"   # adjust if layout differs
+_MODULE = "kbkit.io.topology"  # adjust if layout differs
 
 _VALIDATE_PATH = f"{_MODULE}.validate_path"
-_MDA           = f"{_MODULE}.mda"
+_MDA = f"{_MODULE}.mda"
 
-from kbkit.io.topology import TopologyParser, TopologyFormat
-
+from kbkit.io.topology import TopologyFormat, TopologyParser
 
 # ===========================================================================
 # Helpers / Factories
 # ===========================================================================
+
 
 def _write_top(tmp_path: Path, content: str, name: str = "system.top") -> Path:
     """Write a GROMACS .top file and return its path."""
@@ -45,7 +47,7 @@ def _make_mock_universe(
     charges: np.ndarray | None = None,
     types: list[str] | None = None,
     resnums: np.ndarray | None = None,
-    volume: float = 30000.0,   # Å³  →  30 nm³
+    volume: float = 30000.0,  # Å³  →  30 nm³
 ) -> MagicMock:
     """
     Return a MagicMock that mimics an mda.Universe with the given residue names.
@@ -55,15 +57,15 @@ def _make_mock_universe(
     # residues
     n_res = len(resnames)
     u.residues.resnames = np.array(resnames)
-    u.residues.types    = np.array(types or resnames)
+    u.residues.types = np.array(types or resnames)
 
     # atoms — one atom per residue for simplicity
     n_atoms = n_res
-    u.atoms.masses  = masses  if masses  is not None else np.ones(n_atoms) * 18.0
+    u.atoms.masses = masses if masses is not None else np.ones(n_atoms) * 18.0
     u.atoms.charges = charges if charges is not None else np.zeros(n_atoms)
-    u.atoms.types   = np.array(types or resnames)
+    u.atoms.types = np.array(types or resnames)
     u.atoms.resnames = np.array(resnames)
-    u.atoms.resnums  = resnums if resnums is not None else np.arange(1, n_atoms + 1)
+    u.atoms.resnums = resnums if resnums is not None else np.arange(1, n_atoms + 1)
 
     # trajectory / box
     u.trajectory.ts.volume = volume
@@ -86,6 +88,7 @@ def _inject_parser(filepath: Path, universe: MagicMock | None = None) -> Topolog
 # ===========================================================================
 # 1. __init__
 # ===========================================================================
+
 
 class TestInit:
     """Tests for TopologyParser.__init__."""
@@ -120,6 +123,7 @@ class TestInit:
 # ===========================================================================
 # 2. _topology_format
 # ===========================================================================
+
 
 class TestTopologyFormat:
     """Tests for TopologyParser._topology_format property."""
@@ -162,7 +166,8 @@ class TestTopologyFormat:
         parser = _inject_parser(f, universe=u)
         # patch _topology_format to skip suffix check and go to universe branch
         with patch.object(
-            type(parser), "_topology_format",
+            type(parser),
+            "_topology_format",
             new_callable=PropertyMock,
             return_value=TopologyFormat.GROMACS,
         ):
@@ -173,6 +178,7 @@ class TestTopologyFormat:
 # 3. _is_valid_molecule_name / _is_valid_count (static methods)
 # ===========================================================================
 
+
 class TestStaticValidators:
     """Tests for _is_valid_molecule_name and _is_valid_count."""
 
@@ -180,13 +186,16 @@ class TestStaticValidators:
     def test_valid_molecule_names(self, name):
         assert TopologyParser._is_valid_molecule_name(name) is True
 
-    @pytest.mark.parametrize("name", [
-        "A",          # too short (< 2 chars)
-        "",           # empty
-        "mol name",   # space not allowed
-        "mol@name",   # @ not allowed
-        "a" * 51,     # too long (> 50 chars)
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "A",  # too short (< 2 chars)
+            "",  # empty
+            "mol name",  # space not allowed
+            "mol@name",  # @ not allowed
+            "a" * 51,  # too long (> 50 chars)
+        ],
+    )
     def test_invalid_molecule_names(self, name):
         assert TopologyParser._is_valid_molecule_name(name) is False
 
@@ -203,6 +212,7 @@ class TestStaticValidators:
 # 4. extract_molecules_from_top (static method)
 # ===========================================================================
 
+
 class TestExtractMoleculesFromTop:
     """Tests for TopologyParser.extract_molecules_from_top."""
 
@@ -213,34 +223,19 @@ class TestExtractMoleculesFromTop:
         assert result == {"SOL": 500, "ETH": 100}
 
     def test_ignores_comment_lines(self, tmp_path):
-        content = (
-            "[ molecules ]\n"
-            "; this is a comment\n"
-            "SOL  500\n"
-            "; another comment\n"
-            "ETH  100\n"
-        )
+        content = "[ molecules ]\n; this is a comment\nSOL  500\n; another comment\nETH  100\n"
         f = _write_top(tmp_path, content)
         result = TopologyParser.extract_molecules_from_top(f)
         assert result == {"SOL": 500, "ETH": 100}
 
     def test_ignores_inline_comments(self, tmp_path):
-        content = (
-            "[ molecules ]\n"
-            "SOL  500  ; water molecules\n"
-            "ETH  100  ; ethanol\n"
-        )
+        content = "[ molecules ]\nSOL  500  ; water molecules\nETH  100  ; ethanol\n"
         f = _write_top(tmp_path, content)
         result = TopologyParser.extract_molecules_from_top(f)
         assert result == {"SOL": 500, "ETH": 100}
 
     def test_stops_at_next_section(self, tmp_path):
-        content = (
-            "[ molecules ]\n"
-            "SOL  500\n"
-            "[ system ]\n"
-            "FAKE  999\n"
-        )
+        content = "[ molecules ]\nSOL  500\n[ system ]\nFAKE  999\n"
         f = _write_top(tmp_path, content)
         result = TopologyParser.extract_molecules_from_top(f)
         assert "FAKE" not in result
@@ -255,7 +250,7 @@ class TestExtractMoleculesFromTop:
     def test_skips_invalid_molecule_names(self, tmp_path):
         content = (
             "[ molecules ]\n"
-            "A  500\n"          # too short — invalid
+            "A  500\n"  # too short — invalid
             "SOL  300\n"
         )
         f = _write_top(tmp_path, content)
@@ -266,7 +261,7 @@ class TestExtractMoleculesFromTop:
     def test_skips_invalid_counts(self, tmp_path):
         content = (
             "[ molecules ]\n"
-            "SOL  abc\n"        # invalid count
+            "SOL  abc\n"  # invalid count
             "ETH  100\n"
         )
         f = _write_top(tmp_path, content)
@@ -296,6 +291,7 @@ class TestExtractMoleculesFromTop:
 # ===========================================================================
 # 5. molecule_count (cached_property)
 # ===========================================================================
+
 
 class TestMoleculeCount:
     """Tests for TopologyParser.molecule_count."""
@@ -327,7 +323,7 @@ class TestMoleculeCount:
         content = _minimal_top({"SOL": 100})
         f = _write_top(tmp_path, content)
         parser = _inject_parser(f)
-        first  = parser.molecule_count
+        first = parser.molecule_count
         second = parser.molecule_count
         assert first is second
 
@@ -337,12 +333,13 @@ class TestMoleculeCount:
         f.touch()
         u = _make_mock_universe(resnames=["SOL", "ETH"])
         # Make np.unique on resnames raise, then succeed on types
-        u.residues.resnames = None   # will cause np.unique to fail
-        u.residues.types    = np.array(["SOL", "ETH"])
+        u.residues.resnames = None  # will cause np.unique to fail
+        u.residues.types = np.array(["SOL", "ETH"])
         parser = _inject_parser(f, universe=u)
         # patch molecule_count to test fallback path
         with patch.object(
-            type(parser), "molecule_count",
+            type(parser),
+            "molecule_count",
             new_callable=PropertyMock,
             return_value={"SOL": 1, "ETH": 1},
         ):
@@ -353,6 +350,7 @@ class TestMoleculeCount:
 # ===========================================================================
 # 6. molecules / total_molecules
 # ===========================================================================
+
 
 class TestMoleculesAndTotal:
     """Tests for molecules and total_molecules properties."""
@@ -394,6 +392,7 @@ class TestMoleculesAndTotal:
 # 7. box_volume
 # ===========================================================================
 
+
 class TestBoxVolume:
     """Tests for TopologyParser.box_volume."""
 
@@ -430,10 +429,11 @@ class TestBoxVolume:
 # 8. _electron_lookup / _masses_to_electrons_vectorized
 # ===========================================================================
 
+
 class TestElectronLookup:
     """Tests for electron lookup helpers."""
 
-    @pytest.fixture()
+    @pytest.fixture
     def parser(self, tmp_path):
         f = tmp_path / "system.gro"
         f.touch()
@@ -450,7 +450,7 @@ class TestElectronLookup:
         assert np.all(np.diff(masses) >= 0)
 
     def test_element_masses_and_electrons_same_length(self, parser):
-        masses    = parser._element_masses
+        masses = parser._element_masses
         electrons = parser._element_electrons
         assert len(masses) == len(electrons)
 
@@ -493,9 +493,9 @@ class TestElectronLookup:
         """Test with multiple atoms of different types."""
         masses = np.array([1.008, 15.999, 12.011])
         result = parser._masses_to_electrons_vectorized(masses)
-        assert result[0] == 1    # H
-        assert result[1] == 8    # O
-        assert result[2] == 6    # C
+        assert result[0] == 1  # H
+        assert result[1] == 8  # O
+        assert result[2] == 6  # C
 
     def test_masses_to_electrons_output_shape(self, parser):
         masses = np.array([1.008, 15.999, 12.011, 1.008])
@@ -512,6 +512,7 @@ class TestElectronLookup:
 # ===========================================================================
 # 9. _get_electron_counts
 # ===========================================================================
+
 
 class TestGetElectronCounts:
     """Tests for TopologyParser._get_electron_counts."""
@@ -532,7 +533,7 @@ class TestGetElectronCounts:
             masses=masses,
             charges=charges if charges is not None else np.zeros(n),
         )
-        u.atoms.masses  = masses
+        u.atoms.masses = masses
         u.atoms.charges = charges if charges is not None else np.zeros(n)
         return _inject_parser(f, universe=u)
 
@@ -557,19 +558,19 @@ class TestGetElectronCounts:
 
     def test_ionic_adjustment_applied(self, tmp_path):
         """Na⁺ has charge +1 → electrons = 11 - 1 = 10."""
-        masses  = np.array([22.990])
+        masses = np.array([22.990])
         charges = np.array([1.0])
-        parser  = self._parser_with_atoms(tmp_path, masses, charges)
-        result  = parser._get_electron_counts(ionic=True)
+        parser = self._parser_with_atoms(tmp_path, masses, charges)
+        result = parser._get_electron_counts(ionic=True)
         assert result[0] == pytest.approx(10.0)
 
     def test_ionic_false_ignores_charges(self, tmp_path):
         """With ionic=False, charges should not affect electron count."""
-        masses  = np.array([22.990])
+        masses = np.array([22.990])
         charges = np.array([1.0])
-        parser  = self._parser_with_atoms(tmp_path, masses, charges)
-        result  = parser._get_electron_counts(ionic=False)
-        assert result[0] == 11   # Na neutral Z
+        parser = self._parser_with_atoms(tmp_path, masses, charges)
+        result = parser._get_electron_counts(ionic=False)
+        assert result[0] == 11  # Na neutral Z
 
     def test_raises_when_all_masses_zero(self, tmp_path):
         masses = np.zeros(3)
@@ -588,6 +589,7 @@ class TestGetElectronCounts:
 # 10. electron_count (cached_property)
 # ===========================================================================
 
+
 class TestElectronCount:
     """Tests for TopologyParser.electron_count."""
 
@@ -601,7 +603,7 @@ class TestElectronCount:
         f = tmp_path / "system.gro"
         f.touch()
         # Water: O + 2H per molecule, 2 molecules
-        masses  = np.array([15.999, 1.008, 1.008, 15.999, 1.008, 1.008])
+        masses = np.array([15.999, 1.008, 1.008, 15.999, 1.008, 1.008])
         charges = np.zeros(6)
         resnums = np.array([1, 1, 1, 2, 2, 2])
         u = _make_mock_universe(
@@ -610,11 +612,11 @@ class TestElectronCount:
             charges=charges,
             resnums=resnums,
         )
-        u.atoms.masses  = masses
+        u.atoms.masses = masses
         u.atoms.charges = charges
         u.atoms.resnums = resnums
         u.atoms.resnames = np.array(["SOL"] * 6)
-        u.atoms.types    = np.array(["O", "H", "H", "O", "H", "H"])
+        u.atoms.types = np.array(["O", "H", "H", "O", "H", "H"])
         parser = _inject_parser(f, universe=u)
         result = parser.electron_count
         assert isinstance(result, dict)
@@ -626,7 +628,7 @@ class TestElectronCount:
         content = _minimal_top({"SOL": 100})
         f = _write_top(tmp_path, content)
         parser = _inject_parser(f)
-        first  = parser.electron_count
+        first = parser.electron_count
         second = parser.electron_count
         assert first is second
 
@@ -638,7 +640,7 @@ class TestElectronCount:
         f = tmp_path / "system.gro"
         f.touch()
         # Na⁺ and Cl⁻ — each atom is its own residue
-        masses  = np.array([22.990, 35.453])
+        masses = np.array([22.990, 35.453])
         charges = np.array([1.0, -1.0])
         resnums = np.array([1, 2])
         u = _make_mock_universe(
@@ -647,11 +649,11 @@ class TestElectronCount:
             charges=charges,
             resnums=resnums,
         )
-        u.atoms.masses   = masses
-        u.atoms.charges  = charges
-        u.atoms.resnums  = resnums
+        u.atoms.masses = masses
+        u.atoms.charges = charges
+        u.atoms.resnums = resnums
         u.atoms.resnames = np.array(["Na", "Cl"])
-        u.atoms.types    = np.array(["Na", "Cl"])
+        u.atoms.types = np.array(["Na", "Cl"])
         parser = _inject_parser(f, universe=u)
         result = parser.electron_count
         assert isinstance(result, dict)
@@ -662,6 +664,7 @@ class TestElectronCount:
 # ===========================================================================
 # 11. _universe cached_property
 # ===========================================================================
+
 
 class TestUniverse:
     """Tests for TopologyParser._universe cached_property."""
@@ -697,7 +700,7 @@ class TestUniverse:
         f.touch()
         mock_u = _make_mock_universe(resnames=["SOL"])
         parser = _inject_parser(f, universe=mock_u)
-        first  = parser._universe
+        first = parser._universe
         second = parser._universe
         assert first is second
 
@@ -705,6 +708,7 @@ class TestUniverse:
 # ===========================================================================
 # 12. Integration-style tests with real .top files
 # ===========================================================================
+
 
 class TestIntegration:
     """Integration tests using real .top file content."""
