@@ -20,6 +20,7 @@ It supports multiple strategies for integrating activity coefficient derivatives
 
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal
+from copy import copy
 
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
@@ -50,6 +51,8 @@ class KBThermo:
         Method for performing integration of activity coefficient derivatives.
     activity_polynomial_degree: int, optional
         Polynomial degree for fitting activity coefficient derivatives, if ``activity_integration_type`` is `polynomial`.
+    reference_states: dict[str, int], optional
+        For setting asymmetrical reference states for solutes, i.e., for :math:`x_i = 0`. Mapped to molecule name in topology. Defaults to pure component (if not specified).
     """
 
     def __init__(
@@ -58,11 +61,13 @@ class KBThermo:
         kbi: PropertyResult,
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
         activity_polynomial_degree: int = 5,
+        reference_states: dict[str, int] | None = None
     ) -> None:
         self.systems = systems
         self.kbi_res = kbi
         self.activity_integration_type = activity_integration_type.lower()
         self.activity_polynomial_degree = activity_polynomial_degree
+        self.reference_states = reference_states or {}
 
         # get unit registry
         self.ureg = load_unit_registry()
@@ -495,23 +500,6 @@ class KBThermo:
         # update later---to support different reference states.
         return self._set_ref_to_zero(dlngamma, ref=1)
 
-    def _get_ref_state(self, mol: str) -> float:
-        """Return reference state for a molecule; 1: `pure component`, 0: `infinite dilution`."""
-        z0 = np.nan_to_num(self.systems.x.copy())
-        comp_max = z0.max(axis=1)
-        i = self.systems.get_mol_index(mol)
-        is_max = z0[:, i] == comp_max
-        return 1.0 if np.any(is_max) else 0.0
-
-    def _get_weights(self, mol: str, x: np.ndarray) -> np.ndarray:
-        """Get fitting weights based on reference state."""
-        weight_fns_mapped = {
-            1: lambda x: 100 ** (np.log10(np.clip(x, 1e-10, 1.0))),
-            0: lambda x: 100 ** (-np.log10(np.clip(x, 1e-10, 1.0))),
-        }
-        ref_state = self._get_ref_state(mol)
-        return weight_fns_mapped[int(ref_state)](x)
-
     @cached_property_value()
     def lngamma(self) -> np.ndarray:
         r"""
@@ -564,20 +552,51 @@ class KBThermo:
         for i, mol in enumerate(self.systems.molecules):
             xi = self.systems.x[:, i]
             dlng = dlng_dxs[:, i]
+            x_ref = self.reference_states.get(mol, 1) # default to pure component reference
 
             # Filter valid data
             valid = (~np.isnan(xi)) & (~np.isnan(dlng))
             if not valid.any():
                 raise ValueError(f"No valid data for molecule {mol}")
+            xi, dlng = xi[valid], dlng[valid]
+            
+            # add reference state
+            sort_idx = np.argsort(np.abs(xi-x_ref))
+            xi, dlng = xi[sort_idx], dlng[sort_idx]
 
-            # Get reference state info once
-            x_ref = self._get_ref_state(mol)
+            ref_added = False
+            if x_ref not in xi:
+                xi = np.insert(xi, 0, x_ref)
+                dlng = np.insert(dlng, 0, x_ref)
+                ref_added = True
+            elif np.all(dlng[xi==x_ref] != 0):
+                dlng[xi==x_ref] = 0
 
             # Integrate
             if self.activity_integration_type == "polynomial":
-                lng = self._integrate_polynomial(xi[valid], dlng[valid], x_ref, mol, self.activity_polynomial_degree)
+                degree = copy(self.activity_polynomial_degree)
+                if len(xi) <= degree:
+                    degree = len(xi) - 1
+
+                poly_coeffs = np.polyfit(xi, dlng, degree)
+                dlng_poly = np.poly1d(poly_coeffs)
+                lng_poly = dlng_poly.integ()
+
+                # Set integration constant: lng(x_ref) = 0
+                C = -lng_poly(x_ref)
+                lng_poly = dlng_poly.integ(k=C)
+                lng = lng_poly(self.systems.x[:, i])
+
+                # Store for later use
+                mol_key = ".".join(list(mol)) if isinstance(mol, (tuple, list)) else str(mol)
+                self._lngamma_fn_dict[mol_key] = lng_poly
+                self._dlngamma_fn_dict[mol_key] = dlng_poly
+
             else:
-                lng = self._integrate_numerical(xi[valid], dlng[valid], x_ref)
+                lng = cumulative_trapezoid(dlng, x=xi, initial=0)
+                if ref_added:
+                    lng = np.delete(lng, 0)
+                lng = lng[np.argsort(sort_idx)]
 
             ln_gammas[valid, i] = lng
 
@@ -594,63 +613,6 @@ class KBThermo:
             )
 
         return ln_gammas
-
-    def _integrate_polynomial(
-        self, xi: np.ndarray, dlng: np.ndarray, x_ref: float, mol: str, degree: int = 5
-    ) -> np.ndarray:
-        """Fit polynomial to dlng/dx and integrate analytically."""
-        # Include reference point in fit
-        xi_fit: np.ndarray = np.append(xi, x_ref)
-        dlng_fit_data: np.ndarray = np.append(dlng, 0.0)  # dlng = 0 at reference
-
-        # Compute weights
-        weights = self._get_weights(mol, xi_fit)
-
-        # Fit polynomial
-        if len(xi_fit) <= degree:
-            degree = len(xi_fit) - 1
-
-        poly_coeffs = np.polyfit(xi_fit, dlng_fit_data, degree, w=weights)
-        dlng_poly = np.poly1d(poly_coeffs)
-
-        # Integrate: ∫ dlng/dx dx
-        lng_poly = dlng_poly.integ()
-
-        # Set integration constant: lng(x_ref) = 0
-        C = -lng_poly(x_ref)
-        lng_poly = dlng_poly.integ(k=C)
-
-        # Store for later use
-        mol_key = ".".join(list(mol)) if isinstance(mol, (tuple, list)) else str(mol)
-        self._lngamma_fn_dict[mol_key] = lng_poly
-        self._dlngamma_fn_dict[mol_key] = dlng_poly
-
-        # Evaluate only at original points
-        return lng_poly(xi)
-
-    def _integrate_numerical(self, xi: np.ndarray, dlng: np.ndarray, x_ref: float) -> np.ndarray:
-        """Numerically integrate using trapezoidal rule with proper reference."""
-        # Sort data
-        sort_idx = np.argsort(xi)
-        xi_sorted = xi[sort_idx]
-        dlng_sorted = dlng[sort_idx]
-
-        # Find or insert reference point
-        ref_idx = np.searchsorted(xi_sorted, x_ref)
-        if ref_idx < len(xi_sorted) and np.isclose(xi_sorted[ref_idx], x_ref):
-            # Reference point exists
-            lng_sorted = cumulative_trapezoid(dlng_sorted, xi_sorted, initial=0)
-            lng_sorted -= lng_sorted[ref_idx]  # Set lng(x_ref) = 0
-        else:
-            # Insert reference point & sort in descending order for integration
-            xi_with_ref: np.ndarray = np.insert(xi_sorted, ref_idx, x_ref)[::-1]
-            dlng_with_ref: np.ndarray = np.insert(dlng_sorted, ref_idx, 0.0)[::-1]
-            lng_sorted = cumulative_trapezoid(dlng_with_ref, xi_with_ref, initial=0)[::-1]
-            lng_sorted = np.delete(lng_sorted, ref_idx)  # Remove inserted point
-
-        # Unsort to match original order
-        unsort_idx = np.argsort(sort_idx)
-        return lng_sorted[unsort_idx]
 
     @cached_property
     def activity_metadata(self) -> ActivityMetadata:

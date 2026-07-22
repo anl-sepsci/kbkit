@@ -90,6 +90,8 @@ class Pipeline:
         Method for performing integration of activity coefficient derivatives.
     activity_polynomial_degree: int, optional
         Polynomial degree for fitting activity coefficient derivatives, if ``activity_integration_type`` is `polynomial`.
+    reference_states: dict[str, int], optional
+        For setting asymmetrical reference states for solutes, i.e., for :math:`x_i = 0`. Mapped to molecule name in topology. Defaults to pure component (if not specified).
     molecule_map: dict[str, str], optional
         Dictionary mapping molecule names to desired molecule labels in figures.
     charges: dict[str, int], optional
@@ -110,6 +112,7 @@ class Pipeline:
         force: bool = False,
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
         activity_polynomial_degree: int = 5,
+        reference_states: dict[str, int] | None = None,
         molecule_map: dict[str, str] | None = None,
         charges: dict[str, int] | None = None,
     ) -> None:
@@ -125,6 +128,7 @@ class Pipeline:
         self.force = force
         self.activity_integration_type = activity_integration_type
         self.activity_polynomial_degree = int(activity_polynomial_degree)
+        self.reference_states = reference_states
         self.molecule_map = molecule_map
         self.charges = charges
 
@@ -165,6 +169,7 @@ class Pipeline:
             kbi=self.kbi_res,
             activity_integration_type=self.activity_integration_type,
             activity_polynomial_degree=self.activity_polynomial_degree,
+            reference_states=self.reference_states
         )
 
     @cached_property

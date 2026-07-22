@@ -281,6 +281,7 @@ class TestPipelineThermoProperty:
             kbi=mock_kbi_result,
             activity_integration_type="polynomial",
             activity_polynomial_degree=7,
+            reference_states=None
         )
         assert result == mock_kb_thermo
 
