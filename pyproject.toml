@@ -86,6 +86,7 @@ ignore = [
     "RUF043", # use a raw string or 're.escape()' to make intention explicit
     "PLW0108", # lambda fn may be unnecarry, consider inner fn
     "N813", # camelcase imported as lowercase
+    "PLR0917", # too many arguments
 ]
 
 [tool.ruff.lint.per-file-ignores]
