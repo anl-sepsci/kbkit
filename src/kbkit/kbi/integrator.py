@@ -64,6 +64,14 @@ class KBIntegrator:
         Kronecker delta for RDF molecules.
     weight_type: str, optional
         Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
+    r_position: tuple[float,float], optional
+        Range of `r` values to include for linear fit. Values outside this range will be excluded.
+    maximize_r2: bool, optional
+        Search through valid positions to find the `r` values that maximize :math:`R^2` with a `r` range greater than 1.0 nm, and that include the last 10% of data (this ensures some range in the beginning is not selected).
+    r2_threshold: float, optional
+        Set a :math:`R^2` threshold to satisfy `KBIConvergence`.
+    min_r_range: float, optional
+        Minimum range of `r` values to be required for `KBIConvergence`.
     errors : Literal["raise", "warn", "ignore"], optional
         Error mode for handling KBIConvergenceErrors. Only for ``weight_type='geometric'``.
     force: bool, optional
@@ -78,6 +86,10 @@ class KBIntegrator:
         box_volume: float,
         delta: int,
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
+        r_positions: tuple[float, float] | None = None,
+        maximize_r2: bool = True,
+        min_r_range: float = 1.0,
+        r2_threshold: float = 0.99,
         errors: Literal["raise", "warn", "ignore"] = "raise",
         force: bool = False,
     ) -> None:
@@ -88,6 +100,10 @@ class KBIntegrator:
         self.delta = int(delta)
         self.weight_type = weight_type.lower()
         self.rho_ref = self.n_ref / self.box_volume
+        self.r_positions = r_positions
+        self.maximize_r2 = maximize_r2
+        self.min_r_range = min_r_range
+        self.r2_threshold = r2_threshold
         self.errors = errors
         self.force = force
 
@@ -548,7 +564,14 @@ class KBIntegrator:
     def geometric_extrapolation_result(self) -> dict:
         """dict: By default, returns the result of the linear extrapolation using ``maximize_r2=True``. This can be updated by running ``compute_geometric_extrapolation`` with different arguments and setting ``store=True``."""
         if not hasattr(self, "_result"):
-            self._result = self.compute_geometric_extrapolation(maximize_r2=True, errors="raise")
+            self._result = self.compute_geometric_extrapolation(
+                positions=self.r_positions,
+                maximize_r2=self.maximize_r2,
+                r2_threshold=self.r2_threshold,
+                min_r_range=self.min_r_range,
+                errors="raise",
+                store=True,
+            )
         return self._result
 
     def compute_kbi(self, weight_type: str) -> float:

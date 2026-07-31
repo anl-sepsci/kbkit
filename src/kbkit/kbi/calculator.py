@@ -29,8 +29,6 @@ class KBICalculator:
         SystemCollection object for set of systems.
     weight_type: str, optional
         Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
-    errors : Literal["raise", "warn", "ignore"], optional
-        Error mode for handling KBIConvergenceErrors. Only for ``weight_type='geometric'``.
     r_position: tuple[float,float], optional
         Range of `r` values to include for linear fit. Values outside this range will be excluded.
     maximize_r2: bool, optional
@@ -39,6 +37,8 @@ class KBICalculator:
         Set a :math:`R^2` threshold to satisfy `KBIConvergence`.
     min_r_range: float, optional
         Minimum range of `r` values to be required for `KBIConvergence`.
+    errors : Literal["raise", "warn", "ignore"], optional
+        Error mode for handling KBIConvergenceErrors. Only for ``weight_type='geometric'``.
     force: bool, optional
         If KBIConvergenceError is raised, warns user and returns KBI for ``weight_type='u2'``. Only for ``weight_type='geometric'``.
     """
@@ -47,20 +47,20 @@ class KBICalculator:
         self,
         systems: "SystemCollection",
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
-        errors: Literal["raise", "warn", "ignore"] = "warn",
         r_positions: tuple[float, float] | None = None,
         maximize_r2: bool = True,
         min_r_range: float = 1.0,
         r2_threshold: float = 0.99,
+        errors: Literal["raise", "warn", "ignore"] = "warn",
         force: bool = False,
     ) -> None:
         self.systems = systems
         self.weight_type = weight_type
-        self.errors = errors
         self.r_positions = r_positions
         self.maximize_r2 = maximize_r2
         self.min_r_range = min_r_range
         self.r2_threshold = r2_threshold
+        self.errors = errors
         self.force = force
 
         self._cache: dict[tuple, PropertyResult] = {}
@@ -140,14 +140,6 @@ class KBICalculator:
                 # get molecules present in RDF
                 rdf_molecules = RdfParser.extract_molecules(text=fpath.name, mol_list=meta.props.get("molecules"))
                 i, j = [list(self.systems.residue_molecules).index(mol) for mol in rdf_molecules]
-
-                if self.weight_type == "geometric":
-                    integrator.compute_geometric_extrapolation(
-                        positions=self.r_positions,
-                        maximize_r2=self.maximize_r2,
-                        r2_threshold=self.r2_threshold,
-                        min_r_range=self.min_r_range,
-                    )
 
                 kbis[s, i, j] = integrator.kbi
                 if i != j:
