@@ -194,7 +194,14 @@ class TestPipelineCalculatorProperty:
         result = pipeline.calculator
 
         mock_calc_class.assert_called_once_with(
-            systems=mock_system_collection, weight_type="u1", force=True, errors=False
+            systems=mock_system_collection,
+            weight_type="u1",
+            r_positions=None,
+            maximize_r2=True,
+            min_r_range=1.0,
+            r2_threshold=0.99,
+            force=True,
+            errors=False,
         )
         assert result == mock_kbi_calculator
 

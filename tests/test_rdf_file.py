@@ -550,7 +550,7 @@ class TestRdfParserIntegration:
 
         content = "# Water-Water RDF\n"
         content += "@ title 'Water-Water Radial Distribution Function'\n"
-        for r_val, g_val in zip(r, g):
+        for r_val, g_val in zip(r, g, strict=False):
             content += f"{r_val:.6f}    {g_val:.6f}\n"
 
         rdf_file.write_text(content)
