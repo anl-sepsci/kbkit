@@ -567,7 +567,7 @@ class KBThermo:
             ref_added = False
             if x_ref not in xi:
                 xi = np.insert(xi, 0, x_ref)
-                # set ln_gamma_i to zero at reference point 
+                # set ln_gamma_i to zero at reference point
                 dlng = np.insert(dlng, 0, 0)
                 ref_added = True
             elif np.all(dlng[xi == x_ref] != 0):
