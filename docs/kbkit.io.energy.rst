@@ -1,7 +1,7 @@
-GROMACS Energy (.edr) Parser
+Energy Parser
 ==================================
 
-.. automodule:: kbkit.io.edr
+.. automodule:: kbkit.io.energy
    :members:
    :undoc-members:
    :show-inheritance:

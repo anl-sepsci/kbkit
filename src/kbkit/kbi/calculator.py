@@ -97,9 +97,11 @@ class KBICalculator:
         PropertyResult
             KBI Matrix with shape (composition x components x components).
 
+
         .. note::
             * If an RDF directory is missing, the corresponding system's values remain NaN, if ignore_convergence_errors is True.
             * Populates `metadata` with :class:`~kbkit.kbi.integrator.KBIntegrator` object for each RDF file.
+
 
         See Also
         --------

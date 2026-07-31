@@ -42,6 +42,7 @@ class SystemProperties:
     topology: list[Path]
         List of paths to topology files.
 
+
     .. note::
         - Defaults to looking at files/paths directly specified.
         - If files are not specified or do not exist, a ``system_path`` is required to locate the files with necessary suffix.
