@@ -31,6 +31,14 @@ class KBICalculator:
         Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
     errors : Literal["raise", "warn", "ignore"], optional
         Error mode for handling KBIConvergenceErrors. Only for ``weight_type='geometric'``.
+    r_position: tuple[float,float], optional
+        Range of `r` values to include for linear fit. Values outside this range will be excluded.
+    maximize_r2: bool, optional
+        Search through valid positions to find the `r` values that maximize :math:`R^2` with a `r` range greater than 1.0 nm, and that include the last 10% of data (this ensures some range in the beginning is not selected).
+    r2_threshold: float, optional
+        Set a :math:`R^2` threshold to satisfy `KBIConvergence`.
+    min_r_range: float, optional
+        Minimum range of `r` values to be required for `KBIConvergence`.
     force: bool, optional
         If KBIConvergenceError is raised, warns user and returns KBI for ``weight_type='u2'``. Only for ``weight_type='geometric'``.
     """
@@ -40,11 +48,19 @@ class KBICalculator:
         systems: "SystemCollection",
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
         errors: Literal["raise", "warn", "ignore"] = "warn",
+        r_positions: tuple[float, float] | None = None,
+        maximize_r2: bool = True,
+        min_r_range: float = 1.0,
+        r2_threshold: float = 0.99,
         force: bool = False,
     ) -> None:
         self.systems = systems
         self.weight_type = weight_type
         self.errors = errors
+        self.r_positions = r_positions
+        self.maximize_r2 = maximize_r2
+        self.min_r_range = min_r_range
+        self.r2_threshold = r2_threshold
         self.force = force
 
         self._cache: dict[tuple, PropertyResult] = {}
@@ -123,8 +139,17 @@ class KBICalculator:
                 rdf_molecules = RdfParser.extract_molecules(text=fpath.name, mol_list=meta.props.get("molecules"))
                 i, j = [list(self.systems.residue_molecules).index(mol) for mol in rdf_molecules]
 
+                if self.weight_type == "geometric":
+                    integrator.compute_geometric_extrapolation(
+                        positions=self.r_positions,
+                        maximize_r2=self.maximize_r2,
+                        r2_threshold=self.r2_threshold,
+                        min_r_range=self.min_r_range,
+                    )
+
                 kbis[s, i, j] = integrator.kbi
-                kbis[s, j, i] = integrator.kbi
+                if i != j:
+                    kbis[s, j, i] = kbis[s, i, j].copy()
                 handle_error(
                     error_mode=self.errors,
                     message=f"[WARNING!] KBI convergence failed for system '{meta.name}' and pair {rdf_molecules}",

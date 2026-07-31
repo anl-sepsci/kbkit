@@ -80,6 +80,14 @@ class Pipeline:
         Optional string to filter files (.edr, .gro, .top) if multiple are found of a given type.
     weight_type: str, optional
         Type of weight function for finite-volume corrections. Options: ('none','u0','u1','u2','geometric')
+    r_position: tuple[float,float], optional
+        Range of `r` values to include for linear fit. Values outside this range will be excluded.
+    maximize_r2: bool, optional
+        Search through valid positions to find the `r` values that maximize :math:`R^2` with a `r` range greater than 1.0 nm, and that include the last 10% of data (this ensures some range in the beginning is not selected).
+    r2_threshold: float, optional
+        Set a :math:`R^2` threshold to satisfy `KBIConvergence`.
+    min_r_range: float, optional
+        Minimum range of `r` values to be required for `KBIConvergence`.
     raise_on_convergence_error : bool, optional
         Only applied for ``weight_type='geometric'``, for linear extrapolation to thermodynamic limit.
         If True, raises KBIConvergenceError when convergence checks fail.
@@ -108,6 +116,10 @@ class Pipeline:
         start: int = 10000,
         include_mode: str = "npt",
         weight_type: Literal["none", "u0", "u1", "u2", "geometric"] = "geometric",
+        r_positions: tuple[float, float] | None = None,
+        maximize_r2: bool = True,
+        min_r_range: float = 1.0,
+        r2_threshold: float = 0.99,
         errors: Literal["raise", "warn", "ignore"] = "warn",
         force: bool = False,
         activity_integration_type: Literal["numerical", "polynomial"] = "numerical",
@@ -124,6 +136,10 @@ class Pipeline:
         self.start = start
         self.include_mode = include_mode
         self.weight_type = weight_type
+        self.r_positions = r_positions
+        self.maximize_r2 = maximize_r2
+        self.min_r_range = min_r_range
+        self.r2_threshold = r2_threshold
         self.errors = errors
         self.force = force
         self.activity_integration_type = activity_integration_type
@@ -152,6 +168,10 @@ class Pipeline:
         return KBICalculator(
             systems=self.systems,
             weight_type=self.weight_type,
+            r_positions=self.r_positions,
+            maximize_r2=self.maximize_r2,
+            min_r_range=self.min_r_range,
+            r2_threshold=self.r2_threshold,
             force=self.force,
             errors=self.errors,
         )
