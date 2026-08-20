@@ -124,7 +124,7 @@ class EnergyParser:
         if self.filepath.suffix in (".log", ".lammps"):
             # get data in pd.DataFrame
             if self.filepath.suffix == ".log":
-                d = pd.read_csv(self.filepath, sep=r"\s+", skiprows=2).to_dict(orient="list")
+                d = pd.read_csv(self.filepath, sep=r"\s+", comment='#', on_bad_lines='skip').to_dict(orient="list")
             else:
                 d = read_log(self.filepath)
             # convert each object to dictionary of arrays
