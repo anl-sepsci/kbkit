@@ -165,7 +165,9 @@ project/
     * Topology file: .gro, .top, .lmp
     * Energy file: .edr, .log, .lammps
 
-* NOTE: for pure components, just Topology and Energy files are required, RDF files are optional and used only for KBI's, not for thermodynamic analysis.
+* Notes for pure components:
+    * Only Topology and Energy files are required, RDF files are optional and used only for KBI's, not for thermodynamic analysis
+    * Residue name in pure component topology file must match residue name in mixture topology files
 
 ## Citations & References
 
